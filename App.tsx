@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowRight, RotateCcw, Grid, Volume2, VolumeX, AlertCircle } from 'lucide-react';
 
@@ -10,13 +11,6 @@ import CommunityBoard from './components/CommunityBoard';
 
 import { generateEnergyCard, analyzeWhisper, generateHealingImage } from './services/geminiService';
 import { AppStep, GeminiAnalysisResult, EnergyCardData, CommunityLog, MascotOptions } from './types';
-
-const BG_IMAGES = [
-    "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=500&auto=format&fit=crop&q=60", 
-    "https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?w=500&auto=format&fit=crop&q=60", 
-    "https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=500&auto=format&fit=crop&q=60", 
-    "https://images.unsplash.com/photo-1544642899-f0d6e5f6ed6f?w=500&auto=format&fit=crop&q=60"  
-];
 
 const generateMascotConfig = (): MascotOptions => {
     const hats = ['none', 'party', 'beret', 'beanie', 'crown'] as const;
@@ -146,7 +140,7 @@ const App: React.FC = () => {
             <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 flex items-start gap-3 animate-fade-in">
                 <AlertCircle className="text-red-500 shrink-0 mt-0.5" size={18} />
                 <div className="text-xs text-red-700 leading-relaxed">
-                    <b>提醒：</b> 未偵測到 API_KEY。請前往 Vercel Settings -> Environment Variables 設定 API_KEY 變數，AI 功能才能正常運作。
+                    <b>提醒：</b> 未偵測到 API_KEY。請前往 Vercel Settings &rarr; Environment Variables 設定 API_KEY 變數，AI 功能才能正常運作。
                 </div>
             </div>
         )}
