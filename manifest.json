@@ -1,0 +1,21 @@
+{
+  "name": "心靈充電站 Soul Station",
+  "short_name": "SoulStation",
+  "description": "沉浸式療癒心情調查與能量充電站",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fcf8f2",
+  "theme_color": "#4a4036",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3069/3069172.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3069/3069172.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "soul-station",
+  "version": "1.0.0",
+  "description": "Immersive healing survey experience",
+  "main": "index.tsx",
+  "dependencies": {
+    "@google/genai": "^1.34.0",
+    "lucide-react": "^0.562.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
+  },
+  "scripts": {
+    "start": "serve .",
+    "build": "echo 'Static app, no build needed'"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT"
+}
