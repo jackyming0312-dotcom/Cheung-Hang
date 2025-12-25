@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowRight, RotateCcw, Grid, Volume2, VolumeX } from 'lucide-react';
+import { ArrowRight, RotateCcw, Grid, Volume2, VolumeX, AlertCircle } from 'lucide-react';
 
 import Mascot from './components/Mascot';
 import MoodWater from './components/MoodWater';
@@ -42,11 +42,16 @@ const App: React.FC = () => {
   const [cardData, setCardData] = useState<EnergyCardData | null>(null);
   const [isLoadingCard, setIsLoadingCard] = useState(false);
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
+  const [hasApiKey, setHasApiKey] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [mascotConfig, setMascotConfig] = useState<MascotOptions>(generateMascotConfig());
 
   useEffect(() => {
-    // Audio Initialization with proper error handling
+    // 檢查 API Key 是否存在
+    if (!process.env.API_KEY || process.env.API_KEY === '') {
+        setHasApiKey(false);
+    }
+
     const audio = new Audio("https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3");
     audio.loop = true;
     audio.volume = 0.4;
@@ -65,10 +70,7 @@ const App: React.FC = () => {
       if (isMusicPlaying) {
           audioRef.current.pause();
       } else {
-          audioRef.current.play().catch(e => {
-            console.warn("Autoplay blocked by browser. User interaction required.");
-            setIsMusicPlaying(false);
-          });
+          audioRef.current.play().catch(e => setIsMusicPlaying(false));
       }
       setIsMusicPlaying(!isMusicPlaying);
   };
@@ -130,15 +132,6 @@ const App: React.FC = () => {
     return <Mascot expression="happy" {...props} />;
   };
 
-  const getStepTitle = () => {
-    const titles: Record<string, string> = {
-      [AppStep.WELCOME]: "心靈充電站", [AppStep.MOOD_WATER]: "能量檢測",
-      [AppStep.VIBE_MAP]: "空間體驗", [AppStep.WHISPER_HOLE]: "心情樹洞",
-      [AppStep.REWARD]: "您的能量卡", [AppStep.COMMUNITY]: "心情格子"
-    };
-    return titles[step] || "";
-  };
-
   return (
     <div className="min-h-screen w-full relative overflow-hidden flex flex-col items-center justify-center p-4">
       <button 
@@ -148,17 +141,20 @@ const App: React.FC = () => {
         {isMusicPlaying ? <Volume2 size={20} className="text-amber-500" /> : <VolumeX size={20} />}
       </button>
 
-      <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden opacity-30">
-         <div className="absolute top-[5%] left-[5%] w-48 h-64 bg-white p-2 shadow-lg transform -rotate-6 hidden md:block"><img src={BG_IMAGES[1]} className="w-full h-full object-cover" /></div>
-         <div className="absolute bottom-[10%] right-[5%] w-56 h-40 bg-white p-2 shadow-lg transform rotate-3 hidden md:block"><img src={BG_IMAGES[0]} className="w-full h-full object-cover" /></div>
-         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-amber-100/30 rounded-full blur-[100px]"></div>
-      </div>
-
       <main className="w-full max-w-2xl min-h-[700px] glass-panel rounded-3xl p-6 md:p-10 shadow-2xl flex flex-col relative transition-all duration-500 border border-white/80">
+        {!hasApiKey && step === AppStep.WELCOME && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 flex items-start gap-3 animate-fade-in">
+                <AlertCircle className="text-red-500 shrink-0 mt-0.5" size={18} />
+                <div className="text-xs text-red-700 leading-relaxed">
+                    <b>提醒：</b> 未偵測到 API_KEY。請前往 Vercel Settings -> Environment Variables 設定 API_KEY 變數，AI 功能才能正常運作。
+                </div>
+            </div>
+        )}
+
         <div className="w-full flex flex-col items-center mb-4 pt-2">
            <div className="mb-2 transform hover:scale-110 transition-transform duration-300 drop-shadow-lg">{renderMascot()}</div>
            <div className="text-center">
-              <h1 className="text-2xl md:text-3xl font-bold text-stone-800 tracking-tight serif-font">{getStepTitle()}</h1>
+              <h1 className="text-2xl md:text-3xl font-bold text-stone-800 tracking-tight serif-font">心靈充電站</h1>
               <div className="h-1.5 w-16 bg-gradient-to-r from-amber-200 to-amber-400 mx-auto my-3 rounded-full"></div>
            </div>
         </div>
