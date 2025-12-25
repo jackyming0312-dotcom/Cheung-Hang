@@ -1,21 +1,13 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { EnergyCardData, GeminiAnalysisResult } from "../types";
 
-const getAI = () => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    console.warn("API_KEY is missing. AI features will use fallbacks.");
-    return null;
-  }
-  return new GoogleGenAI({ apiKey });
-};
-
 /**
- * Analyzes the user's text feedback.
+ * 分析使用者的文字回饋
+ * 使用 gemini-3-flash-preview 提供快速反應
  */
 export const analyzeWhisper = async (text: string): Promise<GeminiAnalysisResult> => {
-  const ai = getAI();
-  if (!ai || !text.trim()) {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  if (!text.trim()) {
     return {
       sentiment: 'neutral',
       tags: ['心聲', '紀錄', '生活'],
@@ -48,8 +40,12 @@ export const analyzeWhisper = async (text: string): Promise<GeminiAnalysisResult
       replyMessage: result.replyMessage || "感謝您的分享。"
     };
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini analysis error:", error);
+    // 檢查是否為 API Key 問題
+    if (error?.message?.includes("Requested entity was not found")) {
+        console.warn("API Key 可能無效或專案未正確配置。");
+    }
     return {
       sentiment: 'neutral',
       tags: ['日常'],
@@ -59,12 +55,11 @@ export const analyzeWhisper = async (text: string): Promise<GeminiAnalysisResult
 };
 
 /**
- * Generates a healing image based on the user's text.
+ * 根據使用者文字生成療癒插畫
+ * 使用 gemini-2.5-flash-image
  */
 export const generateHealingImage = async (userText: string, moodLevel: number): Promise<string | null> => {
-    const ai = getAI();
-    if (!ai) return null;
-
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
     try {
         const moodDesc = moodLevel > 70 ? "bright, sunny, energetic" : moodLevel > 40 ? "peaceful, cozy, calm" : "safe, melancholic, rainy night";
         
@@ -75,8 +70,7 @@ export const generateHealingImage = async (userText: string, moodLevel: number):
             contents: { parts: [{ text: imagePrompt }] },
             config: {
                 imageConfig: {
-                    aspectRatio: "1:1",
-                    imageSize: "1K"
+                    aspectRatio: "1:1"
                 }
             }
         });
@@ -95,18 +89,10 @@ export const generateHealingImage = async (userText: string, moodLevel: number):
 }
 
 /**
- * Generates the "Energy Card" content.
+ * 生成「心靈能量卡」內容
  */
 export const generateEnergyCard = async (moodLevel: number, zone: string | null): Promise<EnergyCardData> => {
-  const ai = getAI();
-  if (!ai) {
-    return {
-      quote: "休息不是偷懶，而是為了走更長遠的路。",
-      theme: "寧靜",
-      luckyItem: "一杯溫熱的茶"
-    };
-  }
-
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
   try {
     const moodDesc = moodLevel > 70 ? "充滿活力" : moodLevel > 40 ? "平靜" : "疲憊";
     const zoneContext = zone ? `喜歡的區域: ${zone}` : "";
