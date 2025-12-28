@@ -12,17 +12,25 @@ import { generateEnergyCard, analyzeWhisper, generateHealingImage } from './serv
 import { AppStep, GeminiAnalysisResult, EnergyCardData, CommunityLog, MascotOptions } from './types';
 
 const generateMascotConfig = (): MascotOptions => {
+    const roles = ['youth', 'worker'] as const;
+    const selectedRole = roles[Math.floor(Math.random() * roles.length)];
+    
     const hats = ['none', 'party', 'beret', 'beanie', 'crown', 'hoodie'] as const;
     const glasses = ['none', 'round', 'sunglasses', 'reading'] as const;
-    const accessories = ['none', 'scarf', 'bowtie', 'flower', 'badge', 'backpack', 'tablet'] as const;
     const makeups = ['none', 'blush', 'star'] as const;
     const colors = ['#C4A484', '#D7CCC8', '#EFEBE9', '#BCAAA4', '#A1887F'];
 
+    // Role-specific accessories
+    const accessories = selectedRole === 'youth' 
+        ? ['none', 'backpack', 'headphones', 'tablet'] as const
+        : ['none', 'badge', 'coffee', 'scarf', 'reading'] as const;
+
     return {
+        role: selectedRole,
         baseColor: colors[Math.floor(Math.random() * colors.length)],
         hat: hats[Math.floor(Math.random() * hats.length)],
-        glasses: glasses[Math.floor(Math.random() * glasses.length)],
-        accessory: accessories[Math.floor(Math.random() * accessories.length)],
+        glasses: glasses[Math.floor(Math.random() * glasses.length)] as any,
+        accessory: accessories[Math.floor(Math.random() * accessories.length)] as any,
         makeup: makeups[Math.floor(Math.random() * makeups.length)],
     };
 };
@@ -85,7 +93,7 @@ const App: React.FC = () => {
         const [analysisResult, energyCardResult, imageResult] = await Promise.all([
             analyzeWhisper(text),
             generateEnergyCard(mood, zone),
-            generateHealingImage(text, mood, zone) // 傳入 zone 以優化圖片背景
+            generateHealingImage(text, mood, zone)
         ]);
 
         setWhisperData({ text, analysis: analysisResult });
@@ -136,9 +144,17 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen w-full relative overflow-hidden flex flex-col items-center justify-center p-4 md:p-8">
+      {/* Background Floating Stickers */}
+      <div className="fixed inset-0 pointer-events-none opacity-10 overflow-hidden">
+          <div className="absolute top-10 left-[10%] animate-float" style={{ animationDelay: '1s' }}><Sparkles size={40} /></div>
+          <div className="absolute top-[20%] right-[15%] animate-float" style={{ animationDelay: '2.5s' }}><Grid size={32} /></div>
+          <div className="absolute bottom-[30%] left-[5%] animate-float" style={{ animationDelay: '0.5s' }}><ArrowRight className="rotate-45" size={48} /></div>
+          <div className="absolute bottom-[10%] right-[20%] animate-float" style={{ animationDelay: '3.2s' }}><Volume2 size={36} /></div>
+      </div>
+
       <button 
         onClick={toggleMusic}
-        className="fixed top-6 right-6 z-50 p-3.5 bg-white/40 backdrop-blur-xl rounded-full shadow-xl border border-white/60 text-stone-600 hover:bg-stone-50 hover:scale-110 transition-all active:scale-95 group"
+        className="fixed top-6 right-6 z-50 p-3.5 bg-white/40 backdrop-blur-xl rounded-full shadow-xl border border-white/60 text-stone- stone-600 hover:bg-stone-50 hover:scale-110 transition-all active:scale-95 group"
       >
         {isMusicPlaying ? <Volume2 size={20} className="text-amber-500 animate-pulse" /> : <VolumeX size={20} />}
         <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[7px] font-bold uppercase tracking-[0.2em] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap text-stone-400">Audio</div>
@@ -146,7 +162,6 @@ const App: React.FC = () => {
 
       <main className="w-full max-w-2xl min-h-[720px] glass-panel rounded-[2.5rem] p-6 md:p-12 shadow-2xl flex flex-col relative transition-all duration-700 animate-soft-in overflow-hidden">
         
-        {/* Back Button - Neatly aligned top left */}
         {showBackButton && (
           <button 
             onClick={handleBack}
@@ -157,7 +172,6 @@ const App: React.FC = () => {
           </button>
         )}
 
-        {/* Progress Bar - Sleek top alignment */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-stone-100/20 overflow-hidden">
             <div className="h-full bg-gradient-to-r from-amber-200 via-amber-300 to-amber-200 transition-all duration-1000 ease-out" style={{ width: getProgressWidth() }}></div>
         </div>

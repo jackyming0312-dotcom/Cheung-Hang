@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { MascotOptions } from '../types';
 
 interface MascotProps {
@@ -9,24 +9,65 @@ interface MascotProps {
 }
 
 const Mascot: React.FC<MascotProps> = ({ expression, options, className = '', onClick }) => {
-  const { baseColor, hat, glasses, accessory, makeup } = options;
+  const { role, baseColor, hat, glasses, accessory, makeup } = options;
+  const [bubbleText, setBubbleText] = useState<string | null>(null);
+
+  const youthQuotes = ["Chill 一下吧！", "今天也很酷喔", "Keep it real!", "Stay positive!", "這波很可以", "要不要去滑板？"];
+  const workerQuotes = ["我在這裡聽你說", "累了就休息一下吧", "你已經做得很棒了", "需要喝杯咖啡嗎？", "一起找回能量吧", "看見你的努力了"];
+
+  const triggerBubble = () => {
+    const pool = role === 'youth' ? youthQuotes : workerQuotes;
+    setBubbleText(pool[Math.floor(Math.random() * pool.length)]);
+    setTimeout(() => setBubbleText(null), 3000);
+  };
+
+  const handleMascotClick = () => {
+    triggerBubble();
+    if (onClick) onClick();
+  };
 
   return (
     <div 
-      onClick={onClick}
-      className={`relative w-48 h-48 transition-transform duration-200 active:scale-90 cursor-pointer group ${className}`}
-      title="點擊我換裝！"
+      onClick={handleMascotClick}
+      className={`relative w-48 h-48 transition-transform duration-200 active:scale-95 cursor-pointer group ${className}`}
     >
+      {/* Dynamic Speech Bubble */}
+      {bubbleText && (
+        <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-white px-4 py-2 rounded-2xl shadow-2xl border border-stone-100 text-stone-700 font-bold text-sm whitespace-nowrap z-50 animate-soft-in">
+          {bubbleText}
+          <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white border-r border-b border-stone-100 rotate-45"></div>
+        </div>
+      )}
+
       {/* Click Hint */}
-      <div className="absolute -top-4 right-0 bg-white px-3 py-1 rounded-full shadow-md text-xs text-stone-600 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 font-bold transform rotate-6 border border-stone-100">
-        ✨ 換個造型？
-      </div>
+      {!bubbleText && (
+        <div className="absolute -top-4 right-0 bg-white px-3 py-1 rounded-full shadow-md text-[10px] text-stone-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 font-bold transform rotate-6 border border-stone-100">
+          ✨ Tap to Chat
+        </div>
+      )}
 
       <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full animate-float">
         
+        {/* --- ROLE BACKGROUND DECORATIONS --- */}
+        {role === 'youth' ? (
+           <g opacity="0.1">
+              <path d="M20 150 L50 150 L60 170 L10 170 Z" fill="#333" /> {/* Skateboard vibe */}
+              <circle cx="170" cy="40" r="10" fill="#FFD54F" />
+              <path d="M10 20 L30 40 M10 40 L30 20" stroke="#333" strokeWidth="2" />
+           </g>
+        ) : (
+           <g opacity="0.1">
+              <path d="M30 40 Q50 20 70 40 T110 40" stroke="#E57373" strokeWidth="4" fill="none" /> {/* Heart/Wave vibe */}
+              <rect x="20" y="20" width="15" height="20" rx="2" fill="#8D6E63" />
+           </g>
+        )}
+
         {/* --- LAYER 1: BACK ACCESSORIES --- */}
         {accessory === 'backpack' && (
            <path d="M40 100 Q30 100 30 120 V160 Q30 170 40 170 H60" stroke="#5D4037" strokeWidth="12" strokeLinecap="round" />
+        )}
+        {accessory === 'headphones' && (
+           <path d="M80 60 Q110 30 150 50 Q180 70 180 100" stroke="#333" strokeWidth="10" fill="none" />
         )}
 
         {/* --- LAYER 2: BODY --- */}
@@ -104,6 +145,13 @@ const Mascot: React.FC<MascotProps> = ({ expression, options, className = '', on
              <rect x="118" y="166" width="10" height="2" rx="0.5" fill="#eee" />
            </g>
         )}
+        {accessory === 'coffee' && (
+           <g transform="translate(140, 140)">
+              <path d="M0 0 L5 30 H25 L30 0 Z" fill="#eee" stroke="#ccc" strokeWidth="1" />
+              <rect x="-2" y="-5" width="34" height="8" rx="4" fill="#5D4037" />
+              <path d="M10 -15 Q15 -25 20 -15" stroke="#fff" strokeWidth="2" opacity="0.5" />
+           </g>
+        )}
         {accessory === 'tablet' && (
            <g transform="translate(60, 140)">
               <rect x="0" y="0" width="30" height="40" rx="3" fill="#333" />
@@ -120,7 +168,11 @@ const Mascot: React.FC<MascotProps> = ({ expression, options, className = '', on
 
         {/* --- LAYER 6: HATS --- */}
         {hat === 'hoodie' && (
-           <path d="M40 120 C40 60 180 60 180 120 L180 135 Q110 145 40 135 Z" fill="#90A4AE" opacity="0.8" />
+           <g>
+             <path d="M40 120 C40 60 180 60 180 120 L180 135 Q110 145 40 135 Z" fill="#90A4AE" opacity="0.8" />
+             <circle cx="110" cy="135" r="3" fill="#fff" />
+             <circle cx="130" cy="135" r="3" fill="#fff" />
+           </g>
         )}
         {hat === 'party' && (
            <g transform="translate(130, 20) rotate(15)">

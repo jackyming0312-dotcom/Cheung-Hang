@@ -50,27 +50,37 @@ export const analyzeWhisper = async (text: string): Promise<GeminiAnalysisResult
 };
 
 /**
- * 根據使用者文字生成療癒插畫，加入青年與社工元素
+ * 根據使用者文字生成療癒插畫，加入具備互動感的青年與社工元素
  */
 export const generateHealingImage = async (userText: string, moodLevel: number, zone: string | null): Promise<string | null> => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
     try {
-        const moodDesc = moodLevel > 70 ? "vibrant, optimistic, sunset glow" : moodLevel > 40 ? "peaceful, rainy afternoon, cozy indoor" : "solitary, starry night, soft moonlight";
+        const moodDesc = moodLevel > 70 ? "vibrant sunset, warm glow, sparkling dust" : moodLevel > 40 ? "peaceful afternoon, soft sunlight through leaves" : "gentle night, blue moonlight, cozy lantern";
         
-        // 根據選擇區域調整場景元素
-        let envDetail = "a modern youth center with plants and community bulletin boards";
-        if (zone?.includes('職涯')) envDetail = "a creative studio with a laptop, a notebook, and city view for a goal-oriented youth";
-        if (zone?.includes('心靈')) envDetail = "a cozy counseling room with soft cushions, warm tea, and a supportive social worker presence";
-        if (zone?.includes('社會')) envDetail = "an urban community garden where young people are collaborating";
-        if (zone?.includes('創意')) envDetail = "an art atelier filled with colorful sketches and young artists' dreams";
+        let interactionDetail = "A social worker and a teenager sharing a quiet moment, talking and smiling together.";
+        let envDetail = "inside a colorful, plant-filled youth community center with cozy bean bags and art on the walls.";
 
-        const imagePrompt = `A high-quality Lo-fi aesthetic illustration in Studio Ghibli style. 
-          Theme: "${userText}". 
+        if (zone?.includes('職涯')) {
+            interactionDetail = "A mentor guiding a youth on a creative project, pointing at a laptop screen together.";
+            envDetail = "a bright studio space with design posters and a workspace overlooking the city.";
+        } else if (zone?.includes('心靈')) {
+            interactionDetail = "A social worker offering a cup of warm tea to a youth who is relaxing on a comfy sofa.";
+            envDetail = "a very cozy private corner with fairy lights, plush pillows, and a shelf of healing books.";
+        } else if (zone?.includes('社會')) {
+            interactionDetail = "A group of diverse young volunteers laughing and working together on a community mural.";
+            envDetail = "an urban outdoor space with vibrant street art and green plants.";
+        } else if (zone?.includes('創意')) {
+            interactionDetail = "A young artist showing their sketchbook to a supportive elder who is listening intently.";
+            envDetail = "a messy but inspiring art workshop filled with canvases, paint, and creative energy.";
+        }
+
+        const imagePrompt = `A stunning Lo-fi aesthetic illustration in Studio Ghibli style. 
+          Focus Story: ${interactionDetail}
           Setting: ${envDetail}. 
-          Characters: Include a stylized, diverse young person or a kind, supportive figure in a soft cardigan representing a social worker. 
-          Vibe: Healing, empathetic, supportive. 
-          Mood: ${moodDesc}. 
-          Visuals: Soft watercolor textures, dreamy lighting, cluttered but cozy backgrounds (books, coffee mugs, tablets). No text.`;
+          Vibe: Supportive, healing, empowering, empathetic. 
+          Lighting: ${moodDesc}. 
+          Characters: Stylized characters with soft features, natural poses. The social worker wears a soft knit cardigan, the youth wears modern casual wear. 
+          Details: Soft watercolor textures, hand-drawn feel, rich backgrounds, no text.`;
 
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash-image',
