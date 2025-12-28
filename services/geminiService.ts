@@ -50,14 +50,27 @@ export const analyzeWhisper = async (text: string): Promise<GeminiAnalysisResult
 };
 
 /**
- * 根據使用者文字生成療癒插畫
+ * 根據使用者文字生成療癒插畫，加入青年與社工元素
  */
-export const generateHealingImage = async (userText: string, moodLevel: number): Promise<string | null> => {
+export const generateHealingImage = async (userText: string, moodLevel: number, zone: string | null): Promise<string | null> => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
     try {
-        const moodDesc = moodLevel > 70 ? "bright, sunny, energetic" : moodLevel > 40 ? "peaceful, cozy, calm" : "safe, melancholic, rainy night";
+        const moodDesc = moodLevel > 70 ? "vibrant, optimistic, sunset glow" : moodLevel > 40 ? "peaceful, rainy afternoon, cozy indoor" : "solitary, starry night, soft moonlight";
         
-        const imagePrompt = `A high-quality, Lo-fi aesthetic illustration, soft watercolor style, Studio Ghibli inspired. Theme: "${userText}". Mood: ${moodDesc}. No text, no people faces, pure atmosphere. Pastel colors, dreamlike lighting.`;
+        // 根據選擇區域調整場景元素
+        let envDetail = "a modern youth center with plants and community bulletin boards";
+        if (zone?.includes('職涯')) envDetail = "a creative studio with a laptop, a notebook, and city view for a goal-oriented youth";
+        if (zone?.includes('心靈')) envDetail = "a cozy counseling room with soft cushions, warm tea, and a supportive social worker presence";
+        if (zone?.includes('社會')) envDetail = "an urban community garden where young people are collaborating";
+        if (zone?.includes('創意')) envDetail = "an art atelier filled with colorful sketches and young artists' dreams";
+
+        const imagePrompt = `A high-quality Lo-fi aesthetic illustration in Studio Ghibli style. 
+          Theme: "${userText}". 
+          Setting: ${envDetail}. 
+          Characters: Include a stylized, diverse young person or a kind, supportive figure in a soft cardigan representing a social worker. 
+          Vibe: Healing, empathetic, supportive. 
+          Mood: ${moodDesc}. 
+          Visuals: Soft watercolor textures, dreamy lighting, cluttered but cozy backgrounds (books, coffee mugs, tablets). No text.`;
 
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash-image',

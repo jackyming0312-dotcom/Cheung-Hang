@@ -25,7 +25,9 @@ const Mascot: React.FC<MascotProps> = ({ expression, options, className = '', on
       <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full animate-float">
         
         {/* --- LAYER 1: BACK ACCESSORIES --- */}
-        {/* Cape or back items could go here */}
+        {accessory === 'backpack' && (
+           <path d="M40 100 Q30 100 30 120 V160 Q30 170 40 170 H60" stroke="#5D4037" strokeWidth="12" strokeLinecap="round" />
+        )}
 
         {/* --- LAYER 2: BODY --- */}
         <path d="M40 120C40 80 70 50 110 50C150 50 180 80 180 130C180 160 160 180 110 180H60C50 180 40 170 40 160V120Z" fill={baseColor} />
@@ -40,8 +42,6 @@ const Mascot: React.FC<MascotProps> = ({ expression, options, className = '', on
         <path d="M120 60C120 50 130 40 140 50C150 60 140 70 130 70" fill={baseColor} stroke="#5D4037" strokeWidth="3" />
 
         {/* --- LAYER 3: FACE & MAKEUP --- */}
-
-        {/* Makeup: Blush */}
         {makeup === 'blush' && (
           <g opacity="0.6">
             <ellipse cx="130" cy="115" rx="8" ry="5" fill="#FF8A80" />
@@ -49,7 +49,6 @@ const Mascot: React.FC<MascotProps> = ({ expression, options, className = '', on
           </g>
         )}
         
-        {/* Makeup: Star */}
         {makeup === 'star' && (
            <path d="M130 110 L132 115 L137 115 L133 118 L134 123 L130 120 L126 123 L127 118 L123 115 L128 115 Z" fill="#FFD54F" />
         )}
@@ -82,6 +81,11 @@ const Mascot: React.FC<MascotProps> = ({ expression, options, className = '', on
              <path d="M135 92 L120 90" stroke="#333" strokeWidth="2" />
            </g>
         )}
+        {glasses === 'reading' && (
+           <g>
+             <path d="M138 95 H162 V100 Q150 105 138 100 Z" fill="rgba(0,0,0,0.1)" stroke="#333" strokeWidth="1" />
+           </g>
+        )}
         {glasses === 'sunglasses' && (
            <g>
              <path d="M135 85 H155 L152 100 Q145 105 138 100 Z" fill="#333" />
@@ -91,65 +95,45 @@ const Mascot: React.FC<MascotProps> = ({ expression, options, className = '', on
         )}
 
         {/* --- LAYER 5: NECK ACCESSORIES --- */}
+        {accessory === 'badge' && (
+           <g>
+             <path d="M110 135 L125 155 L140 135" stroke="#333" strokeWidth="2" fill="none" />
+             <rect x="115" y="150" width="20" height="25" rx="2" fill="#fff" stroke="#333" strokeWidth="1" />
+             <rect x="118" y="155" width="14" height="4" rx="1" fill="#42A5F5" />
+             <rect x="118" y="162" width="14" height="2" rx="0.5" fill="#eee" />
+             <rect x="118" y="166" width="10" height="2" rx="0.5" fill="#eee" />
+           </g>
+        )}
+        {accessory === 'tablet' && (
+           <g transform="translate(60, 140)">
+              <rect x="0" y="0" width="30" height="40" rx="3" fill="#333" />
+              <rect x="2" y="2" width="26" height="34" rx="1" fill="#607D8B" />
+              <circle cx="15" cy="38" r="1.5" fill="#fff" />
+           </g>
+        )}
         {accessory === 'scarf' && (
            <g>
              <path d="M100 135 Q145 155 180 135" stroke="#FF7043" strokeWidth="14" strokeLinecap="round" />
              <path d="M115 135 L105 165" stroke="#FF7043" strokeWidth="12" strokeLinecap="round" />
-             <path d="M100 135 Q145 155 180 135" stroke="#FFCCBC" strokeWidth="4" strokeLinecap="round" strokeDasharray="10 10"/>
-           </g>
-        )}
-        {accessory === 'bowtie' && (
-           <path d="M135 135 L125 125 V145 L135 135 Z M135 135 L145 125 V145 L135 135 Z" fill="#EF5350" stroke="#B71C1C" strokeWidth="1" />
-        )}
-        {accessory === 'flower' && (
-           <g transform="translate(110, 130)">
-             <circle cx="0" cy="0" r="5" fill="#FFEB3B" />
-             <circle cx="0" cy="-7" r="5" fill="#F06292" />
-             <circle cx="6" cy="-4" r="5" fill="#F06292" />
-             <circle cx="6" cy="4" r="5" fill="#F06292" />
-             <circle cx="0" cy="7" r="5" fill="#F06292" />
-             <circle cx="-6" cy="4" r="5" fill="#F06292" />
-             <circle cx="-6" cy="-4" r="5" fill="#F06292" />
            </g>
         )}
 
         {/* --- LAYER 6: HATS --- */}
+        {hat === 'hoodie' && (
+           <path d="M40 120 C40 60 180 60 180 120 L180 135 Q110 145 40 135 Z" fill="#90A4AE" opacity="0.8" />
+        )}
         {hat === 'party' && (
            <g transform="translate(130, 20) rotate(15)">
              <path d="M0 40 L20 0 L40 40 Z" fill="#FFB74D" stroke="#E65100" strokeWidth="2" />
              <circle cx="20" cy="0" r="5" fill="#FF5722" />
-             <circle cx="10" cy="20" r="3" fill="#FFF" opacity="0.5"/>
            </g>
-        )}
-        {hat === 'beret' && (
-           <g transform="translate(115, 35)">
-             <path d="M-5 20 C-5 0 65 0 65 20 C65 25 50 30 30 30 C10 30 -5 25 -5 20 Z" fill="#D81B60" />
-             <path d="M30 0 L30 5" stroke="#D81B60" strokeWidth="3"/>
-           </g>
-        )}
-        {hat === 'beanie' && (
-           <path d="M110 55 C110 30 160 30 160 55 L160 60 L110 60 Z" fill="#42A5F5" stroke="#1E88E5" strokeWidth="2" />
-        )}
-        {hat === 'crown' && (
-           <path d="M120 60 L120 40 L130 50 L140 35 L150 50 L160 40 L160 60 Z" fill="#FFD700" stroke="#FFA000" strokeWidth="2" />
         )}
 
         {/* Legs */}
         <path d="M60 180V190" stroke="#8D6E63" strokeWidth="8" strokeLinecap="round" />
         <path d="M90 180V190" stroke="#8D6E63" strokeWidth="8" strokeLinecap="round" />
         <path d="M140 180V190" stroke="#8D6E63" strokeWidth="8" strokeLinecap="round" />
-
-        {/* VFX */}
-        {expression === 'excited' && (
-             <text x="10" y="60" className="text-4xl animate-pulse">✨</text>
-        )}
-        {expression === 'sleepy' && (
-             <text x="160" y="40" className="text-2xl animate-pulse">zZZ</text>
-        )}
       </svg>
-      
-      {/* Speech Bubble Shadow */}
-      <div className="absolute -bottom-4 w-full h-4 bg-black/10 rounded-[100%] blur-sm"></div>
     </div>
   );
 };

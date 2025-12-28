@@ -12,9 +12,9 @@ import { generateEnergyCard, analyzeWhisper, generateHealingImage } from './serv
 import { AppStep, GeminiAnalysisResult, EnergyCardData, CommunityLog, MascotOptions } from './types';
 
 const generateMascotConfig = (): MascotOptions => {
-    const hats = ['none', 'party', 'beret', 'beanie', 'crown'] as const;
-    const glasses = ['none', 'round', 'sunglasses'] as const;
-    const accessories = ['none', 'scarf', 'bowtie', 'flower'] as const;
+    const hats = ['none', 'party', 'beret', 'beanie', 'crown', 'hoodie'] as const;
+    const glasses = ['none', 'round', 'sunglasses', 'reading'] as const;
+    const accessories = ['none', 'scarf', 'bowtie', 'flower', 'badge', 'backpack', 'tablet'] as const;
     const makeups = ['none', 'blush', 'star'] as const;
     const colors = ['#C4A484', '#D7CCC8', '#EFEBE9', '#BCAAA4', '#A1887F'];
 
@@ -85,7 +85,7 @@ const App: React.FC = () => {
         const [analysisResult, energyCardResult, imageResult] = await Promise.all([
             analyzeWhisper(text),
             generateEnergyCard(mood, zone),
-            generateHealingImage(text, mood)
+            generateHealingImage(text, mood, zone) // 傳入 zone 以優化圖片背景
         ]);
 
         setWhisperData({ text, analysis: analysisResult });

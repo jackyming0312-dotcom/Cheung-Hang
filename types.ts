@@ -53,11 +53,10 @@ export interface CommunityLog {
   tags: string[];
 }
 
-// New Interface for detailed mascot customization
 export interface MascotOptions {
   baseColor: string;
-  hat: 'none' | 'party' | 'beret' | 'beanie' | 'crown';
-  glasses: 'none' | 'round' | 'sunglasses';
-  accessory: 'none' | 'scarf' | 'bowtie' | 'flower';
+  hat: 'none' | 'party' | 'beret' | 'beanie' | 'crown' | 'hoodie';
+  glasses: 'none' | 'round' | 'sunglasses' | 'reading';
+  accessory: 'none' | 'scarf' | 'bowtie' | 'flower' | 'badge' | 'backpack' | 'tablet';
   makeup: 'none' | 'blush' | 'star';
 }
