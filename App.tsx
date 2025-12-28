@@ -119,7 +119,7 @@ const App: React.FC = () => {
   };
 
   const renderMascot = () => {
-    const props = { options: mascotConfig, className: "w-28 h-28 md:w-36 md:h-36 drop-shadow-2xl", onClick: handleMascotClick };
+    const props = { options: mascotConfig, className: "w-24 h-24 md:w-32 md:h-32 drop-shadow-xl transition-all duration-700 hover:scale-105", onClick: handleMascotClick };
     if (step === AppStep.REWARD) return <Mascot expression="excited" {...props} />;
     if (step === AppStep.WELCOME) return <Mascot expression="sleepy" {...props} />;
     if (step === AppStep.MOOD_WATER || step === AppStep.WHISPER_HOLE) return <Mascot expression="listening" {...props} />;
@@ -135,41 +135,41 @@ const App: React.FC = () => {
   const showBackButton = [AppStep.MOOD_WATER, AppStep.VIBE_MAP, AppStep.WHISPER_HOLE, AppStep.COMMUNITY].includes(step);
 
   return (
-    <div className="min-h-screen w-full relative overflow-hidden flex flex-col items-center justify-center p-6 md:p-12">
+    <div className="min-h-screen w-full relative overflow-hidden flex flex-col items-center justify-center p-4 md:p-8">
       <button 
         onClick={toggleMusic}
-        className="fixed top-8 right-8 z-50 p-4 bg-white/60 backdrop-blur-xl rounded-full shadow-2xl border border-white/80 text-stone-600 hover:bg-stone-50 hover:scale-110 transition-all active:scale-95 group"
+        className="fixed top-6 right-6 z-50 p-3.5 bg-white/40 backdrop-blur-xl rounded-full shadow-xl border border-white/60 text-stone-600 hover:bg-stone-50 hover:scale-110 transition-all active:scale-95 group"
       >
-        {isMusicPlaying ? <Volume2 size={24} className="text-amber-500 animate-pulse" /> : <VolumeX size={24} />}
-        <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-[8px] font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Audio Focus</div>
+        {isMusicPlaying ? <Volume2 size={20} className="text-amber-500 animate-pulse" /> : <VolumeX size={20} />}
+        <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[7px] font-bold uppercase tracking-[0.2em] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap text-stone-400">Audio</div>
       </button>
 
-      <main className="w-full max-w-2xl min-h-[750px] glass-panel rounded-[3rem] p-8 md:p-14 shadow-2xl flex flex-col relative transition-all duration-700 animate-soft-in">
+      <main className="w-full max-w-2xl min-h-[720px] glass-panel rounded-[2.5rem] p-6 md:p-12 shadow-2xl flex flex-col relative transition-all duration-700 animate-soft-in overflow-hidden">
         
-        {/* Back Button */}
+        {/* Back Button - Neatly aligned top left */}
         {showBackButton && (
           <button 
             onClick={handleBack}
-            className="absolute top-10 left-10 p-2 text-stone-400 hover:text-stone-800 hover:bg-stone-100/50 rounded-full transition-all group flex items-center gap-1"
+            className="absolute top-8 left-8 p-2 text-stone-400 hover:text-stone-700 hover:bg-stone-50 rounded-full transition-all group flex items-center gap-1 z-50"
           >
-            <ChevronLeft size={24} className="group-hover:-translate-x-1 transition-transform" />
-            <span className="text-[10px] font-bold uppercase tracking-widest hidden md:inline">Back</span>
+            <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+            <span className="text-[9px] font-bold uppercase tracking-widest hidden sm:inline">Back</span>
           </button>
         )}
 
-        {/* Progress Bar */}
-        <div className="absolute top-0 left-0 right-0 h-1.5 bg-stone-100/30 overflow-hidden rounded-t-[3rem]">
-            <div className="h-full bg-gradient-to-r from-amber-200 to-amber-400 transition-all duration-1000 ease-out" style={{ width: getProgressWidth() }}></div>
+        {/* Progress Bar - Sleek top alignment */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-stone-100/20 overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-amber-200 via-amber-300 to-amber-200 transition-all duration-1000 ease-out" style={{ width: getProgressWidth() }}></div>
         </div>
 
-        <header className="w-full flex flex-col items-center mb-8 pt-4">
-           <div className="mb-4 transform hover:scale-110 transition-transform duration-500 cursor-pointer">{renderMascot()}</div>
+        <header className="w-full flex flex-col items-center mb-6 pt-2">
+           <div className="mb-2">{renderMascot()}</div>
            <div className="text-center">
-              <h1 className="text-3xl md:text-4xl font-bold text-stone-800 tracking-tight serif-font">心靈充電站</h1>
-              <div className="flex items-center justify-center gap-3 mt-3">
-                  <div className="h-[1px] w-8 bg-stone-200"></div>
-                  <span className="text-[10px] text-stone-400 font-bold tracking-[0.3em] uppercase">Soul Sanctuary v2</span>
-                  <div className="h-[1px] w-8 bg-stone-200"></div>
+              <h1 className="text-2xl md:text-3xl font-bold text-stone-800 tracking-tight serif-font">心靈充電站</h1>
+              <div className="flex items-center justify-center gap-3 mt-2">
+                  <div className="h-[1px] w-6 bg-stone-100"></div>
+                  <span className="text-[9px] text-stone-400 font-bold tracking-[0.4em] uppercase">Youth Sanctuary</span>
+                  <div className="h-[1px] w-6 bg-stone-100"></div>
               </div>
            </div>
         </header>
@@ -177,28 +177,27 @@ const App: React.FC = () => {
         <div className="w-full flex-1 flex flex-col items-center justify-start py-2">
           {step === AppStep.WELCOME && (
             <div className="w-full flex flex-col justify-between h-full animate-soft-in max-w-md mx-auto">
-              <div className="relative paper-stack mt-8">
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-20 h-6 washi-tape opacity-60"></div>
-                  <div className="bg-white/90 p-10 rounded-3xl border border-stone-100 shadow-xl text-center">
-                    <p className="text-stone-600 leading-relaxed serif-font text-lg md:text-xl italic">
+              <div className="relative paper-stack mt-6">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-20 h-6 washi-tape opacity-50"></div>
+                  <div className="bg-white/90 p-8 md:p-10 rounded-[2rem] border border-stone-100 shadow-xl text-center">
+                    <p className="text-stone-600 leading-relaxed serif-font text-base md:text-lg italic">
                       "在這個步調飛快的城市裡，<br/>給自己留下一分鐘的留白。"
                     </p>
-                    <div className="mt-6 text-stone-400 text-xs font-bold tracking-widest uppercase">準備好進行一場情緒微旅行了嗎？</div>
                   </div>
               </div>
 
-              <div className="space-y-4 w-full mt-12">
+              <div className="space-y-3 w-full mt-10">
                 <button 
                   onClick={() => { if (!isMusicPlaying) toggleMusic(); setStep(AppStep.MOOD_WATER); }}
-                  className="w-full py-5 font-bold text-white text-xl bg-stone-800 rounded-[1.5rem] shadow-[0_8px_0_rgb(44,40,36)] active:shadow-none active:translate-y-[8px] hover:bg-stone-700 transition-all flex items-center justify-center group relative overflow-hidden"
+                  className="w-full py-4.5 font-bold text-white text-lg bg-stone-800 rounded-2xl shadow-[0_6px_0_rgb(44,40,36)] active:shadow-none active:translate-y-[6px] hover:bg-stone-700 transition-all flex items-center justify-center group"
                 >
-                  <span className="relative z-10 flex items-center gap-3">開始檢測 <ArrowRight className="group-hover:translate-x-2 transition-transform" /></span>
+                  開始檢測 <ArrowRight className="ml-2 group-hover:translate-x-2 transition-transform" />
                 </button>
                 <button 
                     onClick={() => setStep(AppStep.COMMUNITY)} 
-                    className="w-full py-4 font-bold text-stone-500 bg-white/50 border-2 border-stone-100 rounded-[1.5rem] flex items-center justify-center gap-3 text-sm hover:bg-white hover:text-stone-800 transition-all"
+                    className="w-full py-3.5 font-bold text-stone-400 bg-transparent border border-stone-100 rounded-2xl flex items-center justify-center gap-2 text-xs hover:bg-stone-50 hover:text-stone-600 transition-all"
                 >
-                  <Grid size={18} /> 瀏覽歷史心聲
+                  <Grid size={16} /> 瀏覽歷史心聲
                 </button>
               </div>
             </div>
@@ -212,22 +211,22 @@ const App: React.FC = () => {
             <div className="w-full animate-soft-in flex flex-col items-center">
               {isLoadingCard ? (
                  <div className="flex flex-col items-center gap-8 py-20 text-center">
-                    <div className="relative w-24 h-24">
-                        <div className="absolute inset-0 border-4 border-stone-100 rounded-full"></div>
-                        <div className="absolute inset-0 border-4 border-amber-400 rounded-full border-t-transparent animate-spin"></div>
-                        <Sparkles className="absolute inset-0 m-auto text-amber-400 animate-pulse" size={32} />
+                    <div className="relative w-20 h-20">
+                        <div className="absolute inset-0 border-2 border-stone-50 rounded-full"></div>
+                        <div className="absolute inset-0 border-2 border-amber-300 rounded-full border-t-transparent animate-spin"></div>
+                        <Sparkles className="absolute inset-0 m-auto text-amber-300 animate-pulse" size={24} />
                     </div>
-                    <div className="space-y-2">
-                        <p className="font-bold text-2xl text-stone-800 serif-font italic tracking-wide">能量轉化中...</p>
-                        <p className="text-stone-400 text-xs tracking-[0.2em] uppercase">正在調配您的專屬處方卡</p>
+                    <div className="space-y-1">
+                        <p className="font-bold text-xl text-stone-700 serif-font italic">能量轉化中</p>
+                        <p className="text-stone-400 text-[10px] tracking-[0.3em] uppercase">Tuning your soul prescription</p>
                     </div>
                  </div>
               ) : (
                 <>
                   <EnergyCard data={cardData!} analysis={whisperData.analysis} moodLevel={mood} />
-                  <div className="w-full max-w-sm flex gap-4 mt-12 pb-4">
-                    <button onClick={() => setStep(AppStep.COMMUNITY)} className="flex-1 py-4 bg-stone-100 hover:bg-stone-200 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-all"><Grid size={18} /> 回憶網格</button>
-                    <button onClick={handleRestart} className="flex-1 py-4 bg-stone-800 text-white rounded-2xl text-sm font-bold flex items-center justify-center gap-2 shadow-[0_4px_0_rgb(44,40,36)] active:translate-y-[4px] active:shadow-none transition-all"><RotateCcw size={18} /> 再試一次</button>
+                  <div className="w-full max-w-sm flex gap-3 mt-10 pb-2">
+                    <button onClick={() => setStep(AppStep.COMMUNITY)} className="flex-1 py-3.5 bg-stone-50 hover:bg-stone-100 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all"><Grid size={16} /> 回憶網格</button>
+                    <button onClick={handleRestart} className="flex-1 py-3.5 bg-stone-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-[0_4px_0_rgb(44,40,36)] active:translate-y-[4px] active:shadow-none transition-all"><RotateCcw size={16} /> 再試一次</button>
                   </div>
                 </>
               )}
@@ -237,7 +236,7 @@ const App: React.FC = () => {
           {step === AppStep.COMMUNITY && <CommunityBoard onBack={() => setStep(AppStep.WELCOME)} />}
         </div>
       </main>
-      <footer className="mt-10 text-stone-400 text-[10px] font-bold tracking-[0.4em] uppercase opacity-60">Soul Station // Daily Vibes // Est. 2024</footer>
+      <footer className="mt-8 text-stone-300 text-[9px] font-bold tracking-[0.5em] uppercase opacity-50">Soul Station // Daily Vibes</footer>
     </div>
   );
 };
