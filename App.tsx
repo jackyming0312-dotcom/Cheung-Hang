@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowRight, RotateCcw, Grid, Volume2, VolumeX, AlertCircle } from 'lucide-react';
+import { ArrowRight, RotateCcw, Grid, Volume2, VolumeX } from 'lucide-react';
 
 import Mascot from './components/Mascot';
 import MoodWater from './components/MoodWater';
@@ -36,16 +35,10 @@ const App: React.FC = () => {
   const [cardData, setCardData] = useState<EnergyCardData | null>(null);
   const [isLoadingCard, setIsLoadingCard] = useState(false);
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
-  const [hasApiKey, setHasApiKey] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [mascotConfig, setMascotConfig] = useState<MascotOptions>(generateMascotConfig());
 
   useEffect(() => {
-    // 檢查 API Key 是否存在
-    if (!process.env.API_KEY || process.env.API_KEY === '') {
-        setHasApiKey(false);
-    }
-
     const audio = new Audio("https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3");
     audio.loop = true;
     audio.volume = 0.4;
@@ -64,7 +57,7 @@ const App: React.FC = () => {
       if (isMusicPlaying) {
           audioRef.current.pause();
       } else {
-          audioRef.current.play().catch(e => setIsMusicPlaying(false));
+          audioRef.current.play().catch(() => setIsMusicPlaying(false));
       }
       setIsMusicPlaying(!isMusicPlaying);
   };
@@ -136,15 +129,6 @@ const App: React.FC = () => {
       </button>
 
       <main className="w-full max-w-2xl min-h-[700px] glass-panel rounded-3xl p-6 md:p-10 shadow-2xl flex flex-col relative transition-all duration-500 border border-white/80">
-        {!hasApiKey && step === AppStep.WELCOME && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 flex items-start gap-3 animate-fade-in">
-                <AlertCircle className="text-red-500 shrink-0 mt-0.5" size={18} />
-                <div className="text-xs text-red-700 leading-relaxed">
-                    <b>提醒：</b> 未偵測到 API_KEY。請前往 Vercel Settings &rarr; Environment Variables 設定 API_KEY 變數，AI 功能才能正常運作。
-                </div>
-            </div>
-        )}
-
         <div className="w-full flex flex-col items-center mb-4 pt-2">
            <div className="mb-2 transform hover:scale-110 transition-transform duration-300 drop-shadow-lg">{renderMascot()}</div>
            <div className="text-center">

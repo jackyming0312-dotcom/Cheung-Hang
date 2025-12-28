@@ -3,10 +3,9 @@ import { EnergyCardData, GeminiAnalysisResult } from "../types";
 
 /**
  * 分析使用者的文字回饋
- * 使用 gemini-3-flash-preview 提供快速反應
  */
 export const analyzeWhisper = async (text: string): Promise<GeminiAnalysisResult> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
   if (!text.trim()) {
     return {
       sentiment: 'neutral',
@@ -42,10 +41,6 @@ export const analyzeWhisper = async (text: string): Promise<GeminiAnalysisResult
 
   } catch (error: any) {
     console.error("Gemini analysis error:", error);
-    // 檢查是否為 API Key 問題
-    if (error?.message?.includes("Requested entity was not found")) {
-        console.warn("API Key 可能無效或專案未正確配置。");
-    }
     return {
       sentiment: 'neutral',
       tags: ['日常'],
@@ -56,10 +51,9 @@ export const analyzeWhisper = async (text: string): Promise<GeminiAnalysisResult
 
 /**
  * 根據使用者文字生成療癒插畫
- * 使用 gemini-2.5-flash-image
  */
 export const generateHealingImage = async (userText: string, moodLevel: number): Promise<string | null> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
     try {
         const moodDesc = moodLevel > 70 ? "bright, sunny, energetic" : moodLevel > 40 ? "peaceful, cozy, calm" : "safe, melancholic, rainy night";
         
@@ -92,7 +86,7 @@ export const generateHealingImage = async (userText: string, moodLevel: number):
  * 生成「心靈能量卡」內容
  */
 export const generateEnergyCard = async (moodLevel: number, zone: string | null): Promise<EnergyCardData> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
   try {
     const moodDesc = moodLevel > 70 ? "充滿活力" : moodLevel > 40 ? "平靜" : "疲憊";
     const zoneContext = zone ? `喜歡的區域: ${zone}` : "";
