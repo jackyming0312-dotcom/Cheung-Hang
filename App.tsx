@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowRight, RotateCcw, Grid, Volume2, VolumeX, Sparkles } from 'lucide-react';
+import { ArrowRight, RotateCcw, Grid, Volume2, VolumeX, Sparkles, ChevronLeft } from 'lucide-react';
 
 import Mascot from './components/Mascot';
 import MoodWater from './components/MoodWater';
@@ -60,6 +60,13 @@ const App: React.FC = () => {
           audioRef.current.play().catch(() => setIsMusicPlaying(false));
       }
       setIsMusicPlaying(!isMusicPlaying);
+  };
+
+  const handleBack = () => {
+    if (step === AppStep.MOOD_WATER) setStep(AppStep.WELCOME);
+    else if (step === AppStep.VIBE_MAP) setStep(AppStep.MOOD_WATER);
+    else if (step === AppStep.WHISPER_HOLE) setStep(AppStep.VIBE_MAP);
+    else if (step === AppStep.COMMUNITY) setStep(AppStep.WELCOME);
   };
 
   const handleMascotClick = () => setMascotConfig(generateMascotConfig());
@@ -125,6 +132,8 @@ const App: React.FC = () => {
       return `${(index / (steps.length - 1)) * 100}%`;
   };
 
+  const showBackButton = [AppStep.MOOD_WATER, AppStep.VIBE_MAP, AppStep.WHISPER_HOLE, AppStep.COMMUNITY].includes(step);
+
   return (
     <div className="min-h-screen w-full relative overflow-hidden flex flex-col items-center justify-center p-6 md:p-12">
       <button 
@@ -132,11 +141,22 @@ const App: React.FC = () => {
         className="fixed top-8 right-8 z-50 p-4 bg-white/60 backdrop-blur-xl rounded-full shadow-2xl border border-white/80 text-stone-600 hover:bg-stone-50 hover:scale-110 transition-all active:scale-95 group"
       >
         {isMusicPlaying ? <Volume2 size={24} className="text-amber-500 animate-pulse" /> : <VolumeX size={24} />}
-        <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-[8px] font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Audio</div>
+        <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-[8px] font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">Audio Focus</div>
       </button>
 
       <main className="w-full max-w-2xl min-h-[750px] glass-panel rounded-[3rem] p-8 md:p-14 shadow-2xl flex flex-col relative transition-all duration-700 animate-soft-in">
         
+        {/* Back Button */}
+        {showBackButton && (
+          <button 
+            onClick={handleBack}
+            className="absolute top-10 left-10 p-2 text-stone-400 hover:text-stone-800 hover:bg-stone-100/50 rounded-full transition-all group flex items-center gap-1"
+          >
+            <ChevronLeft size={24} className="group-hover:-translate-x-1 transition-transform" />
+            <span className="text-[10px] font-bold uppercase tracking-widest hidden md:inline">Back</span>
+          </button>
+        )}
+
         {/* Progress Bar */}
         <div className="absolute top-0 left-0 right-0 h-1.5 bg-stone-100/30 overflow-hidden rounded-t-[3rem]">
             <div className="h-full bg-gradient-to-r from-amber-200 to-amber-400 transition-all duration-1000 ease-out" style={{ width: getProgressWidth() }}></div>
