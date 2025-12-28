@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, Share2 } from 'lucide-react';
+import { Download, Share2, Sparkle } from 'lucide-react';
 import { EnergyCardData, GeminiAnalysisResult } from '../types';
 
 interface EnergyCardProps {
@@ -11,94 +11,84 @@ interface EnergyCardProps {
 const EnergyCard: React.FC<EnergyCardProps> = ({ data, analysis, moodLevel }) => {
   
   const getGradient = () => {
-    // Warm, paper-like, sunset gradients
-    if (moodLevel > 70) return "from-[#fff1eb] to-[#ace0f9] border-stone-200"; // Warm light to sky
-    if (moodLevel > 40) return "from-[#fdfbfb] to-[#ebedee] border-stone-200"; // Clean paper
-    return "from-[#e6e9f0] to-[#eef1f5] border-stone-200"; // Soft gray
+    if (moodLevel > 70) return "from-[#fffcf0] to-[#fff4e0] border-amber-100"; 
+    if (moodLevel > 40) return "from-[#f8fafc] to-[#f1f5f9] border-slate-100";
+    return "from-[#fcfcfc] to-[#f5f5f5] border-stone-100"; 
   };
 
   const getAccentColor = () => {
-      if (moodLevel > 70) return "text-orange-600";
-      if (moodLevel > 40) return "text-emerald-700";
-      return "text-indigo-600";
-  }
-
-  const getIcon = () => {
-    if (moodLevel > 70) return '🌞';
-    if (moodLevel > 40) return '🌱';
-    return '🌙';
+      if (moodLevel > 70) return "text-amber-600";
+      if (moodLevel > 40) return "text-slate-600";
+      return "text-stone-600";
   }
 
   return (
-    <div className="flex flex-col items-center animate-fade-in w-full">
+    <div className="flex flex-col items-center animate-soft-in w-full py-4">
       <div className={`
         relative w-full max-w-sm bg-gradient-to-br ${getGradient()} 
-        p-8 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.08)] border
-        flex flex-col items-center text-center
+        p-10 rounded-[2.5rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] border-4
+        flex flex-col items-center text-center group transition-transform duration-700 hover:rotate-1
       `}>
-        {/* Paper Texture Overlay */}
-        <div className="absolute inset-0 opacity-40 rounded-xl pointer-events-none mix-blend-multiply bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]"></div>
+        {/* Washi Tape */}
+        <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-28 h-8 washi-tape opacity-80 z-20"></div>
 
-        {/* Header */}
-        <div className="relative z-10 w-full flex justify-between items-center mb-6 border-b border-stone-300 pb-4">
-          <span className="font-bold text-stone-600 tracking-widest text-xs uppercase">Soul Station</span>
-          <span className="text-stone-400 text-xs font-mono">{new Date().toLocaleDateString('zh-TW')}</span>
+        {/* Header Label */}
+        <div className="absolute top-8 left-1/2 -translate-x-1/2 w-full px-10 flex justify-between items-center opacity-30">
+          <Sparkle size={12} />
+          <div className="h-[1px] flex-1 bg-stone-400 mx-4"></div>
+          <Sparkle size={12} />
         </div>
 
-        {/* AI Generated Image (If available) */}
-        {data.imageUrl && (
-            <div className="relative z-10 w-48 h-48 mb-6 p-2 bg-white shadow-md transform -rotate-1 hover:rotate-0 transition-transform duration-500">
-                <img src={data.imageUrl} alt="AI Generated Mood" className="w-full h-full object-cover filter sepia-[0.2]" />
-                <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-black/10 to-transparent"></div>
+        {/* AI Image with Polaroid Style */}
+        <div className="relative z-10 w-full mb-8 mt-4">
+            <div className="bg-white p-3 pb-10 shadow-xl border border-stone-100 transform rotate-[-2deg] transition-all duration-700 group-hover:rotate-0">
+                {data.imageUrl ? (
+                    <img 
+                        src={data.imageUrl} 
+                        alt="AI Generated Mood" 
+                        className="w-full aspect-square object-cover filter contrast-[1.05] brightness-[1.05] saturate-[0.9]" 
+                    />
+                ) : (
+                    <div className="w-full aspect-square bg-stone-50 flex items-center justify-center text-5xl">
+                        🎨
+                    </div>
+                )}
+                <div className="mt-3 text-[10px] font-mono text-stone-300 tracking-widest text-left ml-1 italic uppercase">
+                    Captured By Soul AI // {new Date().toLocaleTimeString()}
+                </div>
             </div>
-        )}
+        </div>
         
-        {/* Fallback Icon if image fails or loading */}
-        {!data.imageUrl && (
-            <div className="relative z-10 w-16 h-16 bg-white/80 rounded-full mx-auto flex items-center justify-center text-3xl shadow-sm ring-4 ring-white/50 mb-6">
-                {getIcon()}
-            </div>
-        )}
-
-        {/* Main Content */}
-        <div className="relative z-10 flex-1 flex flex-col justify-center gap-6 mb-6">
-          <div>
-            <h2 className="text-sm font-bold text-stone-400 tracking-widest uppercase mb-2">Keyword of the Day</h2>
+        {/* Content Section */}
+        <div className="relative z-10 w-full space-y-6">
+          <div className="space-y-1">
+            <p className="text-[10px] font-bold text-stone-300 tracking-[0.3em] uppercase">Today's Reflection</p>
             <h1 className={`text-4xl font-bold ${getAccentColor()} serif-font tracking-tight`}>
               {data.theme}
             </h1>
           </div>
           
-          <div className="relative">
-            <span className="absolute -top-4 -left-2 text-6xl text-stone-200 font-serif leading-none">“</span>
-            <p className="relative z-10 text-stone-700 italic serif-font text-xl leading-relaxed px-4">
+          <div className="relative px-4">
+            <p className="text-stone-700 italic serif-font text-xl leading-relaxed">
               {data.quote}
             </p>
-            <span className="absolute -bottom-8 -right-2 text-6xl text-stone-200 font-serif leading-none">”</span>
           </div>
 
-          <div className="mt-4 pt-6 border-t border-stone-200 flex justify-center items-center gap-2 text-sm text-stone-600">
-             <span>✨ 幸運物：</span>
-             <span className="font-bold border-b-2 border-amber-200/50">{data.luckyItem}</span>
+          <div className="pt-6 border-t border-dashed border-stone-200 flex flex-col items-center gap-2">
+             <span className="text-[9px] font-bold text-stone-300 tracking-widest uppercase">Lucky Charm</span>
+             <span className="px-4 py-1.5 bg-white/50 rounded-full text-stone-600 font-bold text-sm shadow-sm border border-white">
+                ✨ {data.luckyItem}
+             </span>
           </div>
-        </div>
-
-        {/* Footer Analysis Tags */}
-        <div className="relative z-10 w-full flex justify-center gap-2 flex-wrap">
-          {analysis?.tags.map((tag, i) => (
-            <span key={i} className="px-3 py-1 bg-white/60 border border-stone-100 rounded-sm text-xs text-stone-500 font-medium uppercase tracking-wider">
-              #{tag}
-            </span>
-          ))}
         </div>
       </div>
       
-      {/* Capybara Note - Styled like a sticky note */}
+      {/* Sticky Note Feedback */}
       {analysis?.replyMessage && (
-        <div className="mt-6 max-w-sm w-full relative bg-[#fffdf0] p-4 shadow-md rotate-1 transform transition-transform hover:rotate-0">
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-4 bg-yellow-200/50 opacity-50 rotate-[-2deg]"></div>
-           <p className="text-center text-sm text-stone-600 font-handwriting">
-               <span className="font-bold text-stone-800">水豚君：</span> {analysis.replyMessage}
+        <div className="mt-10 max-w-[280px] w-full relative bg-[#fffdf0] p-6 shadow-xl rotate-[1.5deg] transform transition-all duration-500 hover:rotate-0 hover:scale-105 border-l-4 border-yellow-200">
+           <p className="text-stone-600 font-handwriting leading-relaxed">
+               <span className="font-bold text-stone-800 text-lg">水豚君筆記：</span><br/>
+               {analysis.replyMessage}
            </p>
         </div>
       )}

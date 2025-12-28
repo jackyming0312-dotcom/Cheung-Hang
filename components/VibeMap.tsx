@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart } from 'lucide-react';
+import { MapPin, Check } from 'lucide-react';
 import { MapZone } from '../types';
 
 interface VibeMapProps {
@@ -7,10 +7,10 @@ interface VibeMapProps {
 }
 
 const ZONES: MapZone[] = [
-  { id: 'lounge', name: '交誼休憩區', x: 10, y: 10, width: 40, height: 35, color: 'bg-orange-100/90' },
-  { id: 'study', name: '安靜閱讀區', x: 55, y: 10, width: 35, height: 35, color: 'bg-blue-100/90' },
-  { id: 'game', name: '互動娛樂區', x: 10, y: 50, width: 40, height: 40, color: 'bg-purple-100/90' },
-  { id: 'cafe', name: '輕食吧台區', x: 55, y: 50, width: 35, height: 40, color: 'bg-green-100/90' },
+  { id: 'lounge', name: '交誼休憩區', x: 8, y: 8, width: 42, height: 40, color: 'bg-[#fff5e6]' },
+  { id: 'study', name: '安靜閱讀區', x: 55, y: 8, width: 37, height: 40, color: 'bg-[#e6f0ff]' },
+  { id: 'game', name: '互動娛樂區', x: 8, y: 53, width: 42, height: 40, color: 'bg-[#f5e6ff]' },
+  { id: 'cafe', name: '輕食吧台區', x: 55, y: 53, width: 37, height: 40, color: 'bg-[#e6ffed]' },
 ];
 
 const VibeMap: React.FC<VibeMapProps> = ({ onZoneSelect }) => {
@@ -22,51 +22,68 @@ const VibeMap: React.FC<VibeMapProps> = ({ onZoneSelect }) => {
   };
 
   return (
-    <div className="w-full max-w-md mx-auto">
-      <h3 className="text-xl text-stone-700 font-medium text-center mb-6 serif-font italic">
-        請標記您今日感到最舒適的區域
-      </h3>
+    <div className="w-full max-w-lg mx-auto animate-soft-in">
+      <div className="text-center mb-8">
+        <h3 className="text-2xl text-stone-700 font-semibold serif-font mb-1 italic">
+          Comfort Sanctuary
+        </h3>
+        <p className="text-stone-400 text-xs tracking-widest uppercase">選擇今日最讓你感到自在的區域</p>
+      </div>
 
-      <div className="relative w-full aspect-square bg-[#fbfaf8] rounded-2xl border border-stone-200 shadow-inner overflow-hidden">
-        {/* Architectural Background Hints - Subtle Grid */}
-        <div className="absolute inset-0 opacity-[0.06]" 
-             style={{ backgroundImage: 'linear-gradient(45deg, #888 25%, transparent 25%, transparent 75%, #888 75%, #888), linear-gradient(45deg, #888 25%, transparent 25%, transparent 75%, #888 75%, #888)', backgroundSize: '24px 24px', backgroundPosition: '0 0, 12px 12px' }}>
+      <div className="relative w-full aspect-[4/3] bg-[#fbfaf8] rounded-[2rem] border-2 border-stone-200 shadow-2xl overflow-hidden p-6 paper-stack">
+        {/* Blueprint Grid Lines */}
+        <div className="absolute inset-0 opacity-[0.03] pointer-events-none" 
+             style={{ backgroundImage: 'linear-gradient(#4a4036 1px, transparent 1px), linear-gradient(90deg, #4a4036 1px, transparent 1px)', backgroundSize: '40px 40px' }}>
+        </div>
+        
+        {/* Zones Container */}
+        <div className="relative w-full h-full">
+          {ZONES.map((zone) => (
+            <button
+              key={zone.id}
+              onClick={() => handleSelect(zone)}
+              className={`absolute transition-all duration-700 ease-in-out rounded-2xl border-2 flex flex-col items-center justify-center group
+                ${selectedZone === zone.id 
+                  ? 'border-stone-800 shadow-2xl scale-[1.02] z-30 opacity-100' 
+                  : 'border-stone-200/40 shadow-sm hover:shadow-xl hover:scale-[1.01] z-10 opacity-80 hover:opacity-100'}
+                ${zone.color} backdrop-blur-[2px] overflow-hidden
+              `}
+              style={{
+                left: `${zone.x}%`,
+                top: `${zone.y}%`,
+                width: `${zone.width}%`,
+                height: `${zone.height}%`,
+              }}
+            >
+              {/* Animated selection circle */}
+              {selectedZone === zone.id && (
+                <div className="absolute inset-0 bg-stone-800/5 animate-pulse"></div>
+              )}
+              
+              <div className="flex flex-col items-center gap-2 p-2 relative z-10">
+                <div className={`transition-all duration-500 rounded-full p-1.5 ${selectedZone === zone.id ? 'bg-stone-800 text-white' : 'bg-stone-200/50 text-stone-400'}`}>
+                   {selectedZone === zone.id ? <Check size={16} /> : <MapPin size={16} />}
+                </div>
+                <span className={`block font-bold text-sm tracking-tight transition-colors duration-300 ${selectedZone === zone.id ? 'text-stone-800' : 'text-stone-500'}`}>
+                  {zone.name}
+                </span>
+              </div>
+
+              {/* Decorative Corner Labels */}
+              <div className="absolute top-1 right-2 text-[8px] font-mono text-stone-300 uppercase">
+                Zone_{zone.id.substring(0,3)}
+              </div>
+            </button>
+          ))}
         </div>
 
-        {/* Zones */}
-        {ZONES.map((zone) => (
-          <button
-            key={zone.id}
-            onClick={() => handleSelect(zone)}
-            className={`absolute transition-all duration-500 ease-out rounded-xl border flex items-center justify-center group cursor-pointer
-              ${selectedZone === zone.id 
-                ? 'border-stone-600 shadow-inner scale-[0.96] ring-4 ring-stone-100 z-20 opacity-100 saturate-100' 
-                : 'border-stone-200/50 shadow-sm hover:shadow-xl hover:-translate-y-1.5 hover:scale-[1.02] hover:border-stone-300 z-10 opacity-90 hover:opacity-100 saturate-[0.85] hover:saturate-100'}
-              ${zone.color} backdrop-blur-sm
-            `}
-            style={{
-              left: `${zone.x}%`,
-              top: `${zone.y}%`,
-              width: `${zone.width}%`,
-              height: `${zone.height}%`,
-            }}
-          >
-            <div className="text-center p-2 relative w-full h-full flex flex-col items-center justify-center">
-              <span className={`block font-medium text-sm text-stone-700 transition-all duration-300 group-hover:scale-105 group-hover:font-bold ${selectedZone === zone.id ? 'opacity-100' : 'opacity-70 group-hover:opacity-100'}`}>
-                {zone.name}
-              </span>
-              
-              {/* Visual cue: Icon appears/floats up on hover */}
-              <div className={`transition-all duration-500 absolute bottom-2 opacity-0 transform translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 ${selectedZone === zone.id ? '!opacity-100 !translate-y-0' : ''}`}>
-                 <Heart className={`${selectedZone === zone.id ? 'fill-rose-500 text-rose-500 animate-pulse' : 'text-stone-400'}`} size={18} />
-              </div>
-            </div>
-          </button>
-        ))}
-
-        {/* Floor Label */}
-        <div className="absolute bottom-4 left-6 text-[10px] text-stone-400 font-sans tracking-widest uppercase border-t border-stone-200 pt-1">
-          Ground Floor Plan
+        {/* Legend */}
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-4 text-[9px] text-stone-400 font-mono tracking-tighter uppercase whitespace-nowrap">
+          <span>01 // Interior Plan</span>
+          <span className="w-8 h-[1px] bg-stone-200"></span>
+          <span>Scale 1:50</span>
+          <span className="w-8 h-[1px] bg-stone-200"></span>
+          <span>Rev. Soul_v2</span>
         </div>
       </div>
     </div>
