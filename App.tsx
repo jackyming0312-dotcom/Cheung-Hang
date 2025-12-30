@@ -15,12 +15,10 @@ import { AppStep, GeminiAnalysisResult, EnergyCardData, CommunityLog, MascotOpti
 const generateMascotConfig = (): MascotOptions => {
     const roles = ['youth', 'worker'] as const;
     const selectedRole = roles[Math.floor(Math.random() * roles.length)];
-    
     const hats = ['none', 'party', 'beret', 'beanie', 'crown', 'hoodie'] as const;
     const glasses = ['none', 'round', 'sunglasses', 'reading'] as const;
     const makeups = ['none', 'blush', 'star'] as const;
     const colors = ['#C4A484', '#D7CCC8', '#EFEBE9', '#BCAAA4', '#A1887F'];
-
     const accessories = selectedRole === 'youth' 
         ? ['none', 'backpack', 'headphones', 'tablet'] as const
         : ['none', 'badge', 'coffee', 'scarf', 'reading'] as const;
@@ -45,12 +43,14 @@ const App: React.FC = () => {
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [mascotConfig, setMascotConfig] = useState<MascotOptions>(generateMascotConfig());
-  
-  // 將 logs 提升至 App 管理，實現全域響應
   const [logs, setLogs] = useState<CommunityLog[]>([]);
 
+  // 強制同步轉場時的捲動狀態
   useEffect(() => {
-    // 初始化從 localStorage 讀取
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [step]);
+
+  useEffect(() => {
     const saved = JSON.parse(localStorage.getItem('vibe_logs') || '[]');
     setLogs(saved);
 
@@ -67,9 +67,10 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // 當 logs 改變時同步回 localStorage
   useEffect(() => {
-    localStorage.setItem('vibe_logs', JSON.stringify(logs.slice(0, 50)));
+    if (logs.length > 0) {
+      localStorage.setItem('vibe_logs', JSON.stringify(logs.slice(0, 50)));
+    }
   }, [logs]);
 
   const toggleMusic = () => {
@@ -93,13 +94,14 @@ const App: React.FC = () => {
   const handleMoodSubmit = () => setStep(AppStep.VIBE_MAP);
   const handleZoneSubmit = (selectedZone: string) => {
     setZone(selectedZone);
-    setTimeout(() => setStep(AppStep.WHISPER_HOLE), 500); 
+    setTimeout(() => setStep(AppStep.WHISPER_HOLE), 300); 
   };
 
   const handleWhisperComplete = async (text: string) => {
+    // 立即切換到獎勵畫面並開始加載，避免行動端感覺卡頓
     setStep(AppStep.REWARD);
     setIsLoadingCard(true);
-    setWhisperData(prev => ({ ...prev, text }));
+    setWhisperData({ text, analysis: null });
 
     const logId = Date.now().toString();
     const initialLog: CommunityLog = {
@@ -107,11 +109,10 @@ const App: React.FC = () => {
         moodLevel: mood,
         text: text,
         timestamp: new Date().toISOString(),
-        theme: "分析中...",
+        theme: "心聲提取中...",
         tags: ["紀錄中"]
     };
 
-    // 立即更新狀態，讓「歷史看板」能看到這筆
     setLogs(prev => [initialLog, ...prev]);
 
     try {
@@ -124,7 +125,6 @@ const App: React.FC = () => {
         setWhisperData({ text, analysis: analysisResult });
         setCardData({ ...energyCardResult, imageUrl: imageResult || undefined });
 
-        // 更新狀態中的那一筆 log
         setLogs(prev => prev.map(l => l.id === logId ? {
             ...l,
             theme: energyCardResult.theme,
@@ -132,7 +132,9 @@ const App: React.FC = () => {
         } : l));
 
     } catch (e) {
-        console.error("AI Analysis Failed", e);
+        console.error("AI 處理失敗", e);
+        const defaultCard = { quote: "即使緩慢，也是在向前行。", theme: "當下", luckyItem: "溫熱的茶" };
+        setCardData(defaultCard);
         setLogs(prev => prev.map(l => l.id === logId ? {
             ...l,
             theme: "今日心聲",
@@ -152,7 +154,7 @@ const App: React.FC = () => {
   };
 
   const renderMascot = () => {
-    const props = { options: mascotConfig, className: "w-24 h-24 md:w-32 md:h-32 drop-shadow-xl transition-all duration-700 hover:scale-105", onClick: handleMascotClick };
+    const props = { options: mascotConfig, className: "w-16 h-16 md:w-32 md:h-32 drop-shadow-xl transition-all duration-700", onClick: handleMascotClick };
     if (step === AppStep.REWARD) return <Mascot expression="excited" {...props} />;
     if (step === AppStep.WELCOME) return <Mascot expression="sleepy" {...props} />;
     if (step === AppStep.MOOD_WATER || step === AppStep.WHISPER_HOLE) return <Mascot expression="listening" {...props} />;
@@ -169,31 +171,29 @@ const App: React.FC = () => {
   const showBackButton = [AppStep.MOOD_WATER, AppStep.VIBE_MAP, AppStep.WHISPER_HOLE, AppStep.COMMUNITY, AppStep.REWARD].includes(step);
 
   return (
-    <div className="min-h-screen w-full relative overflow-hidden flex flex-col items-center justify-center p-4 md:p-8">
-      {/* Background Decor */}
-      <div className="fixed inset-0 pointer-events-none opacity-10 overflow-hidden">
-          <div className="absolute top-10 left-[10%] animate-float" style={{ animationDelay: '1s' }}><Sparkles size={40} /></div>
-          <div className="absolute top-[20%] right-[15%] animate-float" style={{ animationDelay: '2.5s' }}><Grid size={32} /></div>
-          <div className="absolute bottom-[30%] left-[5%] animate-float" style={{ animationDelay: '0.5s' }}><ArrowRight className="rotate-45" size={48} /></div>
-          <div className="absolute bottom-[10%] right-[20%] animate-float" style={{ animationDelay: '3.2s' }}><Volume2 size={36} /></div>
+    <div className="min-h-[100dvh] w-full relative flex flex-col items-center justify-center p-3 md:p-8">
+      {/* 飄浮裝飾 */}
+      <div className="fixed inset-0 pointer-events-none opacity-10 overflow-hidden z-0">
+          <div className="absolute top-[10%] left-[10%] animate-float"><Sparkles size={30} /></div>
+          <div className="absolute top-[60%] right-[10%] animate-float" style={{ animationDelay: '2s' }}><Grid size={24} /></div>
       </div>
 
       <button 
         onClick={toggleMusic}
-        className="fixed top-6 right-6 z-[60] p-3.5 bg-white/40 backdrop-blur-xl rounded-full shadow-xl border border-white/60 text-stone-600 hover:bg-stone-50 hover:scale-110 transition-all active:scale-95 group"
+        className="fixed top-4 right-4 z-[100] p-3 bg-white/60 backdrop-blur-xl rounded-full shadow-lg border border-white text-stone-600 active:scale-90 transition-transform"
       >
-        {isMusicPlaying ? <Volume2 size={20} className="text-amber-500 animate-pulse" /> : <VolumeX size={20} />}
+        {isMusicPlaying ? <Volume2 size={18} className="text-amber-500 animate-pulse" /> : <VolumeX size={18} />}
       </button>
 
-      <main className="w-full max-w-2xl min-h-[720px] glass-panel rounded-[2.5rem] p-6 md:p-12 shadow-2xl flex flex-col relative transition-all duration-700 animate-soft-in overflow-hidden">
+      <main className="w-full max-w-2xl min-h-[min(680px,85dvh)] glass-panel rounded-[1.8rem] md:rounded-[2.5rem] p-5 md:p-12 shadow-2xl flex flex-col relative transition-all duration-700 animate-soft-in overflow-hidden z-10">
         
         {showBackButton && (
           <button 
             onClick={handleBack}
-            className="absolute top-8 left-8 p-2 text-stone-400 hover:text-stone-700 hover:bg-stone-50 rounded-full transition-all group flex items-center gap-1 z-[60]"
+            className="absolute top-5 left-5 p-2 text-stone-400 hover:text-stone-700 active:bg-stone-50 rounded-full transition-all z-[100] flex items-center gap-1"
           >
-            <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-            <span className="text-[9px] font-bold uppercase tracking-widest hidden sm:inline">Back</span>
+            <ChevronLeft size={18} />
+            <span className="text-[10px] font-bold uppercase tracking-widest hidden sm:inline">Back</span>
           </button>
         )}
 
@@ -201,71 +201,71 @@ const App: React.FC = () => {
             <div className="h-full bg-gradient-to-r from-amber-200 via-amber-300 to-amber-200 transition-all duration-1000 ease-out" style={{ width: getProgressWidth() }}></div>
         </div>
 
-        <header className="w-full flex flex-col items-center mb-6 pt-2">
+        <header className="w-full flex flex-col items-center mb-5 md:mb-8 pt-2">
            <div className="mb-2">{renderMascot()}</div>
            <div className="text-center">
-              <h1 className="text-2xl md:text-3xl font-bold text-stone-800 tracking-tight serif-font">心靈充電站</h1>
-              <div className="flex items-center justify-center gap-3 mt-2">
-                  <div className="h-[1px] w-6 bg-stone-100"></div>
-                  <span className="text-[9px] text-stone-400 font-bold tracking-[0.4em] uppercase">Youth Sanctuary</span>
-                  <div className="h-[1px] w-6 bg-stone-100"></div>
+              <h1 className="text-xl md:text-3xl font-bold text-stone-800 tracking-tight serif-font">心靈充電站</h1>
+              <div className="flex items-center justify-center gap-2 mt-1">
+                  <div className="h-[1px] w-4 bg-stone-200"></div>
+                  <span className="text-[8px] md:text-[9px] text-stone-400 font-bold tracking-[0.3em] uppercase">Healing Sanctuary</span>
+                  <div className="h-[1px] w-4 bg-stone-200"></div>
               </div>
            </div>
         </header>
 
-        <div className="w-full flex-1 flex flex-col items-center justify-start py-2 overflow-y-auto custom-scrollbar">
+        <div className="w-full flex-1 flex flex-col items-center justify-center overflow-y-auto custom-scrollbar">
           {step === AppStep.WELCOME && (
-            <div className="w-full flex flex-col justify-between h-full animate-soft-in max-w-md mx-auto">
-              <div className="relative paper-stack mt-6">
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-20 h-6 washi-tape opacity-50"></div>
-                  <div className="bg-white/90 p-8 md:p-10 rounded-[2rem] border border-stone-100 shadow-xl text-center">
-                    <p className="text-stone-600 leading-relaxed serif-font text-base md:text-lg italic">
+            <div className="w-full flex flex-col justify-between h-full animate-soft-in max-w-sm mx-auto">
+              <div className="relative paper-stack mt-2">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-16 h-4 washi-tape opacity-50"></div>
+                  <div className="bg-white/95 p-6 md:p-10 rounded-[1.5rem] border border-stone-100 shadow-md text-center">
+                    <p className="text-stone-600 leading-relaxed serif-font text-base italic">
                       "在這個步調飛快的城市裡，<br/>給自己留下一分鐘的留白。"
                     </p>
                   </div>
               </div>
 
-              <div className="space-y-3 w-full mt-10 pb-4">
+              <div className="space-y-3 w-full mt-8 md:mt-12 pb-2">
                 <button 
                   onClick={() => { if (!isMusicPlaying) toggleMusic(); setStep(AppStep.MOOD_WATER); }}
-                  className="w-full py-4.5 font-bold text-white text-lg bg-stone-800 rounded-2xl shadow-[0_6px_0_rgb(44,40,36)] active:shadow-none active:translate-y-[6px] hover:bg-stone-700 transition-all flex items-center justify-center group"
+                  className="w-full py-4 font-bold text-white text-lg bg-stone-800 rounded-2xl shadow-[0_4px_0_rgb(44,40,36)] active:shadow-none active:translate-y-[4px] hover:bg-stone-700 transition-all flex items-center justify-center group"
                 >
                   開始檢測 <ArrowRight className="ml-2 group-hover:translate-x-2 transition-transform" />
                 </button>
                 <button 
                     onClick={() => setStep(AppStep.COMMUNITY)} 
-                    className="w-full py-3.5 font-bold text-stone-400 bg-white/50 border border-stone-100 rounded-2xl flex items-center justify-center gap-2 text-xs hover:bg-stone-50 hover:text-stone-600 transition-all shadow-sm"
+                    className="w-full py-3 font-bold text-stone-400 bg-white/40 border border-stone-100 rounded-2xl flex items-center justify-center gap-2 text-xs active:bg-stone-50 transition-all"
                 >
-                  <Grid size={16} /> 瀏覽歷史心聲
+                  <Grid size={14} /> 瀏覽歷史心聲
                 </button>
               </div>
             </div>
           )}
 
-          {step === AppStep.MOOD_WATER && <div className="w-full flex flex-col items-center h-full animate-soft-in pb-4"><MoodWater value={mood} onChange={setMood} /><button onClick={handleMoodSubmit} className="w-full max-w-xs py-4 bg-stone-800 text-white rounded-2xl font-bold mt-10 shadow-[0_6px_0_rgb(44,40,36)] active:translate-y-[6px] active:shadow-none transition-all">確認電量</button></div>}
+          {step === AppStep.MOOD_WATER && <div className="w-full flex flex-col items-center h-full animate-soft-in pb-4"><MoodWater value={mood} onChange={setMood} /><button onClick={handleMoodSubmit} className="w-full max-w-xs py-4 bg-stone-800 text-white rounded-2xl font-bold mt-6 shadow-[0_4px_0_rgb(44,40,36)] active:translate-y-[4px] active:shadow-none transition-all">確認電量</button></div>}
           {step === AppStep.VIBE_MAP && <div className="w-full animate-soft-in"><VibeMap onZoneSelect={handleZoneSubmit} /></div>}
           {step === AppStep.WHISPER_HOLE && <div className="w-full animate-soft-in"><WhisperHole onComplete={handleWhisperComplete} /></div>}
           
           {step === AppStep.REWARD && (
-            <div className="w-full animate-soft-in flex flex-col items-center h-full">
+            <div key="reward-screen" className="w-full animate-soft-in flex flex-col items-center h-full py-2">
               {isLoadingCard ? (
-                 <div className="flex flex-col items-center gap-8 py-20 text-center">
-                    <div className="relative w-20 h-20">
-                        <div className="absolute inset-0 border-2 border-stone-50 rounded-full"></div>
+                 <div className="flex flex-col items-center gap-6 py-16 text-center">
+                    <div className="relative w-14 h-14">
+                        <div className="absolute inset-0 border-2 border-stone-100 rounded-full"></div>
                         <div className="absolute inset-0 border-2 border-amber-300 rounded-full border-t-transparent animate-spin"></div>
-                        <Sparkles className="absolute inset-0 m-auto text-amber-300 animate-pulse" size={24} />
+                        <Sparkles className="absolute inset-0 m-auto text-amber-300 animate-pulse" size={18} />
                     </div>
                     <div className="space-y-1">
-                        <p className="font-bold text-xl text-stone-700 serif-font italic">能量轉化中</p>
-                        <p className="text-stone-400 text-[10px] tracking-[0.3em] uppercase">Tuning your soul prescription</p>
+                        <p className="font-bold text-lg text-stone-700 serif-font italic">心聲封印中...</p>
+                        <p className="text-stone-400 text-[8px] tracking-[0.2em] uppercase">Sealing your energy card</p>
                     </div>
                  </div>
               ) : (
                 <div className="w-full flex flex-col items-center">
                   <EnergyCard data={cardData!} analysis={whisperData.analysis} moodLevel={mood} />
-                  <div className="w-full max-w-sm flex gap-3 mt-10 pb-6">
-                    <button onClick={() => setStep(AppStep.COMMUNITY)} className="flex-1 py-3.5 bg-stone-50 hover:bg-stone-100 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all border border-stone-200"><Grid size={16} /> 回憶網格</button>
-                    <button onClick={handleRestart} className="flex-1 py-3.5 bg-stone-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-[0_4px_0_rgb(44,40,36)] active:translate-y-[4px] active:shadow-none transition-all"><RotateCcw size={16} /> 再試一次</button>
+                  <div className="w-full max-w-[320px] flex gap-2 mt-6 pb-6">
+                    <button onClick={() => setStep(AppStep.COMMUNITY)} className="flex-1 py-3 bg-white/50 hover:bg-white rounded-xl text-[11px] font-bold flex items-center justify-center gap-2 transition-all border border-stone-100"><Grid size={12} /> 回憶網格</button>
+                    <button onClick={handleRestart} className="flex-1 py-3 bg-stone-800 text-white rounded-xl text-[11px] font-bold flex items-center justify-center gap-2 shadow-[0_3px_0_rgb(44,40,36)] active:translate-y-[3px] active:shadow-none transition-all"><RotateCcw size={12} /> 再試一次</button>
                   </div>
                 </div>
               )}
@@ -275,7 +275,7 @@ const App: React.FC = () => {
           {step === AppStep.COMMUNITY && <CommunityBoard logs={logs} onBack={() => setStep(AppStep.WELCOME)} />}
         </div>
       </main>
-      <footer className="mt-8 text-stone-300 text-[9px] font-bold tracking-[0.5em] uppercase opacity-50">Soul Station // Daily Vibes</footer>
+      <footer className="mt-4 text-stone-300 text-[8px] font-bold tracking-[0.4em] uppercase opacity-40 text-center">Youth Center // Soul Station</footer>
     </div>
   );
 };

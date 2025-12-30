@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Download, Share2, Sparkle } from 'lucide-react';
 import { EnergyCardData, GeminiAnalysisResult } from '../types';
@@ -23,71 +24,64 @@ const EnergyCard: React.FC<EnergyCardProps> = ({ data, analysis, moodLevel }) =>
   }
 
   return (
-    <div className="flex flex-col items-center animate-soft-in w-full py-4">
+    <div className="flex flex-col items-center animate-soft-in w-full max-w-sm mx-auto">
       <div className={`
-        relative w-full max-w-sm bg-gradient-to-br ${getGradient()} 
-        p-10 rounded-[2.5rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] border-4
-        flex flex-col items-center text-center group transition-transform duration-700 hover:rotate-1
+        relative w-full bg-gradient-to-br ${getGradient()} 
+        p-6 md:p-10 rounded-[2rem] md:rounded-[2.5rem] shadow-[0_20px_50px_-15px_rgba(0,0,0,0.08)] border-2
+        flex flex-col items-center text-center transition-all duration-700
       `}>
         {/* Washi Tape */}
-        <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-28 h-8 washi-tape opacity-80 z-20"></div>
-
-        {/* Header Label */}
-        <div className="absolute top-8 left-1/2 -translate-x-1/2 w-full px-10 flex justify-between items-center opacity-30">
-          <Sparkle size={12} />
-          <div className="h-[1px] flex-1 bg-stone-400 mx-4"></div>
-          <Sparkle size={12} />
-        </div>
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-6 washi-tape opacity-80 z-20"></div>
 
         {/* AI Image with Polaroid Style */}
-        <div className="relative z-10 w-full mb-8 mt-4">
-            <div className="bg-white p-3 pb-10 shadow-xl border border-stone-100 transform rotate-[-2deg] transition-all duration-700 group-hover:rotate-0">
+        <div className="relative z-10 w-full mb-6 mt-2">
+            <div className="bg-white p-2.5 pb-8 shadow-lg border border-stone-100 transform rotate-[-1.5deg]">
                 {data.imageUrl ? (
                     <img 
                         src={data.imageUrl} 
                         alt="AI Generated Mood" 
-                        className="w-full aspect-square object-cover filter contrast-[1.05] brightness-[1.05] saturate-[0.9]" 
+                        className="w-full aspect-square object-cover filter contrast-[1.02] brightness-[1.02] saturate-[0.9]" 
                     />
                 ) : (
-                    <div className="w-full aspect-square bg-stone-50 flex items-center justify-center text-5xl">
+                    <div className="w-full aspect-square bg-stone-50 flex items-center justify-center text-4xl">
                         🎨
                     </div>
                 )}
-                <div className="mt-3 text-[10px] font-mono text-stone-300 tracking-widest text-left ml-1 italic uppercase">
-                    Captured By Soul AI // {new Date().toLocaleTimeString()}
+                <div className="mt-2 text-[8px] font-mono text-stone-300 tracking-widest text-left ml-1 italic uppercase">
+                    Captured By Soul AI // {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                 </div>
             </div>
         </div>
         
         {/* Content Section */}
-        <div className="relative z-10 w-full space-y-6">
-          <div className="space-y-1">
-            <p className="text-[10px] font-bold text-stone-300 tracking-[0.3em] uppercase">Today's Reflection</p>
-            <h1 className={`text-4xl font-bold ${getAccentColor()} serif-font tracking-tight`}>
+        <div className="relative z-10 w-full space-y-4">
+          <div className="space-y-0.5">
+            <p className="text-[8px] font-bold text-stone-300 tracking-[0.2em] uppercase">Today's Reflection</p>
+            <h1 className={`text-3xl font-bold ${getAccentColor()} serif-font tracking-tight`}>
               {data.theme}
             </h1>
           </div>
           
-          <div className="relative px-4">
-            <p className="text-stone-700 italic serif-font text-xl leading-relaxed">
-              {data.quote}
+          <div className="relative px-2">
+            <p className="text-stone-600 italic serif-font text-base leading-relaxed">
+              "{data.quote}"
             </p>
           </div>
 
-          <div className="pt-6 border-t border-dashed border-stone-200 flex flex-col items-center gap-2">
-             <span className="text-[9px] font-bold text-stone-300 tracking-widest uppercase">Lucky Charm</span>
-             <span className="px-4 py-1.5 bg-white/50 rounded-full text-stone-600 font-bold text-sm shadow-sm border border-white">
+          <div className="pt-4 border-t border-dashed border-stone-100 flex flex-col items-center gap-1.5">
+             <span className="text-[8px] font-bold text-stone-300 tracking-widest uppercase">Lucky Charm</span>
+             <span className="px-3 py-1 bg-white/60 rounded-full text-stone-600 font-bold text-xs shadow-sm border border-white">
                 ✨ {data.luckyItem}
              </span>
           </div>
         </div>
       </div>
       
-      {/* Sticky Note Feedback */}
+      {/* Sticky Note Feedback - 微調行動端間距 */}
       {analysis?.replyMessage && (
-        <div className="mt-10 max-w-[280px] w-full relative bg-[#fffdf0] p-6 shadow-xl rotate-[1.5deg] transform transition-all duration-500 hover:rotate-0 hover:scale-105 border-l-4 border-yellow-200">
-           <p className="text-stone-600 font-handwriting leading-relaxed">
-               <span className="font-bold text-stone-800 text-lg">水豚君筆記：</span><br/>
+        <div className="mt-6 max-w-[260px] w-full relative bg-[#fffef0] p-4 shadow-lg rotate-[1deg] border-l-4 border-yellow-200 animate-soft-in">
+           <p className="text-stone-600 font-handwriting leading-relaxed text-sm">
+               <span className="font-bold text-stone-800 text-base">水豚君筆記：</span><br/>
                {analysis.replyMessage}
            </p>
         </div>
