@@ -26,21 +26,11 @@ const getDeviceType = () => {
 const generateMascotConfig = (): MascotOptions => {
     const roles = ['youth', 'worker'] as const;
     const selectedRole = roles[Math.floor(Math.random() * roles.length)];
-    const hats = ['none', 'party', 'beret', 'beanie', 'crown', 'hoodie'] as const;
-    const glasses = ['none', 'round', 'sunglasses', 'reading'] as const;
-    const makeups = ['none', 'blush', 'star'] as const;
-    const colors = ['#C4A484', '#D7CCC8', '#EFEBE9', '#BCAAA4', '#A1887F'];
-    const accessories = selectedRole === 'youth' 
-        ? ['none', 'backpack', 'headphones', 'tablet'] as const
-        : ['none', 'badge', 'coffee', 'scarf', 'reading'] as const;
+    const colors = ['#C4A484', '#D7CCC8', '#EFEBE9', '#BCAAA4', '#A1887F', '#8D6E63', '#795548'];
 
     return {
         role: selectedRole,
         baseColor: colors[Math.floor(Math.random() * colors.length)],
-        hat: hats[Math.floor(Math.random() * hats.length)],
-        glasses: glasses[Math.floor(Math.random() * glasses.length)] as any,
-        accessory: accessories[Math.floor(Math.random() * accessories.length)] as any,
-        makeup: makeups[Math.floor(Math.random() * makeups.length)],
     };
 };
 
@@ -53,13 +43,12 @@ const App: React.FC = () => {
   const [isLoadingCard, setIsLoadingCard] = useState(false);
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const stationId = FIXED_STATION_ID; // 鎖定車站 ID
+  const stationId = FIXED_STATION_ID; 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [mascotConfig, setMascotConfig] = useState<MascotOptions>(generateMascotConfig());
   const [logs, setLogs] = useState<CommunityLog[]>([]);
   const [isCloudLive, setIsCloudLive] = useState(checkCloudStatus());
 
-  // 🔥 核心：雲端即時同步訂閱
   useEffect(() => {
     if (isCloudLive) {
         setIsSyncing(true);
@@ -113,13 +102,20 @@ const App: React.FC = () => {
     else if (step === AppStep.VIBE_MAP) setStep(AppStep.MOOD_WATER);
     else if (step === AppStep.WHISPER_HOLE) setStep(AppStep.VIBE_MAP);
     else if (step === AppStep.COMMUNITY || step === AppStep.REWARD) setStep(AppStep.WELCOME);
+    setMascotConfig(generateMascotConfig());
   };
 
   const handleMascotClick = () => setMascotConfig(generateMascotConfig());
-  const handleMoodSubmit = () => setStep(AppStep.VIBE_MAP);
+  const handleMoodSubmit = () => {
+      setStep(AppStep.VIBE_MAP);
+      setMascotConfig(generateMascotConfig());
+  }
   const handleZoneSubmit = (selectedZone: string) => {
     setZone(selectedZone);
-    setTimeout(() => setStep(AppStep.WHISPER_HOLE), 300); 
+    setTimeout(() => {
+        setStep(AppStep.WHISPER_HOLE);
+        setMascotConfig(generateMascotConfig());
+    }, 300); 
   };
 
   const handleWhisperComplete = async (text: string) => {
@@ -190,6 +186,7 @@ const App: React.FC = () => {
     setWhisperData({ text: '', analysis: null });
     setCardData(null);
     setIsLoadingCard(false);
+    setMascotConfig(generateMascotConfig());
   };
 
   const handleGenerateSyncLink = () => {
@@ -201,7 +198,7 @@ const App: React.FC = () => {
   };
 
   const renderMascot = () => {
-    const props = { options: mascotConfig, className: "w-16 h-16 md:w-32 md:h-32 drop-shadow-xl transition-all duration-700", onClick: handleMascotClick };
+    const props = { options: mascotConfig, className: "w-24 h-24 md:w-40 md:h-40 drop-shadow-2xl transition-all duration-700", onClick: handleMascotClick };
     if (step === AppStep.REWARD) return <Mascot expression="excited" {...props} />;
     if (step === AppStep.WELCOME) return <Mascot expression="sleepy" {...props} />;
     if (step === AppStep.MOOD_WATER || step === AppStep.WHISPER_HOLE) return <Mascot expression="listening" {...props} />;
@@ -224,7 +221,6 @@ const App: React.FC = () => {
           <div className="absolute top-[60%] right-[10%] animate-float" style={{ animationDelay: '2s' }}><Grid size={24} /></div>
       </div>
 
-      {/* 雲端即時連線燈 */}
       <div className="fixed top-4 left-4 z-[100] flex items-center gap-2 bg-white/60 backdrop-blur-xl px-3 py-1.5 rounded-full border border-white shadow-sm transition-all duration-500">
           <div className={`w-2 h-2 rounded-full ${isCloudLive ? (isSyncing ? 'bg-orange-400 animate-pulse' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]') : 'bg-stone-300'}`}></div>
           <span className="text-[10px] font-bold text-stone-500 uppercase tracking-widest flex items-center gap-1">
@@ -280,7 +276,6 @@ const App: React.FC = () => {
                   </div>
               </div>
 
-              {/* 固定車站展示區 */}
               <div className="mt-8 flex flex-col items-center gap-3">
                 <div className="relative">
                     <div className="absolute inset-0 bg-stone-800/5 blur-2xl rounded-full"></div>
@@ -295,7 +290,7 @@ const App: React.FC = () => {
 
               <div className="space-y-3 w-full mt-10 md:mt-12 pb-2">
                 <button 
-                  onClick={() => { if (!isMusicPlaying) toggleMusic(); setStep(AppStep.MOOD_WATER); }}
+                  onClick={() => { if (!isMusicPlaying) toggleMusic(); setStep(AppStep.MOOD_WATER); setMascotConfig(generateMascotConfig()); }}
                   className="w-full py-4 font-bold text-white text-lg bg-stone-800 rounded-2xl shadow-[0_4px_0_rgb(44,40,36)] active:shadow-none active:translate-y-[4px] hover:bg-stone-700 transition-all flex items-center justify-center group"
                 >
                   開始檢測 <ArrowRight className="ml-2 group-hover:translate-x-2 transition-transform" />

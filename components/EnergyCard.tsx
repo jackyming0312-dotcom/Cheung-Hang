@@ -44,11 +44,11 @@ const EnergyCard: React.FC<EnergyCardProps> = ({ data, analysis, moodLevel }) =>
                     />
                 ) : (
                     <div className="w-full aspect-square bg-stone-50 flex items-center justify-center text-4xl">
-                        🎨
+                        🧸
                     </div>
                 )}
                 <div className="mt-2 text-[8px] font-mono text-stone-300 tracking-widest text-left ml-1 italic uppercase">
-                    Captured By Soul AI // {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    Soul Hub // Cheung Hang Station // {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                 </div>
             </div>
         </div>
@@ -77,11 +77,11 @@ const EnergyCard: React.FC<EnergyCardProps> = ({ data, analysis, moodLevel }) =>
         </div>
       </div>
       
-      {/* Sticky Note Feedback - 微調行動端間距 */}
+      {/* 調整：吉祥物稱號從水豚君改為長亨大熊 */}
       {analysis?.replyMessage && (
-        <div className="mt-6 max-w-[260px] w-full relative bg-[#fffef0] p-4 shadow-lg rotate-[1deg] border-l-4 border-yellow-200 animate-soft-in">
+        <div className="mt-6 max-w-[260px] w-full relative bg-[#fffef0] p-4 shadow-lg rotate-[1deg] border-l-4 border-amber-200 animate-soft-in">
            <p className="text-stone-600 font-handwriting leading-relaxed text-sm">
-               <span className="font-bold text-stone-800 text-base">水豚君筆記：</span><br/>
+               <span className="font-bold text-stone-800 text-base">🧸 長亨大熊筆記：</span><br/>
                {analysis.replyMessage}
            </p>
         </div>

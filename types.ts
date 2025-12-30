@@ -62,8 +62,4 @@ export interface CommunityLog {
 export interface MascotOptions {
   role: 'youth' | 'worker';
   baseColor: string;
-  hat: 'none' | 'party' | 'beret' | 'beanie' | 'crown' | 'hoodie';
-  glasses: 'none' | 'round' | 'sunglasses' | 'reading';
-  accessory: 'none' | 'scarf' | 'bowtie' | 'flower' | 'badge' | 'backpack' | 'tablet' | 'headphones' | 'coffee';
-  makeup: 'none' | 'blush' | 'star';
 }
