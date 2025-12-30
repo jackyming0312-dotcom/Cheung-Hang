@@ -45,8 +45,15 @@ const App: React.FC = () => {
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [mascotConfig, setMascotConfig] = useState<MascotOptions>(generateMascotConfig());
+  
+  // 將 logs 提升至 App 管理，實現全域響應
+  const [logs, setLogs] = useState<CommunityLog[]>([]);
 
   useEffect(() => {
+    // 初始化從 localStorage 讀取
+    const saved = JSON.parse(localStorage.getItem('vibe_logs') || '[]');
+    setLogs(saved);
+
     const audio = new Audio("https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3");
     audio.loop = true;
     audio.volume = 0.3;
@@ -59,6 +66,11 @@ const App: React.FC = () => {
         }
     }
   }, []);
+
+  // 當 logs 改變時同步回 localStorage
+  useEffect(() => {
+    localStorage.setItem('vibe_logs', JSON.stringify(logs.slice(0, 50)));
+  }, [logs]);
 
   const toggleMusic = () => {
       if (!audioRef.current) return;
@@ -74,7 +86,7 @@ const App: React.FC = () => {
     if (step === AppStep.MOOD_WATER) setStep(AppStep.WELCOME);
     else if (step === AppStep.VIBE_MAP) setStep(AppStep.MOOD_WATER);
     else if (step === AppStep.WHISPER_HOLE) setStep(AppStep.VIBE_MAP);
-    else if (step === AppStep.COMMUNITY) setStep(AppStep.WELCOME);
+    else if (step === AppStep.COMMUNITY || step === AppStep.REWARD) setStep(AppStep.WELCOME);
   };
 
   const handleMascotClick = () => setMascotConfig(generateMascotConfig());
@@ -89,28 +101,20 @@ const App: React.FC = () => {
     setIsLoadingCard(true);
     setWhisperData(prev => ({ ...prev, text }));
 
-    // 1. 建立基礎紀錄，先存入 localStorage 確保紀錄不遺失
     const logId = Date.now().toString();
     const initialLog: CommunityLog = {
         id: logId,
         moodLevel: mood,
         text: text,
         timestamp: new Date().toISOString(),
-        theme: "讀取中...",
-        tags: ["心聲"]
+        theme: "分析中...",
+        tags: ["紀錄中"]
     };
 
-    const saveLog = (log: CommunityLog) => {
-        const existingLogs = JSON.parse(localStorage.getItem('vibe_logs') || '[]');
-        // 如果已存在同 ID 則更新，否則新增
-        const filtered = existingLogs.filter((l: CommunityLog) => l.id !== log.id);
-        localStorage.setItem('vibe_logs', JSON.stringify([log, ...filtered].slice(0, 50)));
-    };
-
-    saveLog(initialLog);
+    // 立即更新狀態，讓「歷史看板」能看到這筆
+    setLogs(prev => [initialLog, ...prev]);
 
     try {
-        // 2. 非同步獲取 AI 分析結果
         const [analysisResult, energyCardResult, imageResult] = await Promise.all([
             analyzeWhisper(text),
             generateEnergyCard(mood, zone),
@@ -120,23 +124,20 @@ const App: React.FC = () => {
         setWhisperData({ text, analysis: analysisResult });
         setCardData({ ...energyCardResult, imageUrl: imageResult || undefined });
 
-        // 3. 更新紀錄內容
-        const updatedLog: CommunityLog = {
-            ...initialLog,
+        // 更新狀態中的那一筆 log
+        setLogs(prev => prev.map(l => l.id === logId ? {
+            ...l,
             theme: energyCardResult.theme,
             tags: analysisResult.tags
-        };
-        saveLog(updatedLog);
+        } : l));
 
     } catch (e) {
-        console.error("System processing error", e);
-        // 如果 AI 失敗，也更新一個基本的狀態
-        const errorLog: CommunityLog = {
-            ...initialLog,
-            theme: "今日紀錄",
-            tags: ["生活", "當下"]
-        };
-        saveLog(errorLog);
+        console.error("AI Analysis Failed", e);
+        setLogs(prev => prev.map(l => l.id === logId ? {
+            ...l,
+            theme: "今日心聲",
+            tags: ["生活"]
+        } : l));
     } finally {
         setIsLoadingCard(false);
     }
@@ -161,14 +162,15 @@ const App: React.FC = () => {
   const getProgressWidth = () => {
       const steps = [AppStep.WELCOME, AppStep.MOOD_WATER, AppStep.VIBE_MAP, AppStep.WHISPER_HOLE, AppStep.REWARD];
       const index = steps.indexOf(step);
+      if (index === -1) return "0%";
       return `${(index / (steps.length - 1)) * 100}%`;
   };
 
-  const showBackButton = [AppStep.MOOD_WATER, AppStep.VIBE_MAP, AppStep.WHISPER_HOLE, AppStep.COMMUNITY].includes(step);
+  const showBackButton = [AppStep.MOOD_WATER, AppStep.VIBE_MAP, AppStep.WHISPER_HOLE, AppStep.COMMUNITY, AppStep.REWARD].includes(step);
 
   return (
     <div className="min-h-screen w-full relative overflow-hidden flex flex-col items-center justify-center p-4 md:p-8">
-      {/* Background Floating Stickers */}
+      {/* Background Decor */}
       <div className="fixed inset-0 pointer-events-none opacity-10 overflow-hidden">
           <div className="absolute top-10 left-[10%] animate-float" style={{ animationDelay: '1s' }}><Sparkles size={40} /></div>
           <div className="absolute top-[20%] right-[15%] animate-float" style={{ animationDelay: '2.5s' }}><Grid size={32} /></div>
@@ -178,10 +180,9 @@ const App: React.FC = () => {
 
       <button 
         onClick={toggleMusic}
-        className="fixed top-6 right-6 z-50 p-3.5 bg-white/40 backdrop-blur-xl rounded-full shadow-xl border border-white/60 text-stone- stone-600 hover:bg-stone-50 hover:scale-110 transition-all active:scale-95 group"
+        className="fixed top-6 right-6 z-[60] p-3.5 bg-white/40 backdrop-blur-xl rounded-full shadow-xl border border-white/60 text-stone-600 hover:bg-stone-50 hover:scale-110 transition-all active:scale-95 group"
       >
         {isMusicPlaying ? <Volume2 size={20} className="text-amber-500 animate-pulse" /> : <VolumeX size={20} />}
-        <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[7px] font-bold uppercase tracking-[0.2em] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap text-stone-400">Audio</div>
       </button>
 
       <main className="w-full max-w-2xl min-h-[720px] glass-panel rounded-[2.5rem] p-6 md:p-12 shadow-2xl flex flex-col relative transition-all duration-700 animate-soft-in overflow-hidden">
@@ -189,14 +190,14 @@ const App: React.FC = () => {
         {showBackButton && (
           <button 
             onClick={handleBack}
-            className="absolute top-8 left-8 p-2 text-stone-400 hover:text-stone-700 hover:bg-stone-50 rounded-full transition-all group flex items-center gap-1 z-50"
+            className="absolute top-8 left-8 p-2 text-stone-400 hover:text-stone-700 hover:bg-stone-50 rounded-full transition-all group flex items-center gap-1 z-[60]"
           >
             <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
             <span className="text-[9px] font-bold uppercase tracking-widest hidden sm:inline">Back</span>
           </button>
         )}
 
-        <div className="absolute top-0 left-0 right-0 h-1 bg-stone-100/20 overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 h-1 bg-stone-100/20 overflow-hidden z-[50]">
             <div className="h-full bg-gradient-to-r from-amber-200 via-amber-300 to-amber-200 transition-all duration-1000 ease-out" style={{ width: getProgressWidth() }}></div>
         </div>
 
@@ -212,7 +213,7 @@ const App: React.FC = () => {
            </div>
         </header>
 
-        <div className="w-full flex-1 flex flex-col items-center justify-start py-2">
+        <div className="w-full flex-1 flex flex-col items-center justify-start py-2 overflow-y-auto custom-scrollbar">
           {step === AppStep.WELCOME && (
             <div className="w-full flex flex-col justify-between h-full animate-soft-in max-w-md mx-auto">
               <div className="relative paper-stack mt-6">
@@ -224,7 +225,7 @@ const App: React.FC = () => {
                   </div>
               </div>
 
-              <div className="space-y-3 w-full mt-10">
+              <div className="space-y-3 w-full mt-10 pb-4">
                 <button 
                   onClick={() => { if (!isMusicPlaying) toggleMusic(); setStep(AppStep.MOOD_WATER); }}
                   className="w-full py-4.5 font-bold text-white text-lg bg-stone-800 rounded-2xl shadow-[0_6px_0_rgb(44,40,36)] active:shadow-none active:translate-y-[6px] hover:bg-stone-700 transition-all flex items-center justify-center group"
@@ -233,7 +234,7 @@ const App: React.FC = () => {
                 </button>
                 <button 
                     onClick={() => setStep(AppStep.COMMUNITY)} 
-                    className="w-full py-3.5 font-bold text-stone-400 bg-transparent border border-stone-100 rounded-2xl flex items-center justify-center gap-2 text-xs hover:bg-stone-50 hover:text-stone-600 transition-all"
+                    className="w-full py-3.5 font-bold text-stone-400 bg-white/50 border border-stone-100 rounded-2xl flex items-center justify-center gap-2 text-xs hover:bg-stone-50 hover:text-stone-600 transition-all shadow-sm"
                 >
                   <Grid size={16} /> 瀏覽歷史心聲
                 </button>
@@ -246,7 +247,7 @@ const App: React.FC = () => {
           {step === AppStep.WHISPER_HOLE && <div className="w-full animate-soft-in"><WhisperHole onComplete={handleWhisperComplete} /></div>}
           
           {step === AppStep.REWARD && (
-            <div className="w-full animate-soft-in flex flex-col items-center">
+            <div className="w-full animate-soft-in flex flex-col items-center h-full">
               {isLoadingCard ? (
                  <div className="flex flex-col items-center gap-8 py-20 text-center">
                     <div className="relative w-20 h-20">
@@ -260,18 +261,18 @@ const App: React.FC = () => {
                     </div>
                  </div>
               ) : (
-                <>
+                <div className="w-full flex flex-col items-center">
                   <EnergyCard data={cardData!} analysis={whisperData.analysis} moodLevel={mood} />
-                  <div className="w-full max-w-sm flex gap-3 mt-10 pb-2">
-                    <button onClick={() => setStep(AppStep.COMMUNITY)} className="flex-1 py-3.5 bg-stone-50 hover:bg-stone-100 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all"><Grid size={16} /> 回憶網格</button>
+                  <div className="w-full max-w-sm flex gap-3 mt-10 pb-6">
+                    <button onClick={() => setStep(AppStep.COMMUNITY)} className="flex-1 py-3.5 bg-stone-50 hover:bg-stone-100 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all border border-stone-200"><Grid size={16} /> 回憶網格</button>
                     <button onClick={handleRestart} className="flex-1 py-3.5 bg-stone-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-[0_4px_0_rgb(44,40,36)] active:translate-y-[4px] active:shadow-none transition-all"><RotateCcw size={16} /> 再試一次</button>
                   </div>
-                </>
+                </div>
               )}
             </div>
           )}
           
-          {step === AppStep.COMMUNITY && <CommunityBoard onBack={() => setStep(AppStep.WELCOME)} />}
+          {step === AppStep.COMMUNITY && <CommunityBoard logs={logs} onBack={() => setStep(AppStep.WELCOME)} />}
         </div>
       </main>
       <footer className="mt-8 text-stone-300 text-[9px] font-bold tracking-[0.5em] uppercase opacity-50">Soul Station // Daily Vibes</footer>
