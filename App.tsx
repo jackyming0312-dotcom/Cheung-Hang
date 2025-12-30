@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowRight, RotateCcw, Grid, Volume2, VolumeX, Sparkles, ChevronLeft, Globe, Wifi, CloudDownload, Link2, Activity } from 'lucide-react';
+import { ArrowRight, RotateCcw, Grid, Volume2, VolumeX, Sparkles, ChevronLeft, Globe, Wifi, CloudDownload, Link2, Activity, MapPin } from 'lucide-react';
 
 import Mascot from './components/Mascot';
 import MoodWater from './components/MoodWater';
@@ -14,6 +14,7 @@ import { syncLogToCloud, subscribeToStation, checkCloudStatus } from './services
 import { AppStep, GeminiAnalysisResult, EnergyCardData, CommunityLog, MascotOptions } from './types';
 
 const SOUL_TITLES = ["夜行的貓", "趕路的人", "夢想的園丁", "沉思的星", "微光的旅人", "溫柔的風", "尋光者", "安靜的樹", "海邊的貝殼"];
+const FIXED_STATION_ID = "CHEUNG_HANG";
 
 const getDeviceType = () => {
     const ua = navigator.userAgent;
@@ -52,7 +53,7 @@ const App: React.FC = () => {
   const [isLoadingCard, setIsLoadingCard] = useState(false);
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [stationId, setStationId] = useState<string>("MY_STATION"); // 使用者自訂車站 ID
+  const stationId = FIXED_STATION_ID; // 鎖定車站 ID
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [mascotConfig, setMascotConfig] = useState<MascotOptions>(generateMascotConfig());
   const [logs, setLogs] = useState<CommunityLog[]>([]);
@@ -64,7 +65,6 @@ const App: React.FC = () => {
         setIsSyncing(true);
         const unsubscribe = subscribeToStation(stationId, (cloudLogs) => {
             setLogs(prev => {
-                // 合併本地與雲端資料，確保唯一性
                 const combined = [...cloudLogs, ...prev];
                 const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
                 return unique.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -73,7 +73,6 @@ const App: React.FC = () => {
         });
         return () => unsubscribe();
     } else {
-        // Fallback: 如果沒有 Firebase，使用 localStorage
         const saved = localStorage.getItem(`vibe_logs_${stationId}`);
         if (saved) setLogs(JSON.parse(saved));
     }
@@ -146,7 +145,6 @@ const App: React.FC = () => {
         stationId: stationId
     };
 
-    // 先在本地顯示
     setLogs(prev => [newLog, ...prev]);
 
     try {
@@ -168,7 +166,6 @@ const App: React.FC = () => {
         setWhisperData({ text, analysis: analysisResult });
         setCardData(fullCard);
 
-        // 🔥 推送到雲端，這會讓其他設備即時看到
         if (isCloudLive) {
             await syncLogToCloud(stationId, updatedLog);
         } else {
@@ -186,7 +183,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Added handleRestart function to reset app state
   const handleRestart = () => {
     setStep(AppStep.WELCOME);
     setMood(50);
@@ -201,7 +197,7 @@ const App: React.FC = () => {
       const encoded = btoa(encodeURIComponent(JSON.stringify(dataToSync)));
       const syncUrl = `${window.location.origin}${window.location.pathname}#sync=${encoded}`;
       navigator.clipboard.writeText(syncUrl);
-      alert("🔗 車站同步連結已複製！\n請在其他設備開啟此連結，或確保 Station ID 相同。");
+      alert("🔗 Cheung Hang 車站同步連結已複製！\n您可以將此連結傳給朋友，共享同一個車站空間。");
   };
 
   const renderMascot = () => {
@@ -232,7 +228,7 @@ const App: React.FC = () => {
       <div className="fixed top-4 left-4 z-[100] flex items-center gap-2 bg-white/60 backdrop-blur-xl px-3 py-1.5 rounded-full border border-white shadow-sm transition-all duration-500">
           <div className={`w-2 h-2 rounded-full ${isCloudLive ? (isSyncing ? 'bg-orange-400 animate-pulse' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]') : 'bg-stone-300'}`}></div>
           <span className="text-[10px] font-bold text-stone-500 uppercase tracking-widest flex items-center gap-1">
-              {isCloudLive ? (isSyncing ? 'Syncing...' : 'Real-time Live') : 'Local Mode'}
+              {isCloudLive ? (isSyncing ? 'Syncing...' : 'Cheung Hang Live') : 'Local Mode'}
               {isCloudLive ? <Activity size={10} className="animate-pulse" /> : <Wifi size={10} className="opacity-30" />}
           </span>
       </div>
@@ -284,22 +280,20 @@ const App: React.FC = () => {
                   </div>
               </div>
 
-              <div className="mt-6 flex flex-col items-center gap-2">
-                <span className="text-[9px] text-stone-300 font-bold uppercase tracking-widest">目前連接車站 ID：</span>
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-stone-50 rounded-xl border border-stone-100 shadow-inner">
-                   <Globe size={14} className="text-stone-400" />
-                   <input 
-                      type="text" 
-                      value={stationId} 
-                      onChange={(e) => setStationId(e.target.value.toUpperCase().replace(/\s/g, '_'))}
-                      className="bg-transparent text-xs font-mono text-stone-600 outline-none w-32 text-center"
-                      placeholder="ENTER_ID"
-                   />
+              {/* 固定車站展示區 */}
+              <div className="mt-8 flex flex-col items-center gap-3">
+                <div className="relative">
+                    <div className="absolute inset-0 bg-stone-800/5 blur-2xl rounded-full"></div>
+                    <div className="relative px-6 py-2 bg-stone-800 text-white rounded-full flex items-center gap-2.5 shadow-xl border border-stone-700/50 transition-transform hover:scale-105 active:scale-95 cursor-default">
+                        <MapPin size={14} className="text-amber-300" />
+                        <span className="text-xs font-mono font-bold tracking-[0.2em] uppercase">Cheung Hang Station</span>
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></div>
+                    </div>
                 </div>
-                <p className="text-[8px] text-stone-300 italic">在所有設備輸入相同 ID 即可即時同步</p>
+                <p className="text-[9px] text-stone-300 font-bold tracking-[0.3em] uppercase opacity-60">Connected to local community hub</p>
               </div>
 
-              <div className="space-y-3 w-full mt-8 md:mt-12 pb-2">
+              <div className="space-y-3 w-full mt-10 md:mt-12 pb-2">
                 <button 
                   onClick={() => { if (!isMusicPlaying) toggleMusic(); setStep(AppStep.MOOD_WATER); }}
                   className="w-full py-4 font-bold text-white text-lg bg-stone-800 rounded-2xl shadow-[0_4px_0_rgb(44,40,36)] active:shadow-none active:translate-y-[4px] hover:bg-stone-700 transition-all flex items-center justify-center group"
@@ -340,7 +334,7 @@ const App: React.FC = () => {
                     </div>
                     <div className="space-y-1">
                         <p className="font-bold text-lg text-stone-700 serif-font italic">正在加密同步...</p>
-                        <p className="text-stone-400 text-[8px] tracking-[0.2em] uppercase">Syncing your soul log to cloud</p>
+                        <p className="text-stone-400 text-[8px] tracking-[0.2em] uppercase">Syncing your soul log to Cheung Hang</p>
                     </div>
                  </div>
               ) : (
@@ -367,7 +361,7 @@ const App: React.FC = () => {
           )}
         </div>
       </main>
-      <footer className="mt-4 text-stone-300 text-[8px] font-bold tracking-[0.4em] uppercase opacity-40 text-center">Cloud Real-time Hub // {stationId}</footer>
+      <footer className="mt-4 text-stone-300 text-[8px] font-bold tracking-[0.4em] uppercase opacity-40 text-center">Community Real-time Hub // Cheung Hang</footer>
     </div>
   );
 };
