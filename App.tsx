@@ -12,6 +12,8 @@ import CommunityBoard from './components/CommunityBoard';
 import { generateEnergyCard, analyzeWhisper, generateHealingImage } from './services/geminiService';
 import { AppStep, GeminiAnalysisResult, EnergyCardData, CommunityLog, MascotOptions } from './types';
 
+const SOUL_TITLES = ["夜行的貓", "趕路的人", "夢想的園丁", "沉思的星", "微光的旅人", "溫柔的風", "尋光者", "安靜的樹", "海邊的貝殼"];
+
 const generateMascotConfig = (): MascotOptions => {
     const roles = ['youth', 'worker'] as const;
     const selectedRole = roles[Math.floor(Math.random() * roles.length)];
@@ -53,9 +55,6 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('vibe_logs');
     if (saved) {
       setLogs(JSON.parse(saved));
-    } else {
-      // 移除模擬數據，初始保持空列表
-      setLogs([]);
     }
 
     const audio = new Audio("https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3");
@@ -72,7 +71,6 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // 即使 logs 為空也要同步 localStorage，以反應清除操作
     localStorage.setItem('vibe_logs', JSON.stringify(logs.slice(0, 50)));
   }, [logs]);
 
@@ -106,13 +104,17 @@ const App: React.FC = () => {
     setWhisperData({ text, analysis: null });
 
     const logId = Date.now().toString();
+    const signature = `${SOUL_TITLES[Math.floor(Math.random() * SOUL_TITLES.length)]} #${Math.floor(1000 + Math.random() * 9000)}`;
+    
     const initialLog: CommunityLog = {
         id: logId,
         moodLevel: mood,
         text: text,
         timestamp: new Date().toISOString(),
         theme: "心聲提取中...",
-        tags: ["紀錄中"]
+        tags: ["紀錄中"],
+        authorSignature: signature,
+        authorColor: mascotConfig.baseColor
     };
 
     setLogs(prev => [initialLog, ...prev]);

@@ -1,3 +1,4 @@
+
 export enum AppStep {
   WELCOME = 'WELCOME',
   MOOD_WATER = 'MOOD_WATER',
@@ -40,7 +41,7 @@ export interface EnergyCardData {
   quote: string;
   theme: string;
   luckyItem: string;
-  imageUrl?: string; // New field for the generated image
+  imageUrl?: string; 
 }
 
 export interface CommunityLog {
@@ -50,6 +51,8 @@ export interface CommunityLog {
   timestamp: string;
   theme: string;
   tags: string[];
+  authorSignature?: string; // 靈魂簽名
+  authorColor?: string;     // 代表色
 }
 
 export interface MascotOptions {

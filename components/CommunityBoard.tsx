@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { CommunityLog } from '../types';
-import { ChevronLeft, ChevronRight, Calendar, PenLine, Clock, Loader2, Trash2, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, PenLine, Clock, Loader2, Trash2, Sparkles, UserCircle } from 'lucide-react';
 
 interface CommunityBoardProps {
   logs: CommunityLog[];
@@ -132,13 +132,23 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                                     {log.text || "安靜地留下一抹心聲..."}
                                 </p>
 
-                                <div className="mt-auto pt-3 border-t border-black/5 flex flex-wrap gap-1.5">
-                                    {log.tags.map((t, idx) => (
-                                        <span key={idx} className="text-[9px] px-2 py-0.5 bg-white/40 rounded-full backdrop-blur-sm font-bold opacity-70">
-                                            #{t}
-                                        </span>
-                                    ))}
-                                    {!isAnalyzing && log.moodLevel > 80 && <Sparkles size={10} className="text-amber-500 ml-auto animate-pulse" />}
+                                <div className="mt-auto pt-3 border-t border-black/5 flex flex-col gap-2">
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {log.tags.map((t, idx) => (
+                                            <span key={idx} className="text-[9px] px-2 py-0.5 bg-white/40 rounded-full backdrop-blur-sm font-bold opacity-70">
+                                                #{t}
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-1.5">
+                                            <div className="w-3 h-3 rounded-full border border-white/50" style={{ backgroundColor: log.authorColor || '#8d7b68' }}></div>
+                                            <span className="text-[8px] font-bold text-stone-400 italic">
+                                                {log.authorSignature || "匿名旅人"}
+                                            </span>
+                                        </div>
+                                        {!isAnalyzing && log.moodLevel > 80 && <Sparkles size={10} className="text-amber-500 animate-pulse" />}
+                                    </div>
                                 </div>
                             </div>
                         );
