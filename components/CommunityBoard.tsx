@@ -1,7 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
-import { CommunityLog } from '../types';
-import { ChevronLeft, ChevronRight, Calendar, PenLine, Clock, Loader2, Trash2, Sparkles, UserCircle } from 'lucide-react';
+import { CommunityLog, EnergyCardData, GeminiAnalysisResult } from '../types';
+import { ChevronLeft, ChevronRight, Calendar, PenLine, Clock, Loader2, Trash2, Sparkles, X } from 'lucide-react';
+import EnergyCard from './EnergyCard';
 
 interface CommunityBoardProps {
   logs: CommunityLog[];
@@ -11,6 +12,7 @@ interface CommunityBoardProps {
 
 const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDay }) => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [activeCard, setActiveCard] = useState<CommunityLog | null>(null);
   
   const targetDateStr = selectedDate.toLocaleDateString();
 
@@ -51,7 +53,31 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
   const isToday = selectedDate.toLocaleDateString() === new Date().toLocaleDateString();
 
   return (
-    <div className="w-full flex flex-col items-center animate-soft-in h-full">
+    <div className="w-full flex flex-col items-center animate-soft-in h-full relative">
+        {/* 卡片詳情彈窗 */}
+        {activeCard && activeCard.fullCard && (
+            <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm animate-soft-in">
+                <div className="relative w-full max-w-sm max-h-[90vh] overflow-y-auto custom-scrollbar">
+                    <button 
+                        onClick={() => setActiveCard(null)}
+                        className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-lg z-[1001] text-stone-400 active:scale-90"
+                    >
+                        <X size={20} />
+                    </button>
+                    <div className="py-8">
+                        <EnergyCard 
+                            data={activeCard.fullCard} 
+                            moodLevel={activeCard.moodLevel}
+                            analysis={activeCard.replyMessage ? { replyMessage: activeCard.replyMessage } as GeminiAnalysisResult : null}
+                        />
+                        <p className="text-center text-white/60 text-[10px] mt-4 font-mono tracking-widest uppercase">
+                            Original Record // {new Date(activeCard.timestamp).toLocaleString()}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        )}
+
         <div className="text-center mb-4">
             <h2 className="text-2xl font-bold text-stone-800 serif-font">萬家燈火：心聲牆</h2>
             <div className="flex items-center justify-center gap-2 mt-1">
@@ -104,13 +130,13 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                         return (
                             <div 
                                 key={log.id} 
+                                onClick={() => log.fullCard && setActiveCard(log)}
                                 className={`
                                     p-5 rounded-2xl border transition-all duration-500 flex flex-col gap-3 relative overflow-hidden group
                                     ${getMoodColor(log.moodLevel, isAnalyzing)}
-                                    hover:shadow-md hover:-translate-y-0.5
+                                    ${log.fullCard ? 'cursor-pointer hover:shadow-lg hover:-translate-y-1' : 'opacity-80'}
                                 `}
                             >
-                                {/* 微光裝飾 */}
                                 <div className="absolute -top-4 -right-4 w-12 h-12 bg-white/20 blur-xl group-hover:bg-white/40 transition-all"></div>
 
                                 <div className="flex justify-between items-start">
@@ -147,9 +173,13 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                                                 {log.authorSignature || "匿名旅人"}
                                             </span>
                                         </div>
-                                        {!isAnalyzing && log.moodLevel > 80 && <Sparkles size={10} className="text-amber-500 animate-pulse" />}
+                                        {log.fullCard && <Sparkles size={10} className="text-amber-500 animate-pulse" />}
                                     </div>
                                 </div>
+                                
+                                {log.fullCard && (
+                                    <div className="absolute inset-0 bg-white/0 group-hover:bg-white/5 transition-colors pointer-events-none"></div>
+                                )}
                             </div>
                         );
                     })}

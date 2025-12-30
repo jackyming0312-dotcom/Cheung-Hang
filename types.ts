@@ -51,8 +51,11 @@ export interface CommunityLog {
   timestamp: string;
   theme: string;
   tags: string[];
-  authorSignature?: string; // 靈魂簽名
-  authorColor?: string;     // 代表色
+  authorSignature?: string; 
+  authorColor?: string;     
+  // 新增：儲存完整的能量卡內容
+  fullCard?: EnergyCardData;
+  replyMessage?: string;
 }
 
 export interface MascotOptions {

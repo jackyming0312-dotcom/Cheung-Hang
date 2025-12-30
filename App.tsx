@@ -126,13 +126,17 @@ const App: React.FC = () => {
             generateHealingImage(text, mood, zone)
         ]);
 
+        const fullCard: EnergyCardData = { ...energyCardResult, imageUrl: imageResult || undefined };
         setWhisperData({ text, analysis: analysisResult });
-        setCardData({ ...energyCardResult, imageUrl: imageResult || undefined });
+        setCardData(fullCard);
 
+        // 自動儲存完整資料
         setLogs(prev => prev.map(l => l.id === logId ? {
             ...l,
             theme: energyCardResult.theme,
-            tags: analysisResult.tags
+            tags: analysisResult.tags,
+            fullCard: fullCard,
+            replyMessage: analysisResult.replyMessage
         } : l));
 
     } catch (e) {
