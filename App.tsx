@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowRight, RotateCcw, Grid, Volume2, VolumeX, Sparkles, ChevronLeft } from 'lucide-react';
 
@@ -20,7 +21,6 @@ const generateMascotConfig = (): MascotOptions => {
     const makeups = ['none', 'blush', 'star'] as const;
     const colors = ['#C4A484', '#D7CCC8', '#EFEBE9', '#BCAAA4', '#A1887F'];
 
-    // Role-specific accessories
     const accessories = selectedRole === 'youth' 
         ? ['none', 'backpack', 'headphones', 'tablet'] as const
         : ['none', 'badge', 'coffee', 'scarf', 'reading'] as const;
@@ -89,7 +89,28 @@ const App: React.FC = () => {
     setIsLoadingCard(true);
     setWhisperData(prev => ({ ...prev, text }));
 
+    // 1. 建立基礎紀錄，先存入 localStorage 確保紀錄不遺失
+    const logId = Date.now().toString();
+    const initialLog: CommunityLog = {
+        id: logId,
+        moodLevel: mood,
+        text: text,
+        timestamp: new Date().toISOString(),
+        theme: "讀取中...",
+        tags: ["心聲"]
+    };
+
+    const saveLog = (log: CommunityLog) => {
+        const existingLogs = JSON.parse(localStorage.getItem('vibe_logs') || '[]');
+        // 如果已存在同 ID 則更新，否則新增
+        const filtered = existingLogs.filter((l: CommunityLog) => l.id !== log.id);
+        localStorage.setItem('vibe_logs', JSON.stringify([log, ...filtered].slice(0, 50)));
+    };
+
+    saveLog(initialLog);
+
     try {
+        // 2. 非同步獲取 AI 分析結果
         const [analysisResult, energyCardResult, imageResult] = await Promise.all([
             analyzeWhisper(text),
             generateEnergyCard(mood, zone),
@@ -99,20 +120,23 @@ const App: React.FC = () => {
         setWhisperData({ text, analysis: analysisResult });
         setCardData({ ...energyCardResult, imageUrl: imageResult || undefined });
 
-        const newLog: CommunityLog = {
-            id: Date.now().toString(),
-            moodLevel: mood,
-            text: text,
-            timestamp: new Date().toISOString(),
+        // 3. 更新紀錄內容
+        const updatedLog: CommunityLog = {
+            ...initialLog,
             theme: energyCardResult.theme,
             tags: analysisResult.tags
         };
-
-        const existingLogs = JSON.parse(localStorage.getItem('vibe_logs') || '[]');
-        localStorage.setItem('vibe_logs', JSON.stringify([...existingLogs, newLog].slice(-50)));
+        saveLog(updatedLog);
 
     } catch (e) {
         console.error("System processing error", e);
+        // 如果 AI 失敗，也更新一個基本的狀態
+        const errorLog: CommunityLog = {
+            ...initialLog,
+            theme: "今日紀錄",
+            tags: ["生活", "當下"]
+        };
+        saveLog(errorLog);
     } finally {
         setIsLoadingCard(false);
     }
