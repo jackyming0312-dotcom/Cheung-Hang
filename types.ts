@@ -53,7 +53,8 @@ export interface CommunityLog {
   tags: string[];
   authorSignature?: string; 
   authorColor?: string;     
-  // 新增：儲存完整的能量卡內容
+  deviceType?: string;      // 新增：設備類型 (e.g., iPad, Phone)
+  stationId?: string;       // 新增：所屬車站 ID
   fullCard?: EnergyCardData;
   replyMessage?: string;
 }

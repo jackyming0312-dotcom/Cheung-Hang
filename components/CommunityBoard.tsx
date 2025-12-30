@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { CommunityLog, EnergyCardData, GeminiAnalysisResult } from '../types';
-import { ChevronLeft, ChevronRight, Calendar, PenLine, Clock, Loader2, Trash2, Sparkles, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, PenLine, Clock, Loader2, Trash2, Sparkles, X, Smartphone, Tablet, Monitor } from 'lucide-react';
 import EnergyCard from './EnergyCard';
 
 interface CommunityBoardProps {
@@ -44,6 +44,12 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
       return 'bg-stone-50/80 border-stone-200 text-stone-700';
   };
 
+  const getDeviceIcon = (type?: string) => {
+      if (type?.includes('iPad')) return <Tablet size={10} />;
+      if (type?.includes('裝置')) return <Smartphone size={10} />;
+      return <Monitor size={10} />;
+  }
+
   const getMoodIcon = (level: number) => {
     if (level > 70) return '🌞';
     if (level > 40) return '🍵';
@@ -54,7 +60,6 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
 
   return (
     <div className="w-full flex flex-col items-center animate-soft-in h-full relative">
-        {/* 卡片詳情彈窗 */}
         {activeCard && activeCard.fullCard && (
             <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm animate-soft-in">
                 <div className="relative w-full max-w-sm max-h-[90vh] overflow-y-auto custom-scrollbar">
@@ -71,7 +76,7 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                             analysis={activeCard.replyMessage ? { replyMessage: activeCard.replyMessage } as GeminiAnalysisResult : null}
                         />
                         <p className="text-center text-white/60 text-[10px] mt-4 font-mono tracking-widest uppercase">
-                            Original Record // {new Date(activeCard.timestamp).toLocaleString()}
+                            Original Record // {activeCard.deviceType || "Soul Station"}
                         </p>
                     </div>
                 </div>
@@ -83,7 +88,7 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
             <div className="flex items-center justify-center gap-2 mt-1">
                  {collectiveMood && (
                     <div className="flex items-center gap-1.5 px-3 py-0.5 bg-white/60 rounded-full border border-stone-100 shadow-sm">
-                        <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">今日共感</span>
+                        <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">車站共感</span>
                         <span className="text-[10px] font-bold text-amber-600">{collectiveMood}</span>
                     </div>
                  )}
@@ -120,13 +125,13 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                     <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm">
                         <PenLine size={28} className="text-stone-200" />
                     </div>
-                    <p className="font-medium text-stone-400 text-sm">這一天還靜悄悄的</p>
-                    <p className="text-[10px] mt-2 text-stone-300 uppercase tracking-widest">Be the first to whisper</p>
+                    <p className="font-medium text-stone-400 text-sm">此車站目前靜悄悄的</p>
+                    <p className="text-[10px] mt-2 text-stone-300 uppercase tracking-widest">Join the station on another device</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-6 content-start px-1">
                     {displayLogs.map((log) => {
-                        const isAnalyzing = log.theme === "心聲提取中...";
+                        const isAnalyzing = log.theme.includes("同步");
                         return (
                             <div 
                                 key={log.id} 
@@ -146,11 +151,17 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                                             {log.theme}
                                         </span>
                                     </div>
-                                    <div className="flex items-center gap-1.5 opacity-40">
-                                        <Clock size={10} />
-                                        <span className="text-[10px] font-mono">
-                                            {new Date(log.timestamp).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'})}
-                                        </span>
+                                    <div className="flex flex-col items-end gap-1 opacity-40">
+                                        <div className="flex items-center gap-1">
+                                            <Clock size={10} />
+                                            <span className="text-[10px] font-mono">
+                                                {new Date(log.timestamp).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'})}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-1 text-[8px] font-bold uppercase">
+                                            {getDeviceIcon(log.deviceType)}
+                                            {log.deviceType || "Unknown"}
+                                        </div>
                                     </div>
                                 </div>
 
@@ -176,10 +187,6 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                                         {log.fullCard && <Sparkles size={10} className="text-amber-500 animate-pulse" />}
                                     </div>
                                 </div>
-                                
-                                {log.fullCard && (
-                                    <div className="absolute inset-0 bg-white/0 group-hover:bg-white/5 transition-colors pointer-events-none"></div>
-                                )}
                             </div>
                         );
                     })}

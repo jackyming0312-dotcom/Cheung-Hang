@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowRight, RotateCcw, Grid, Volume2, VolumeX, Sparkles, ChevronLeft } from 'lucide-react';
+import { ArrowRight, RotateCcw, Grid, Volume2, VolumeX, Sparkles, ChevronLeft, Globe, Wifi } from 'lucide-react';
 
 import Mascot from './components/Mascot';
 import MoodWater from './components/MoodWater';
@@ -13,6 +13,13 @@ import { generateEnergyCard, analyzeWhisper, generateHealingImage } from './serv
 import { AppStep, GeminiAnalysisResult, EnergyCardData, CommunityLog, MascotOptions } from './types';
 
 const SOUL_TITLES = ["夜行的貓", "趕路的人", "夢想的園丁", "沉思的星", "微光的旅人", "溫柔的風", "尋光者", "安靜的樹", "海邊的貝殼"];
+
+const getDeviceType = () => {
+    const ua = navigator.userAgent;
+    if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) return "iPad / 平板";
+    if (/Mobile|Android|iP(hone|od)|IEMobile|BlackBerry|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(ua)) return "行動裝置";
+    return "電腦端";
+};
 
 const generateMascotConfig = (): MascotOptions => {
     const roles = ['youth', 'worker'] as const;
@@ -43,6 +50,8 @@ const App: React.FC = () => {
   const [cardData, setCardData] = useState<EnergyCardData | null>(null);
   const [isLoadingCard, setIsLoadingCard] = useState(false);
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [stationId, setStationId] = useState<string>("GLOBAL_STATION");
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [mascotConfig, setMascotConfig] = useState<MascotOptions>(generateMascotConfig());
   const [logs, setLogs] = useState<CommunityLog[]>([]);
@@ -52,9 +61,11 @@ const App: React.FC = () => {
   }, [step]);
 
   useEffect(() => {
-    const saved = localStorage.getItem('vibe_logs');
+    const saved = localStorage.getItem(`vibe_logs_${stationId}`);
     if (saved) {
       setLogs(JSON.parse(saved));
+    } else {
+        setLogs([]);
     }
 
     const audio = new Audio("https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3");
@@ -68,11 +79,11 @@ const App: React.FC = () => {
             audioRef.current = null;
         }
     }
-  }, []);
+  }, [stationId]);
 
   useEffect(() => {
-    localStorage.setItem('vibe_logs', JSON.stringify(logs.slice(0, 50)));
-  }, [logs]);
+    localStorage.setItem(`vibe_logs_${stationId}`, JSON.stringify(logs.slice(0, 50)));
+  }, [logs, stationId]);
 
   const toggleMusic = () => {
       if (!audioRef.current) return;
@@ -101,20 +112,24 @@ const App: React.FC = () => {
   const handleWhisperComplete = async (text: string) => {
     setStep(AppStep.REWARD);
     setIsLoadingCard(true);
+    setIsSyncing(true); // 開始同步 UI
     setWhisperData({ text, analysis: null });
 
     const logId = Date.now().toString();
     const signature = `${SOUL_TITLES[Math.floor(Math.random() * SOUL_TITLES.length)]} #${Math.floor(1000 + Math.random() * 9000)}`;
-    
+    const deviceType = getDeviceType();
+
     const initialLog: CommunityLog = {
         id: logId,
         moodLevel: mood,
         text: text,
         timestamp: new Date().toISOString(),
-        theme: "心聲提取中...",
-        tags: ["紀錄中"],
+        theme: "心聲同步中...",
+        tags: ["傳輸中"],
         authorSignature: signature,
-        authorColor: mascotConfig.baseColor
+        authorColor: mascotConfig.baseColor,
+        deviceType: deviceType,
+        stationId: stationId
     };
 
     setLogs(prev => [initialLog, ...prev]);
@@ -130,7 +145,6 @@ const App: React.FC = () => {
         setWhisperData({ text, analysis: analysisResult });
         setCardData(fullCard);
 
-        // 自動儲存完整資料
         setLogs(prev => prev.map(l => l.id === logId ? {
             ...l,
             theme: energyCardResult.theme,
@@ -139,14 +153,17 @@ const App: React.FC = () => {
             replyMessage: analysisResult.replyMessage
         } : l));
 
+        setTimeout(() => setIsSyncing(false), 1000); // 模擬成功同步
+
     } catch (e) {
         console.error("AI 處理失敗", e);
+        setIsSyncing(false);
         const defaultCard = { quote: "即使緩慢，也是在向前行。", theme: "當下", luckyItem: "溫熱的茶" };
         setCardData(defaultCard);
         setLogs(prev => prev.map(l => l.id === logId ? {
             ...l,
             theme: "今日心聲",
-            tags: ["生活"]
+            tags: ["本地"]
         } : l));
     } finally {
         setIsLoadingCard(false);
@@ -189,6 +206,15 @@ const App: React.FC = () => {
       <div className="fixed inset-0 pointer-events-none opacity-10 overflow-hidden z-0">
           <div className="absolute top-[10%] left-[10%] animate-float"><Sparkles size={30} /></div>
           <div className="absolute top-[60%] right-[10%] animate-float" style={{ animationDelay: '2s' }}><Grid size={24} /></div>
+      </div>
+
+      {/* 雲端同步狀態燈 */}
+      <div className="fixed top-4 left-4 z-[100] flex items-center gap-2 bg-white/60 backdrop-blur-xl px-3 py-1.5 rounded-full border border-white shadow-sm transition-all duration-500">
+          <div className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-orange-400 animate-pulse' : 'bg-emerald-400'}`}></div>
+          <span className="text-[10px] font-bold text-stone-500 uppercase tracking-widest flex items-center gap-1">
+              {isSyncing ? 'Syncing...' : 'Soul Cloud Link'}
+              {isSyncing ? <Wifi size={10} className="animate-bounce" /> : <Globe size={10} />}
+          </span>
       </div>
 
       <button 
@@ -236,6 +262,20 @@ const App: React.FC = () => {
                       "在這個步調飛快的城市裡，<br/>給自己留下一分鐘的留白。"
                     </p>
                   </div>
+              </div>
+
+              {/* 車站代碼設定 */}
+              <div className="mt-6 flex flex-col items-center gap-2">
+                <span className="text-[9px] text-stone-300 font-bold uppercase tracking-widest">目前連接車站：</span>
+                <div className="flex items-center gap-2 px-3 py-1 bg-stone-50 rounded-lg border border-stone-100">
+                   <Globe size={12} className="text-stone-400" />
+                   <input 
+                      type="text" 
+                      value={stationId} 
+                      onChange={(e) => setStationId(e.target.value.toUpperCase())}
+                      className="bg-transparent text-[10px] font-mono text-stone-600 outline-none w-24 text-center"
+                   />
+                </div>
               </div>
 
               <div className="space-y-3 w-full mt-8 md:mt-12 pb-2">
@@ -288,7 +328,7 @@ const App: React.FC = () => {
           {step === AppStep.COMMUNITY && <CommunityBoard logs={logs} onBack={() => setStep(AppStep.WELCOME)} onClearDay={handleClearDay} />}
         </div>
       </main>
-      <footer className="mt-4 text-stone-300 text-[8px] font-bold tracking-[0.4em] uppercase opacity-40 text-center">Youth Center // Soul Station</footer>
+      <footer className="mt-4 text-stone-300 text-[8px] font-bold tracking-[0.4em] uppercase opacity-40 text-center">Youth Center // Soul Station // {stationId}</footer>
     </div>
   );
 };
