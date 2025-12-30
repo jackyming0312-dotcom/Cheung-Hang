@@ -10,7 +10,8 @@ interface EnergyCardProps {
 }
 
 const EnergyCard: React.FC<EnergyCardProps> = ({ data, analysis, moodLevel }) => {
-  
+  if (!data) return null;
+
   const getGradient = () => {
     if (moodLevel > 70) return "from-[#fffcf0] to-[#fff4e0] border-amber-100"; 
     if (moodLevel > 40) return "from-[#f8fafc] to-[#f1f5f9] border-slate-100";
@@ -58,26 +59,25 @@ const EnergyCard: React.FC<EnergyCardProps> = ({ data, analysis, moodLevel }) =>
           <div className="space-y-0.5">
             <p className="text-[8px] font-bold text-stone-300 tracking-[0.2em] uppercase">Today's Reflection</p>
             <h1 className={`text-3xl font-bold ${getAccentColor()} serif-font tracking-tight`}>
-              {data.theme}
+              {data.theme || "陪伴"}
             </h1>
           </div>
           
           <div className="relative px-2">
             <p className="text-stone-600 italic serif-font text-base leading-relaxed">
-              "{data.quote}"
+              "{data.quote || "我就在這裡陪伴著你。"}"
             </p>
           </div>
 
           <div className="pt-4 border-t border-dashed border-stone-100 flex flex-col items-center gap-1.5">
              <span className="text-[8px] font-bold text-stone-300 tracking-widest uppercase">Lucky Charm</span>
              <span className="px-3 py-1 bg-white/60 rounded-full text-stone-600 font-bold text-xs shadow-sm border border-white">
-                ✨ {data.luckyItem}
+                ✨ {data.luckyItem || "暖心的微笑"}
              </span>
           </div>
         </div>
       </div>
       
-      {/* 調整：吉祥物稱號從水豚君改為長亨大熊 */}
       {analysis?.replyMessage && (
         <div className="mt-6 max-w-[260px] w-full relative bg-[#fffef0] p-4 shadow-lg rotate-[1deg] border-l-4 border-amber-200 animate-soft-in">
            <p className="text-stone-600 font-handwriting leading-relaxed text-sm">

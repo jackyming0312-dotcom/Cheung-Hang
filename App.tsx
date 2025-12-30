@@ -16,6 +16,12 @@ import { AppStep, GeminiAnalysisResult, EnergyCardData, CommunityLog, MascotOpti
 const SOUL_TITLES = ["夜行的貓", "趕路的人", "夢想的園丁", "沉思的星", "微光的旅人", "溫柔的風", "尋光者", "安靜的樹", "海邊的貝殼"];
 const FIXED_STATION_ID = "CHEUNG_HANG";
 
+const DEFAULT_CARD: EnergyCardData = {
+  quote: "無論今天如何，長亨大熊都會在這裡陪你。",
+  theme: "陪伴",
+  luckyItem: "溫暖的抱抱"
+};
+
 const getDeviceType = () => {
     const ua = navigator.userAgent;
     if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) return "iPad / 平板";
@@ -145,9 +151,9 @@ const App: React.FC = () => {
 
     try {
         const [analysisResult, energyCardResult, imageResult] = await Promise.all([
-            analyzeWhisper(text),
-            generateEnergyCard(mood, zone),
-            generateHealingImage(text, mood, zone)
+            analyzeWhisper(text).catch(() => ({ sentiment: 'neutral' as const, tags: ['心情'], replyMessage: '收到了，謝謝你的分享。' })),
+            generateEnergyCard(mood, zone).catch(() => DEFAULT_CARD),
+            generateHealingImage(text, mood, zone).catch(() => null)
         ]);
 
         const fullCard: EnergyCardData = { ...energyCardResult, imageUrl: imageResult || undefined };
@@ -168,13 +174,11 @@ const App: React.FC = () => {
             setLogs(prev => prev.map(l => l.id === logId ? updatedLog : l));
         }
 
-        setTimeout(() => setIsSyncing(false), 800);
-
     } catch (e) {
         console.error("AI 處理失敗", e);
-        setIsSyncing(false);
-        setIsLoadingCard(false);
+        setCardData(DEFAULT_CARD); // 最終防禦：發生未知錯誤時提供預設卡片
     } finally {
+        setIsSyncing(false);
         setIsLoadingCard(false);
     }
   };
@@ -334,7 +338,7 @@ const App: React.FC = () => {
                  </div>
               ) : (
                 <div className="w-full flex flex-col items-center">
-                  <EnergyCard data={cardData!} analysis={whisperData.analysis} moodLevel={mood} />
+                  <EnergyCard data={cardData || DEFAULT_CARD} analysis={whisperData.analysis} moodLevel={mood} />
                   <div className="w-full max-w-[320px] flex gap-2 mt-6 pb-6">
                     <button onClick={() => setStep(AppStep.COMMUNITY)} className="flex-1 py-3 bg-white/50 hover:bg-white rounded-xl text-[11px] font-bold flex items-center justify-center gap-2 transition-all border border-stone-100"><Grid size={12} /> 查看即時牆面</button>
                     <button onClick={handleRestart} className="flex-1 py-3 bg-stone-800 text-white rounded-xl text-[11px] font-bold flex items-center justify-center gap-2 shadow-[0_3px_0_rgb(44,40,36)] active:translate-y-[3px] active:shadow-none transition-all"><RotateCcw size={12} /> 再試一次</button>
