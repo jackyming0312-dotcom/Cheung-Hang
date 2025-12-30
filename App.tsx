@@ -45,14 +45,18 @@ const App: React.FC = () => {
   const [mascotConfig, setMascotConfig] = useState<MascotOptions>(generateMascotConfig());
   const [logs, setLogs] = useState<CommunityLog[]>([]);
 
-  // 強制同步轉場時的捲動狀態
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' });
   }, [step]);
 
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem('vibe_logs') || '[]');
-    setLogs(saved);
+    const saved = localStorage.getItem('vibe_logs');
+    if (saved) {
+      setLogs(JSON.parse(saved));
+    } else {
+      // 移除模擬數據，初始保持空列表
+      setLogs([]);
+    }
 
     const audio = new Audio("https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3");
     audio.loop = true;
@@ -68,9 +72,8 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (logs.length > 0) {
-      localStorage.setItem('vibe_logs', JSON.stringify(logs.slice(0, 50)));
-    }
+    // 即使 logs 為空也要同步 localStorage，以反應清除操作
+    localStorage.setItem('vibe_logs', JSON.stringify(logs.slice(0, 50)));
   }, [logs]);
 
   const toggleMusic = () => {
@@ -98,7 +101,6 @@ const App: React.FC = () => {
   };
 
   const handleWhisperComplete = async (text: string) => {
-    // 立即切換到獎勵畫面並開始加載，避免行動端感覺卡頓
     setStep(AppStep.REWARD);
     setIsLoadingCard(true);
     setWhisperData({ text, analysis: null });
@@ -145,6 +147,12 @@ const App: React.FC = () => {
     }
   };
 
+  const handleClearDay = (dateStr: string) => {
+      if (window.confirm(`確定要清除 ${dateStr} 的所有紀錄嗎？`)) {
+          setLogs(prev => prev.filter(log => new Date(log.timestamp).toLocaleDateString() !== dateStr));
+      }
+  };
+
   const handleRestart = () => {
     setStep(AppStep.WELCOME);
     setMood(50);
@@ -172,7 +180,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-[100dvh] w-full relative flex flex-col items-center justify-center p-3 md:p-8">
-      {/* 飄浮裝飾 */}
       <div className="fixed inset-0 pointer-events-none opacity-10 overflow-hidden z-0">
           <div className="absolute top-[10%] left-[10%] animate-float"><Sparkles size={30} /></div>
           <div className="absolute top-[60%] right-[10%] animate-float" style={{ animationDelay: '2s' }}><Grid size={24} /></div>
@@ -236,7 +243,7 @@ const App: React.FC = () => {
                     onClick={() => setStep(AppStep.COMMUNITY)} 
                     className="w-full py-3 font-bold text-stone-400 bg-white/40 border border-stone-100 rounded-2xl flex items-center justify-center gap-2 text-xs active:bg-stone-50 transition-all"
                 >
-                  <Grid size={14} /> 瀏覽歷史心聲
+                  <Grid size={14} /> 瀏覽心聲牆
                 </button>
               </div>
             </div>
@@ -264,7 +271,7 @@ const App: React.FC = () => {
                 <div className="w-full flex flex-col items-center">
                   <EnergyCard data={cardData!} analysis={whisperData.analysis} moodLevel={mood} />
                   <div className="w-full max-w-[320px] flex gap-2 mt-6 pb-6">
-                    <button onClick={() => setStep(AppStep.COMMUNITY)} className="flex-1 py-3 bg-white/50 hover:bg-white rounded-xl text-[11px] font-bold flex items-center justify-center gap-2 transition-all border border-stone-100"><Grid size={12} /> 回憶網格</button>
+                    <button onClick={() => setStep(AppStep.COMMUNITY)} className="flex-1 py-3 bg-white/50 hover:bg-white rounded-xl text-[11px] font-bold flex items-center justify-center gap-2 transition-all border border-stone-100"><Grid size={12} /> 心聲牆</button>
                     <button onClick={handleRestart} className="flex-1 py-3 bg-stone-800 text-white rounded-xl text-[11px] font-bold flex items-center justify-center gap-2 shadow-[0_3px_0_rgb(44,40,36)] active:translate-y-[3px] active:shadow-none transition-all"><RotateCcw size={12} /> 再試一次</button>
                   </div>
                 </div>
@@ -272,7 +279,7 @@ const App: React.FC = () => {
             </div>
           )}
           
-          {step === AppStep.COMMUNITY && <CommunityBoard logs={logs} onBack={() => setStep(AppStep.WELCOME)} />}
+          {step === AppStep.COMMUNITY && <CommunityBoard logs={logs} onBack={() => setStep(AppStep.WELCOME)} onClearDay={handleClearDay} />}
         </div>
       </main>
       <footer className="mt-4 text-stone-300 text-[8px] font-bold tracking-[0.4em] uppercase opacity-40 text-center">Youth Center // Soul Station</footer>

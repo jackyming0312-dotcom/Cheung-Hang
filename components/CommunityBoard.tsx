@@ -1,23 +1,32 @@
 
 import React, { useState, useMemo } from 'react';
 import { CommunityLog } from '../types';
-import { ChevronLeft, ChevronRight, Calendar, PenLine, Clock, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, PenLine, Clock, Loader2, Trash2, Sparkles } from 'lucide-react';
 
 interface CommunityBoardProps {
   logs: CommunityLog[];
   onBack: () => void;
+  onClearDay: (dateStr: string) => void;
 }
 
-const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack }) => {
+const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDay }) => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   
-  // 過濾顯示的紀錄
+  const targetDateStr = selectedDate.toLocaleDateString();
+
   const displayLogs = useMemo(() => {
-    const targetDateStr = selectedDate.toLocaleDateString();
     return logs
       .filter(log => new Date(log.timestamp).toLocaleDateString() === targetDateStr)
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  }, [selectedDate, logs]);
+  }, [targetDateStr, logs]);
+
+  const collectiveMood = useMemo(() => {
+      if (displayLogs.length === 0) return null;
+      const avg = displayLogs.reduce((acc, log) => acc + log.moodLevel, 0) / displayLogs.length;
+      if (avg > 70) return "暖洋洋";
+      if (avg > 40) return "平靜期";
+      return "微雨中";
+  }, [displayLogs]);
 
   const changeDate = (offset: number) => {
       const newDate = new Date(selectedDate);
@@ -41,37 +50,41 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack }) => {
 
   const isToday = selectedDate.toLocaleDateString() === new Date().toLocaleDateString();
 
-  const isRecent = (timestamp: string) => {
-    const diff = Date.now() - new Date(timestamp).getTime();
-    return diff < 600000; // 10 minutes
-  };
-
   return (
     <div className="w-full flex flex-col items-center animate-soft-in h-full">
         <div className="text-center mb-4">
-            <h2 className="text-2xl font-bold text-stone-800 serif-font">心靈回憶網格</h2>
-            <p className="text-stone-500 text-sm mt-1">紀錄每一天的感動與連結</p>
+            <h2 className="text-2xl font-bold text-stone-800 serif-font">萬家燈火：心聲牆</h2>
+            <div className="flex items-center justify-center gap-2 mt-1">
+                 {collectiveMood && (
+                    <div className="flex items-center gap-1.5 px-3 py-0.5 bg-white/60 rounded-full border border-stone-100 shadow-sm">
+                        <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">今日共感</span>
+                        <span className="text-[10px] font-bold text-amber-600">{collectiveMood}</span>
+                    </div>
+                 )}
+            </div>
         </div>
 
         {/* Date Navigator */}
-        <div className="flex items-center gap-4 mb-6 bg-white/50 px-4 py-2 rounded-full border border-stone-200 shadow-sm">
-            <button 
-                onClick={() => changeDate(-1)}
-                className="p-1 hover:bg-stone-200 rounded-full transition-colors text-stone-600"
-            >
-                <ChevronLeft size={20} />
+        <div className="flex items-center gap-2 mb-6 bg-white/50 px-3 py-2 rounded-full border border-stone-200 shadow-sm">
+            <button onClick={() => changeDate(-1)} className="p-1 hover:bg-stone-200 rounded-full transition-colors text-stone-600">
+                <ChevronLeft size={18} />
             </button>
-            <div className="flex items-center gap-2 text-stone-700 font-medium w-36 justify-center">
-                <Calendar size={16} className="text-stone-400" />
-                <span className="text-xs">{selectedDate.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            <div className="flex items-center gap-2 text-stone-700 font-medium w-32 justify-center">
+                <Calendar size={14} className="text-stone-400" />
+                <span className="text-[11px]">{targetDateStr}</span>
             </div>
-            <button 
-                onClick={() => changeDate(1)}
-                disabled={isToday}
-                className={`p-1 rounded-full transition-colors ${isToday ? 'text-stone-300 cursor-not-allowed' : 'text-stone-600 hover:bg-stone-200'}`}
-            >
-                <ChevronRight size={20} />
+            <button onClick={() => changeDate(1)} disabled={isToday} className={`p-1 rounded-full transition-colors ${isToday ? 'text-stone-300 cursor-not-allowed' : 'text-stone-600 hover:bg-stone-200'}`}>
+                <ChevronRight size={18} />
             </button>
+
+            {displayLogs.length > 0 && (
+                <>
+                    <div className="h-4 w-[1px] bg-stone-200 mx-1"></div>
+                    <button onClick={() => onClearDay(targetDateStr)} className="p-1.5 text-stone-300 hover:text-rose-400 hover:bg-rose-50 rounded-full transition-all group">
+                        <Trash2 size={14} />
+                    </button>
+                </>
+            )}
         </div>
 
         {/* List Section */}
@@ -81,27 +94,24 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack }) => {
                     <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm">
                         <PenLine size={28} className="text-stone-200" />
                     </div>
-                    <p className="font-medium text-stone-400 text-sm">這一天還沒有紀錄</p>
-                    <p className="text-[10px] mt-2 text-stone-300 uppercase tracking-widest">No memories found</p>
+                    <p className="font-medium text-stone-400 text-sm">這一天還靜悄悄的</p>
+                    <p className="text-[10px] mt-2 text-stone-300 uppercase tracking-widest">Be the first to whisper</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-6 content-start">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-6 content-start px-1">
                     {displayLogs.map((log) => {
-                        const isAnalyzing = log.theme === "分析中...";
+                        const isAnalyzing = log.theme === "心聲提取中...";
                         return (
                             <div 
                                 key={log.id} 
                                 className={`
                                     p-5 rounded-2xl border transition-all duration-500 flex flex-col gap-3 relative overflow-hidden group
                                     ${getMoodColor(log.moodLevel, isAnalyzing)}
-                                    ${isRecent(log.timestamp) && !isAnalyzing ? 'ring-2 ring-amber-200 ring-offset-2' : 'hover:shadow-md'}
+                                    hover:shadow-md hover:-translate-y-0.5
                                 `}
                             >
-                                {isRecent(log.timestamp) && (
-                                    <div className="absolute top-0 right-0 bg-amber-400 text-white text-[8px] font-bold px-2 py-0.5 rounded-bl-lg flex items-center gap-1 z-10">
-                                        <Clock size={8} /> {isAnalyzing ? 'UPLOADING' : 'JUST NOW'}
-                                    </div>
-                                )}
+                                {/* 微光裝飾 */}
+                                <div className="absolute -top-4 -right-4 w-12 h-12 bg-white/20 blur-xl group-hover:bg-white/40 transition-all"></div>
 
                                 <div className="flex justify-between items-start">
                                     <div className="flex flex-col">
@@ -110,9 +120,12 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack }) => {
                                             {log.theme}
                                         </span>
                                     </div>
-                                    <span className="text-[10px] font-mono opacity-40">
-                                        {new Date(log.timestamp).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'})}
-                                    </span>
+                                    <div className="flex items-center gap-1.5 opacity-40">
+                                        <Clock size={10} />
+                                        <span className="text-[10px] font-mono">
+                                            {new Date(log.timestamp).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'})}
+                                        </span>
+                                    </div>
                                 </div>
 
                                 <p className={`text-sm font-medium leading-relaxed line-clamp-4 serif-font italic ${isAnalyzing ? 'opacity-50' : ''}`}>
@@ -125,6 +138,7 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack }) => {
                                             #{t}
                                         </span>
                                     ))}
+                                    {!isAnalyzing && log.moodLevel > 80 && <Sparkles size={10} className="text-amber-500 ml-auto animate-pulse" />}
                                 </div>
                             </div>
                         );
