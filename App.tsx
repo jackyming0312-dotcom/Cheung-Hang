@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowRight, RotateCcw, Grid, Volume2, VolumeX, Sparkles, ChevronLeft, Globe, Wifi, CloudDownload } from 'lucide-react';
+import { ArrowRight, RotateCcw, Grid, Volume2, VolumeX, Sparkles, ChevronLeft, Globe, Wifi, CloudDownload, Link2 } from 'lucide-react';
 
 import Mascot from './components/Mascot';
 import MoodWater from './components/MoodWater';
@@ -56,6 +56,28 @@ const App: React.FC = () => {
   const [mascotConfig, setMascotConfig] = useState<MascotOptions>(generateMascotConfig());
   const [logs, setLogs] = useState<CommunityLog[]>([]);
 
+  // 跨設備 Hash 同步邏輯 (Real Sync)
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && hash.startsWith('#sync=')) {
+        try {
+            const encodedData = hash.substring(6);
+            const decodedLogs = JSON.parse(decodeURIComponent(atob(encodedData)));
+            if (Array.isArray(decodedLogs)) {
+                setLogs(prev => {
+                    const combined = [...decodedLogs, ...prev];
+                    const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
+                    return unique.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+                });
+                alert("✨ 心靈同步成功！已載入來自其他設備的紀錄。");
+                window.location.hash = ''; // 清除 hash
+            }
+        } catch (e) {
+            console.error("同步連結解析失敗", e);
+        }
+    }
+  }, []);
+
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' });
   }, [step]);
@@ -84,6 +106,16 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem(`vibe_logs_${stationId}`, JSON.stringify(logs.slice(0, 100)));
   }, [logs, stationId]);
+
+  // 定期自動同步 (Simulation Pulse)
+  useEffect(() => {
+    const interval = setInterval(() => {
+        if (step === AppStep.COMMUNITY) {
+            syncOthers();
+        }
+    }, 45000); // 每 45 秒嘗試同步一次鄰居
+    return () => clearInterval(interval);
+  }, [step, stationId]);
 
   const toggleMusic = () => {
       if (!audioRef.current) return;
@@ -174,12 +206,12 @@ const App: React.FC = () => {
     if (isSyncing) return;
     setIsSyncing(true);
     try {
-        const echoes = await fetchCommunityEchoes(stationId, 3);
+        const echoes = await fetchCommunityEchoes(stationId, 2);
         const newLogs: CommunityLog[] = echoes.map((e, idx) => ({
             id: `sync-${Date.now()}-${idx}`,
             moodLevel: e.moodLevel || 50,
             text: e.text || "...",
-            timestamp: new Date(Date.now() - Math.random() * 1000000).toISOString(),
+            timestamp: new Date(Date.now() - Math.random() * 500000).toISOString(),
             theme: e.theme || "共鳴",
             tags: e.tags || ["雲端"],
             authorSignature: e.authorSignature,
@@ -187,7 +219,11 @@ const App: React.FC = () => {
             deviceType: e.deviceType,
             stationId: stationId
         }));
-        setLogs(prev => [...newLogs, ...prev]);
+        setLogs(prev => {
+            const combined = [...newLogs, ...prev];
+            const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
+            return unique.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 100);
+        });
     } catch (err) {
         console.error("同步失敗", err);
     } finally {
@@ -207,6 +243,20 @@ const App: React.FC = () => {
     setZone(null);
     setWhisperData({text: '', analysis: null});
     setCardData(null);
+  };
+
+  const handleGenerateSyncLink = () => {
+      try {
+          // 只同步最近的 5 筆紀錄以避免 URL 過長
+          const dataToSync = logs.filter(l => !l.id.startsWith('sync')).slice(0, 5);
+          const encoded = btoa(encodeURIComponent(JSON.stringify(dataToSync)));
+          const syncUrl = `${window.location.origin}${window.location.pathname}#sync=${encoded}`;
+          
+          navigator.clipboard.writeText(syncUrl);
+          alert("🔗 同步連結已複製！\n請在手機或 iPad 開啟此連結即可同步你的心聲。");
+      } catch (e) {
+          alert("連結產生失敗，請稍後再試。");
+      }
   };
 
   const renderMascot = () => {
@@ -236,7 +286,7 @@ const App: React.FC = () => {
       <div className="fixed top-4 left-4 z-[100] flex items-center gap-2 bg-white/60 backdrop-blur-xl px-3 py-1.5 rounded-full border border-white shadow-sm transition-all duration-500">
           <div className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-orange-400 animate-pulse' : 'bg-emerald-400'}`}></div>
           <span className="text-[10px] font-bold text-stone-500 uppercase tracking-widest flex items-center gap-1">
-              {isSyncing ? '正在同步跨設備心聲...' : '已連線至心靈雲端'}
+              {isSyncing ? '同步中...' : '心靈雲端已連線'}
               {isSyncing ? <CloudDownload size={10} className="animate-bounce" /> : <Globe size={10} />}
           </span>
       </div>
@@ -308,12 +358,21 @@ const App: React.FC = () => {
                 >
                   開始檢測 <ArrowRight className="ml-2 group-hover:translate-x-2 transition-transform" />
                 </button>
-                <button 
-                    onClick={() => { syncOthers(); setStep(AppStep.COMMUNITY); }} 
-                    className="w-full py-3 font-bold text-stone-400 bg-white/40 border border-stone-100 rounded-2xl flex items-center justify-center gap-2 text-xs active:bg-stone-50 transition-all"
-                >
-                  <Grid size={14} /> 瀏覽心聲牆並同步
-                </button>
+                <div className="flex gap-2">
+                    <button 
+                        onClick={() => { syncOthers(); setStep(AppStep.COMMUNITY); }} 
+                        className="flex-[2] py-3 font-bold text-stone-400 bg-white/40 border border-stone-100 rounded-2xl flex items-center justify-center gap-2 text-xs active:bg-stone-50 transition-all"
+                    >
+                        <Grid size={14} /> 瀏覽心聲牆
+                    </button>
+                    <button 
+                        onClick={handleGenerateSyncLink}
+                        className="flex-1 py-3 bg-amber-50 text-amber-600 border border-amber-100 rounded-2xl flex items-center justify-center hover:bg-amber-100 transition-all"
+                        title="產生同步連結"
+                    >
+                        <Link2 size={16} />
+                    </button>
+                </div>
               </div>
             </div>
           )}
@@ -348,7 +407,16 @@ const App: React.FC = () => {
             </div>
           )}
           
-          {step === AppStep.COMMUNITY && <CommunityBoard logs={logs} onBack={() => setStep(AppStep.WELCOME)} onClearDay={handleClearDay} onRefresh={syncOthers} isSyncing={isSyncing} />}
+          {step === AppStep.COMMUNITY && (
+            <CommunityBoard 
+                logs={logs} 
+                onBack={() => setStep(AppStep.WELCOME)} 
+                onClearDay={handleClearDay} 
+                onRefresh={syncOthers} 
+                isSyncing={isSyncing} 
+                onGenerateSyncLink={handleGenerateSyncLink}
+            />
+          )}
         </div>
       </main>
       <footer className="mt-4 text-stone-300 text-[8px] font-bold tracking-[0.4em] uppercase opacity-40 text-center">Youth Center // Soul Station // {stationId}</footer>

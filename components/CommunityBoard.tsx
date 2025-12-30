@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { CommunityLog, EnergyCardData, GeminiAnalysisResult } from '../types';
-import { ChevronLeft, ChevronRight, Calendar, PenLine, Clock, Loader2, Trash2, Sparkles, X, Smartphone, Tablet, Monitor, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, PenLine, Clock, Loader2, Trash2, Sparkles, X, Smartphone, Tablet, Monitor, RefreshCw, Link2 } from 'lucide-react';
 import EnergyCard from './EnergyCard';
 
 interface CommunityBoardProps {
@@ -10,9 +10,10 @@ interface CommunityBoardProps {
   onClearDay: (dateStr: string) => void;
   onRefresh: () => void;
   isSyncing: boolean;
+  onGenerateSyncLink: () => void;
 }
 
-const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDay, onRefresh, isSyncing }) => {
+const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDay, onRefresh, isSyncing, onGenerateSyncLink }) => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [activeCard, setActiveCard] = useState<CommunityLog | null>(null);
   
@@ -116,13 +117,21 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                 onClick={onRefresh} 
                 disabled={isSyncing}
                 className={`p-1.5 rounded-full transition-all ${isSyncing ? 'text-amber-500 animate-spin' : 'text-stone-400 hover:bg-stone-100'}`}
-                title="同步其他設備的心聲"
+                title="即時同步"
             >
                 <RefreshCw size={14} />
             </button>
 
+            <button 
+                onClick={onGenerateSyncLink}
+                className="p-1.5 text-stone-400 hover:text-amber-500 hover:bg-amber-50 rounded-full transition-all"
+                title="產生跨設備同步連結"
+            >
+                <Link2 size={14} />
+            </button>
+
             {displayLogs.length > 0 && (
-                <button onClick={() => onClearDay(targetDateStr)} className="p-1.5 text-stone-300 hover:text-rose-400 hover:bg-rose-50 rounded-full transition-all group">
+                <button onClick={() => onClearDay(targetDateStr)} className="p-1.5 text-stone-200 hover:text-rose-400 hover:bg-rose-50 rounded-full transition-all group">
                     <Trash2 size={14} />
                 </button>
             )}
@@ -136,7 +145,9 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                         <PenLine size={28} className="text-stone-200" />
                     </div>
                     <p className="font-medium text-stone-400 text-sm italic">此車站目前靜悄悄的</p>
-                    <p className="text-[10px] mt-2 text-stone-300 uppercase tracking-widest">按下上方重新整理按鈕以獲取同步</p>
+                    <p className="text-[10px] mt-2 text-stone-300 uppercase tracking-widest text-center">
+                        輸入心聲，或使用連結從其他設備同步資料
+                    </p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-6 content-start px-1">
