@@ -6,7 +6,8 @@ import { EnergyCardData, GeminiAnalysisResult, CommunityLog } from "../types";
  * 分析使用者的文字回饋
  */
 export const analyzeWhisper = async (text: string): Promise<GeminiAnalysisResult> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+  // Fix: Standardized initialization without redundant casting
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   if (!text.trim()) {
     return {
       sentiment: 'neutral',
@@ -54,7 +55,8 @@ export const analyzeWhisper = async (text: string): Promise<GeminiAnalysisResult
  * 模擬從雲端抓取其他人的心聲 (用於跨設備同步感)
  */
 export const fetchCommunityEchoes = async (stationId: string, count: number = 3): Promise<Partial<CommunityLog>[]> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+  // Fix: Standardized initialization
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -88,7 +90,8 @@ export const fetchCommunityEchoes = async (stationId: string, count: number = 3)
  * 根據使用者文字生成療癒插畫
  */
 export const generateHealingImage = async (userText: string, moodLevel: number, zone: string | null): Promise<string | null> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+    // Fix: Standardized initialization
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     try {
         const moodDesc = moodLevel > 70 ? "vibrant sunset, warm glow, sparkling dust" : moodLevel > 40 ? "peaceful afternoon, soft sunlight through leaves" : "gentle night, blue moonlight, cozy lantern";
         
@@ -144,7 +147,8 @@ export const generateHealingImage = async (userText: string, moodLevel: number, 
  * 生成「心靈能量卡」內容
  */
 export const generateEnergyCard = async (moodLevel: number, zone: string | null): Promise<EnergyCardData> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+  // Fix: Standardized initialization
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const moodDesc = moodLevel > 70 ? "充滿活力" : moodLevel > 40 ? "平靜" : "疲憊";
     const zoneContext = zone ? `喜歡的區域: ${zone}` : "";

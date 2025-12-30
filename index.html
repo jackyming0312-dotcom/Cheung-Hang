@@ -37,13 +37,12 @@
         overflow-x: hidden;
       }
       
-      /* 強化的背景一致性 */
       .bg-realistic {
         position: fixed;
         inset: 0;
         background-image: url('https://images.unsplash.com/photo-1494438639946-1ebd1d20bf85?q=80&w=2067&auto=format&fit=crop'); 
         background-size: cover;
-        background-position: center 30%; /* 確保燈的位置在所有裝置上都相對一致 */
+        background-position: center 30%;
         background-repeat: no-repeat;
         z-index: -2;
         filter: saturate(0.8) brightness(1.02);
@@ -85,10 +84,9 @@
       .glass-panel {
         background: rgba(255, 255, 255, 0.82);
         backdrop-filter: blur(15px);
-        -webkit-backdrop-filter: blur(15px); /* 重要：iOS Safari 兼容 */
+        -webkit-backdrop-filter: blur(15px);
         border: 1px solid rgba(255, 255, 255, 0.4);
-        box-shadow: 
-          0 10px 30px -10px rgba(88, 59, 36, 0.1);
+        box-shadow: 0 10px 30px -10px rgba(88, 59, 36, 0.1);
       }
       
       .paper-stack {
@@ -120,18 +118,11 @@
         border-radius: 10px;
       }
 
-      @import url('https://fonts.googleapis.com/css2?family=Zeyada&display=swap');
-      .font-handwriting {
-        font-family: 'Zeyada', cursive;
-        font-size: 1.4rem;
-      }
-
       .washi-tape {
         background: rgba(245, 222, 179, 0.5);
         mask-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 100 20" xmlns="http://www.w3.org/2000/svg"><path d="M0 0 L5 2 L10 0 L15 2 L20 0 L25 2 L30 0 L35 2 L40 0 L45 2 L50 0 L55 2 L60 0 L65 2 L70 0 L75 2 L80 0 L85 2 L90 0 L95 2 L100 0 V20 H0 Z" fill="black"/></svg>');
       }
 
-      /* 防止鍵盤彈出時內容被壓扁 */
       @media (max-height: 500px) {
         .glass-panel {
           min-height: auto !important;
@@ -148,7 +139,10 @@
     "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
     "react": "https://esm.sh/react@^19.2.3",
     "react/": "https://esm.sh/react@^19.2.3/",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "firebase/app": "https://esm.sh/firebase@^10.8.0/app",
+    "firebase/firestore": "https://esm.sh/firebase@^10.8.0/firestore",
+    "firebase/": "https://esm.sh/firebase@^12.7.0/"
   }
 }
 </script>

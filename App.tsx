@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowRight, RotateCcw, Grid, Volume2, VolumeX, Sparkles, ChevronLeft, Globe, Wifi, CloudDownload, Link2 } from 'lucide-react';
+import { ArrowRight, RotateCcw, Grid, Volume2, VolumeX, Sparkles, ChevronLeft, Globe, Wifi, CloudDownload, Link2, Activity } from 'lucide-react';
 
 import Mascot from './components/Mascot';
 import MoodWater from './components/MoodWater';
@@ -10,6 +10,7 @@ import EnergyCard from './components/EnergyCard';
 import CommunityBoard from './components/CommunityBoard';
 
 import { generateEnergyCard, analyzeWhisper, generateHealingImage, fetchCommunityEchoes } from './services/geminiService';
+import { syncLogToCloud, subscribeToStation, checkCloudStatus } from './services/firebaseService';
 import { AppStep, GeminiAnalysisResult, EnergyCardData, CommunityLog, MascotOptions } from './types';
 
 const SOUL_TITLES = ["夜行的貓", "趕路的人", "夢想的園丁", "沉思的星", "微光的旅人", "溫柔的風", "尋光者", "安靜的樹", "海邊的貝殼"];
@@ -51,45 +52,40 @@ const App: React.FC = () => {
   const [isLoadingCard, setIsLoadingCard] = useState(false);
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [stationId, setStationId] = useState<string>("GLOBAL_STATION");
+  const [stationId, setStationId] = useState<string>("MY_STATION"); // 使用者自訂車站 ID
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [mascotConfig, setMascotConfig] = useState<MascotOptions>(generateMascotConfig());
   const [logs, setLogs] = useState<CommunityLog[]>([]);
+  const [isCloudLive, setIsCloudLive] = useState(checkCloudStatus());
 
-  // 跨設備 Hash 同步邏輯 (Real Sync)
+  // 🔥 核心：雲端即時同步訂閱
   useEffect(() => {
-    const hash = window.location.hash;
-    if (hash && hash.startsWith('#sync=')) {
-        try {
-            const encodedData = hash.substring(6);
-            const decodedLogs = JSON.parse(decodeURIComponent(atob(encodedData)));
-            if (Array.isArray(decodedLogs)) {
-                setLogs(prev => {
-                    const combined = [...decodedLogs, ...prev];
-                    const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
-                    return unique.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-                });
-                alert("✨ 心靈同步成功！已載入來自其他設備的紀錄。");
-                window.location.hash = ''; // 清除 hash
-            }
-        } catch (e) {
-            console.error("同步連結解析失敗", e);
-        }
-    }
-  }, []);
-
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'auto' });
-  }, [step]);
-
-  useEffect(() => {
-    const saved = localStorage.getItem(`vibe_logs_${stationId}`);
-    if (saved) {
-      setLogs(JSON.parse(saved));
+    if (isCloudLive) {
+        setIsSyncing(true);
+        const unsubscribe = subscribeToStation(stationId, (cloudLogs) => {
+            setLogs(prev => {
+                // 合併本地與雲端資料，確保唯一性
+                const combined = [...cloudLogs, ...prev];
+                const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
+                return unique.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+            });
+            setIsSyncing(false);
+        });
+        return () => unsubscribe();
     } else {
-        setLogs([]);
+        // Fallback: 如果沒有 Firebase，使用 localStorage
+        const saved = localStorage.getItem(`vibe_logs_${stationId}`);
+        if (saved) setLogs(JSON.parse(saved));
     }
+  }, [stationId, isCloudLive]);
 
+  useEffect(() => {
+    if (!isCloudLive) {
+        localStorage.setItem(`vibe_logs_${stationId}`, JSON.stringify(logs.slice(0, 100)));
+    }
+  }, [logs, stationId, isCloudLive]);
+
+  useEffect(() => {
     const audio = new Audio("https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3");
     audio.loop = true;
     audio.volume = 0.3;
@@ -101,21 +97,7 @@ const App: React.FC = () => {
             audioRef.current = null;
         }
     }
-  }, [stationId]);
-
-  useEffect(() => {
-    localStorage.setItem(`vibe_logs_${stationId}`, JSON.stringify(logs.slice(0, 100)));
-  }, [logs, stationId]);
-
-  // 定期自動同步 (Simulation Pulse)
-  useEffect(() => {
-    const interval = setInterval(() => {
-        if (step === AppStep.COMMUNITY) {
-            syncOthers();
-        }
-    }, 45000); // 每 45 秒嘗試同步一次鄰居
-    return () => clearInterval(interval);
-  }, [step, stationId]);
+  }, []);
 
   const toggleMusic = () => {
       if (!audioRef.current) return;
@@ -151,12 +133,12 @@ const App: React.FC = () => {
     const signature = `${SOUL_TITLES[Math.floor(Math.random() * SOUL_TITLES.length)]} #${Math.floor(1000 + Math.random() * 9000)}`;
     const deviceType = getDeviceType();
 
-    const initialLog: CommunityLog = {
+    const newLog: CommunityLog = {
         id: logId,
         moodLevel: mood,
         text: text,
         timestamp: new Date().toISOString(),
-        theme: "心聲同步中...",
+        theme: "同步中...",
         tags: ["傳輸中"],
         authorSignature: signature,
         authorColor: mascotConfig.baseColor,
@@ -164,7 +146,8 @@ const App: React.FC = () => {
         stationId: stationId
     };
 
-    setLogs(prev => [initialLog, ...prev]);
+    // 先在本地顯示
+    setLogs(prev => [newLog, ...prev]);
 
     try {
         const [analysisResult, energyCardResult, imageResult] = await Promise.all([
@@ -174,89 +157,51 @@ const App: React.FC = () => {
         ]);
 
         const fullCard: EnergyCardData = { ...energyCardResult, imageUrl: imageResult || undefined };
-        setWhisperData({ text, analysis: analysisResult });
-        setCardData(fullCard);
-
-        setLogs(prev => prev.map(l => l.id === logId ? {
-            ...l,
+        const updatedLog: CommunityLog = {
+            ...newLog,
             theme: energyCardResult.theme,
             tags: analysisResult.tags,
             fullCard: fullCard,
             replyMessage: analysisResult.replyMessage
-        } : l));
+        };
 
-        setTimeout(() => setIsSyncing(false), 1200);
+        setWhisperData({ text, analysis: analysisResult });
+        setCardData(fullCard);
+
+        // 🔥 推送到雲端，這會讓其他設備即時看到
+        if (isCloudLive) {
+            await syncLogToCloud(stationId, updatedLog);
+        } else {
+            setLogs(prev => prev.map(l => l.id === logId ? updatedLog : l));
+        }
+
+        setTimeout(() => setIsSyncing(false), 800);
 
     } catch (e) {
         console.error("AI 處理失敗", e);
         setIsSyncing(false);
-        const defaultCard = { quote: "即使緩慢，也是在向前行。", theme: "當下", luckyItem: "溫熱的茶" };
-        setCardData(defaultCard);
-        setLogs(prev => prev.map(l => l.id === logId ? {
-            ...l,
-            theme: "今日心聲",
-            tags: ["本地"]
-        } : l));
+        setIsLoadingCard(false);
     } finally {
         setIsLoadingCard(false);
     }
   };
 
-  const syncOthers = async () => {
-    if (isSyncing) return;
-    setIsSyncing(true);
-    try {
-        const echoes = await fetchCommunityEchoes(stationId, 2);
-        const newLogs: CommunityLog[] = echoes.map((e, idx) => ({
-            id: `sync-${Date.now()}-${idx}`,
-            moodLevel: e.moodLevel || 50,
-            text: e.text || "...",
-            timestamp: new Date(Date.now() - Math.random() * 500000).toISOString(),
-            theme: e.theme || "共鳴",
-            tags: e.tags || ["雲端"],
-            authorSignature: e.authorSignature,
-            authorColor: e.authorColor,
-            deviceType: e.deviceType,
-            stationId: stationId
-        }));
-        setLogs(prev => {
-            const combined = [...newLogs, ...prev];
-            const unique = Array.from(new Map(combined.map(item => [item.id, item])).values());
-            return unique.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 100);
-        });
-    } catch (err) {
-        console.error("同步失敗", err);
-    } finally {
-        setTimeout(() => setIsSyncing(false), 1000);
-    }
-  };
-
-  const handleClearDay = (dateStr: string) => {
-      if (window.confirm(`確定要清除 ${dateStr} 的所有紀錄嗎？`)) {
-          setLogs(prev => prev.filter(log => new Date(log.timestamp).toLocaleDateString() !== dateStr));
-      }
-  };
-
+  // Added handleRestart function to reset app state
   const handleRestart = () => {
     setStep(AppStep.WELCOME);
     setMood(50);
     setZone(null);
-    setWhisperData({text: '', analysis: null});
+    setWhisperData({ text: '', analysis: null });
     setCardData(null);
+    setIsLoadingCard(false);
   };
 
   const handleGenerateSyncLink = () => {
-      try {
-          // 只同步最近的 5 筆紀錄以避免 URL 過長
-          const dataToSync = logs.filter(l => !l.id.startsWith('sync')).slice(0, 5);
-          const encoded = btoa(encodeURIComponent(JSON.stringify(dataToSync)));
-          const syncUrl = `${window.location.origin}${window.location.pathname}#sync=${encoded}`;
-          
-          navigator.clipboard.writeText(syncUrl);
-          alert("🔗 同步連結已複製！\n請在手機或 iPad 開啟此連結即可同步你的心聲。");
-      } catch (e) {
-          alert("連結產生失敗，請稍後再試。");
-      }
+      const dataToSync = logs.filter(l => !l.id.startsWith('sync')).slice(0, 5);
+      const encoded = btoa(encodeURIComponent(JSON.stringify(dataToSync)));
+      const syncUrl = `${window.location.origin}${window.location.pathname}#sync=${encoded}`;
+      navigator.clipboard.writeText(syncUrl);
+      alert("🔗 車站同步連結已複製！\n請在其他設備開啟此連結，或確保 Station ID 相同。");
   };
 
   const renderMascot = () => {
@@ -283,11 +228,12 @@ const App: React.FC = () => {
           <div className="absolute top-[60%] right-[10%] animate-float" style={{ animationDelay: '2s' }}><Grid size={24} /></div>
       </div>
 
+      {/* 雲端即時連線燈 */}
       <div className="fixed top-4 left-4 z-[100] flex items-center gap-2 bg-white/60 backdrop-blur-xl px-3 py-1.5 rounded-full border border-white shadow-sm transition-all duration-500">
-          <div className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-orange-400 animate-pulse' : 'bg-emerald-400'}`}></div>
+          <div className={`w-2 h-2 rounded-full ${isCloudLive ? (isSyncing ? 'bg-orange-400 animate-pulse' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]') : 'bg-stone-300'}`}></div>
           <span className="text-[10px] font-bold text-stone-500 uppercase tracking-widest flex items-center gap-1">
-              {isSyncing ? '同步中...' : '心靈雲端已連線'}
-              {isSyncing ? <CloudDownload size={10} className="animate-bounce" /> : <Globe size={10} />}
+              {isCloudLive ? (isSyncing ? 'Syncing...' : 'Real-time Live') : 'Local Mode'}
+              {isCloudLive ? <Activity size={10} className="animate-pulse" /> : <Wifi size={10} className="opacity-30" />}
           </span>
       </div>
 
@@ -339,16 +285,18 @@ const App: React.FC = () => {
               </div>
 
               <div className="mt-6 flex flex-col items-center gap-2">
-                <span className="text-[9px] text-stone-300 font-bold uppercase tracking-widest">目前連接車站：</span>
-                <div className="flex items-center gap-2 px-3 py-1 bg-stone-50 rounded-lg border border-stone-100">
-                   <Globe size={12} className="text-stone-400" />
+                <span className="text-[9px] text-stone-300 font-bold uppercase tracking-widest">目前連接車站 ID：</span>
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-stone-50 rounded-xl border border-stone-100 shadow-inner">
+                   <Globe size={14} className="text-stone-400" />
                    <input 
                       type="text" 
                       value={stationId} 
-                      onChange={(e) => setStationId(e.target.value.toUpperCase())}
-                      className="bg-transparent text-[10px] font-mono text-stone-600 outline-none w-24 text-center"
+                      onChange={(e) => setStationId(e.target.value.toUpperCase().replace(/\s/g, '_'))}
+                      className="bg-transparent text-xs font-mono text-stone-600 outline-none w-32 text-center"
+                      placeholder="ENTER_ID"
                    />
                 </div>
+                <p className="text-[8px] text-stone-300 italic">在所有設備輸入相同 ID 即可即時同步</p>
               </div>
 
               <div className="space-y-3 w-full mt-8 md:mt-12 pb-2">
@@ -360,15 +308,15 @@ const App: React.FC = () => {
                 </button>
                 <div className="flex gap-2">
                     <button 
-                        onClick={() => { syncOthers(); setStep(AppStep.COMMUNITY); }} 
+                        onClick={() => setStep(AppStep.COMMUNITY)} 
                         className="flex-[2] py-3 font-bold text-stone-400 bg-white/40 border border-stone-100 rounded-2xl flex items-center justify-center gap-2 text-xs active:bg-stone-50 transition-all"
                     >
-                        <Grid size={14} /> 瀏覽心聲牆
+                        <Grid size={14} /> 進入心聲長廊
                     </button>
                     <button 
                         onClick={handleGenerateSyncLink}
-                        className="flex-1 py-3 bg-amber-50 text-amber-600 border border-amber-100 rounded-2xl flex items-center justify-center hover:bg-amber-100 transition-all"
-                        title="產生同步連結"
+                        className="flex-1 py-3 bg-stone-100 text-stone-400 border border-stone-200 rounded-2xl flex items-center justify-center hover:bg-stone-200 transition-all"
+                        title="複製同步連結"
                     >
                         <Link2 size={16} />
                     </button>
@@ -391,15 +339,15 @@ const App: React.FC = () => {
                         <Sparkles className="absolute inset-0 m-auto text-amber-300 animate-pulse" size={18} />
                     </div>
                     <div className="space-y-1">
-                        <p className="font-bold text-lg text-stone-700 serif-font italic">心聲封印中...</p>
-                        <p className="text-stone-400 text-[8px] tracking-[0.2em] uppercase">Sealing your energy card</p>
+                        <p className="font-bold text-lg text-stone-700 serif-font italic">正在加密同步...</p>
+                        <p className="text-stone-400 text-[8px] tracking-[0.2em] uppercase">Syncing your soul log to cloud</p>
                     </div>
                  </div>
               ) : (
                 <div className="w-full flex flex-col items-center">
                   <EnergyCard data={cardData!} analysis={whisperData.analysis} moodLevel={mood} />
                   <div className="w-full max-w-[320px] flex gap-2 mt-6 pb-6">
-                    <button onClick={() => { syncOthers(); setStep(AppStep.COMMUNITY); }} className="flex-1 py-3 bg-white/50 hover:bg-white rounded-xl text-[11px] font-bold flex items-center justify-center gap-2 transition-all border border-stone-100"><Grid size={12} /> 同步心聲牆</button>
+                    <button onClick={() => setStep(AppStep.COMMUNITY)} className="flex-1 py-3 bg-white/50 hover:bg-white rounded-xl text-[11px] font-bold flex items-center justify-center gap-2 transition-all border border-stone-100"><Grid size={12} /> 查看即時牆面</button>
                     <button onClick={handleRestart} className="flex-1 py-3 bg-stone-800 text-white rounded-xl text-[11px] font-bold flex items-center justify-center gap-2 shadow-[0_3px_0_rgb(44,40,36)] active:translate-y-[3px] active:shadow-none transition-all"><RotateCcw size={12} /> 再試一次</button>
                   </div>
                 </div>
@@ -411,15 +359,15 @@ const App: React.FC = () => {
             <CommunityBoard 
                 logs={logs} 
                 onBack={() => setStep(AppStep.WELCOME)} 
-                onClearDay={handleClearDay} 
-                onRefresh={syncOthers} 
+                onClearDay={() => {}} 
+                onRefresh={() => {}} 
                 isSyncing={isSyncing} 
                 onGenerateSyncLink={handleGenerateSyncLink}
             />
           )}
         </div>
       </main>
-      <footer className="mt-4 text-stone-300 text-[8px] font-bold tracking-[0.4em] uppercase opacity-40 text-center">Youth Center // Soul Station // {stationId}</footer>
+      <footer className="mt-4 text-stone-300 text-[8px] font-bold tracking-[0.4em] uppercase opacity-40 text-center">Cloud Real-time Hub // {stationId}</footer>
     </div>
   );
 };
