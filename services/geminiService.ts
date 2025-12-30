@@ -1,5 +1,6 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
-import { EnergyCardData, GeminiAnalysisResult } from "../types";
+import { EnergyCardData, GeminiAnalysisResult, CommunityLog } from "../types";
 
 /**
  * 分析使用者的文字回饋
@@ -50,7 +51,41 @@ export const analyzeWhisper = async (text: string): Promise<GeminiAnalysisResult
 };
 
 /**
- * 根據使用者文字生成療癒插畫，加入具備互動感的青年與社工元素
+ * 模擬從雲端抓取其他人的心聲 (用於跨設備同步感)
+ */
+export const fetchCommunityEchoes = async (stationId: string, count: number = 3): Promise<Partial<CommunityLog>[]> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `模擬 ${count} 則來自車站 "${stationId}" 的路人心聲紀錄。這是一個療癒 App。請回傳 JSON 陣列，包含: text(30字內), moodLevel(0-100), theme(二字), tags(2個), deviceType(iPad/行動裝置/電腦端), authorSignature(稱號#四位數), authorColor(Hex色碼)。`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              text: { type: Type.STRING },
+              moodLevel: { type: Type.NUMBER },
+              theme: { type: Type.STRING },
+              tags: { type: Type.ARRAY, items: { type: Type.STRING } },
+              deviceType: { type: Type.STRING },
+              authorSignature: { type: Type.STRING },
+              authorColor: { type: Type.STRING }
+            }
+          }
+        }
+      }
+    });
+    return JSON.parse(response.text || '[]');
+  } catch (e) {
+    return [];
+  }
+}
+
+/**
+ * 根據使用者文字生成療癒插畫
  */
 export const generateHealingImage = async (userText: string, moodLevel: number, zone: string | null): Promise<string | null> => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });

@@ -1,16 +1,18 @@
 
 import React, { useState, useMemo } from 'react';
 import { CommunityLog, EnergyCardData, GeminiAnalysisResult } from '../types';
-import { ChevronLeft, ChevronRight, Calendar, PenLine, Clock, Loader2, Trash2, Sparkles, X, Smartphone, Tablet, Monitor } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, PenLine, Clock, Loader2, Trash2, Sparkles, X, Smartphone, Tablet, Monitor, RefreshCw } from 'lucide-react';
 import EnergyCard from './EnergyCard';
 
 interface CommunityBoardProps {
   logs: CommunityLog[];
   onBack: () => void;
   onClearDay: (dateStr: string) => void;
+  onRefresh: () => void;
+  isSyncing: boolean;
 }
 
-const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDay }) => {
+const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDay, onRefresh, isSyncing }) => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [activeCard, setActiveCard] = useState<CommunityLog | null>(null);
   
@@ -88,14 +90,14 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
             <div className="flex items-center justify-center gap-2 mt-1">
                  {collectiveMood && (
                     <div className="flex items-center gap-1.5 px-3 py-0.5 bg-white/60 rounded-full border border-stone-100 shadow-sm">
-                        <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">車站共感</span>
+                        <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">目前共感</span>
                         <span className="text-[10px] font-bold text-amber-600">{collectiveMood}</span>
                     </div>
                  )}
             </div>
         </div>
 
-        {/* Date Navigator */}
+        {/* Date Navigator & Refresh */}
         <div className="flex items-center gap-2 mb-6 bg-white/50 px-3 py-2 rounded-full border border-stone-200 shadow-sm">
             <button onClick={() => changeDate(-1)} className="p-1 hover:bg-stone-200 rounded-full transition-colors text-stone-600">
                 <ChevronLeft size={18} />
@@ -108,13 +110,21 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                 <ChevronRight size={18} />
             </button>
 
+            <div className="h-4 w-[1px] bg-stone-200 mx-1"></div>
+            
+            <button 
+                onClick={onRefresh} 
+                disabled={isSyncing}
+                className={`p-1.5 rounded-full transition-all ${isSyncing ? 'text-amber-500 animate-spin' : 'text-stone-400 hover:bg-stone-100'}`}
+                title="同步其他設備的心聲"
+            >
+                <RefreshCw size={14} />
+            </button>
+
             {displayLogs.length > 0 && (
-                <>
-                    <div className="h-4 w-[1px] bg-stone-200 mx-1"></div>
-                    <button onClick={() => onClearDay(targetDateStr)} className="p-1.5 text-stone-300 hover:text-rose-400 hover:bg-rose-50 rounded-full transition-all group">
-                        <Trash2 size={14} />
-                    </button>
-                </>
+                <button onClick={() => onClearDay(targetDateStr)} className="p-1.5 text-stone-300 hover:text-rose-400 hover:bg-rose-50 rounded-full transition-all group">
+                    <Trash2 size={14} />
+                </button>
             )}
         </div>
 
@@ -125,8 +135,8 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                     <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm">
                         <PenLine size={28} className="text-stone-200" />
                     </div>
-                    <p className="font-medium text-stone-400 text-sm">此車站目前靜悄悄的</p>
-                    <p className="text-[10px] mt-2 text-stone-300 uppercase tracking-widest">Join the station on another device</p>
+                    <p className="font-medium text-stone-400 text-sm italic">此車站目前靜悄悄的</p>
+                    <p className="text-[10px] mt-2 text-stone-300 uppercase tracking-widest">按下上方重新整理按鈕以獲取同步</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-6 content-start px-1">
@@ -137,9 +147,9 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                                 key={log.id} 
                                 onClick={() => log.fullCard && setActiveCard(log)}
                                 className={`
-                                    p-5 rounded-2xl border transition-all duration-500 flex flex-col gap-3 relative overflow-hidden group
+                                    p-5 rounded-2xl border transition-all duration-500 flex flex-col gap-3 relative overflow-hidden group animate-soft-in
                                     ${getMoodColor(log.moodLevel, isAnalyzing)}
-                                    ${log.fullCard ? 'cursor-pointer hover:shadow-lg hover:-translate-y-1' : 'opacity-80'}
+                                    ${log.fullCard ? 'cursor-pointer hover:shadow-lg hover:-translate-y-1' : 'opacity-90'}
                                 `}
                             >
                                 <div className="absolute -top-4 -right-4 w-12 h-12 bg-white/20 blur-xl group-hover:bg-white/40 transition-all"></div>
@@ -160,7 +170,7 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                                         </div>
                                         <div className="flex items-center gap-1 text-[8px] font-bold uppercase">
                                             {getDeviceIcon(log.deviceType)}
-                                            {log.deviceType || "Unknown"}
+                                            {log.deviceType || "Soul Link"}
                                         </div>
                                     </div>
                                 </div>
@@ -179,7 +189,7 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                                     </div>
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-1.5">
-                                            <div className="w-3 h-3 rounded-full border border-white/50" style={{ backgroundColor: log.authorColor || '#8d7b68' }}></div>
+                                            <div className="w-3 h-3 rounded-full border border-white/50 shadow-sm" style={{ backgroundColor: log.authorColor || '#8d7b68' }}></div>
                                             <span className="text-[8px] font-bold text-stone-400 italic">
                                                 {log.authorSignature || "匿名旅人"}
                                             </span>

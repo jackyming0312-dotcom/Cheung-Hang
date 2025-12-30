@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowRight, RotateCcw, Grid, Volume2, VolumeX, Sparkles, ChevronLeft, Globe, Wifi } from 'lucide-react';
+import { ArrowRight, RotateCcw, Grid, Volume2, VolumeX, Sparkles, ChevronLeft, Globe, Wifi, CloudDownload } from 'lucide-react';
 
 import Mascot from './components/Mascot';
 import MoodWater from './components/MoodWater';
@@ -9,7 +9,7 @@ import WhisperHole from './components/WhisperHole';
 import EnergyCard from './components/EnergyCard';
 import CommunityBoard from './components/CommunityBoard';
 
-import { generateEnergyCard, analyzeWhisper, generateHealingImage } from './services/geminiService';
+import { generateEnergyCard, analyzeWhisper, generateHealingImage, fetchCommunityEchoes } from './services/geminiService';
 import { AppStep, GeminiAnalysisResult, EnergyCardData, CommunityLog, MascotOptions } from './types';
 
 const SOUL_TITLES = ["夜行的貓", "趕路的人", "夢想的園丁", "沉思的星", "微光的旅人", "溫柔的風", "尋光者", "安靜的樹", "海邊的貝殼"];
@@ -82,7 +82,7 @@ const App: React.FC = () => {
   }, [stationId]);
 
   useEffect(() => {
-    localStorage.setItem(`vibe_logs_${stationId}`, JSON.stringify(logs.slice(0, 50)));
+    localStorage.setItem(`vibe_logs_${stationId}`, JSON.stringify(logs.slice(0, 100)));
   }, [logs, stationId]);
 
   const toggleMusic = () => {
@@ -112,7 +112,7 @@ const App: React.FC = () => {
   const handleWhisperComplete = async (text: string) => {
     setStep(AppStep.REWARD);
     setIsLoadingCard(true);
-    setIsSyncing(true); // 開始同步 UI
+    setIsSyncing(true); 
     setWhisperData({ text, analysis: null });
 
     const logId = Date.now().toString();
@@ -153,7 +153,7 @@ const App: React.FC = () => {
             replyMessage: analysisResult.replyMessage
         } : l));
 
-        setTimeout(() => setIsSyncing(false), 1000); // 模擬成功同步
+        setTimeout(() => setIsSyncing(false), 1200);
 
     } catch (e) {
         console.error("AI 處理失敗", e);
@@ -167,6 +167,31 @@ const App: React.FC = () => {
         } : l));
     } finally {
         setIsLoadingCard(false);
+    }
+  };
+
+  const syncOthers = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    try {
+        const echoes = await fetchCommunityEchoes(stationId, 3);
+        const newLogs: CommunityLog[] = echoes.map((e, idx) => ({
+            id: `sync-${Date.now()}-${idx}`,
+            moodLevel: e.moodLevel || 50,
+            text: e.text || "...",
+            timestamp: new Date(Date.now() - Math.random() * 1000000).toISOString(),
+            theme: e.theme || "共鳴",
+            tags: e.tags || ["雲端"],
+            authorSignature: e.authorSignature,
+            authorColor: e.authorColor,
+            deviceType: e.deviceType,
+            stationId: stationId
+        }));
+        setLogs(prev => [...newLogs, ...prev]);
+    } catch (err) {
+        console.error("同步失敗", err);
+    } finally {
+        setTimeout(() => setIsSyncing(false), 1000);
     }
   };
 
@@ -208,12 +233,11 @@ const App: React.FC = () => {
           <div className="absolute top-[60%] right-[10%] animate-float" style={{ animationDelay: '2s' }}><Grid size={24} /></div>
       </div>
 
-      {/* 雲端同步狀態燈 */}
       <div className="fixed top-4 left-4 z-[100] flex items-center gap-2 bg-white/60 backdrop-blur-xl px-3 py-1.5 rounded-full border border-white shadow-sm transition-all duration-500">
           <div className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-orange-400 animate-pulse' : 'bg-emerald-400'}`}></div>
           <span className="text-[10px] font-bold text-stone-500 uppercase tracking-widest flex items-center gap-1">
-              {isSyncing ? 'Syncing...' : 'Soul Cloud Link'}
-              {isSyncing ? <Wifi size={10} className="animate-bounce" /> : <Globe size={10} />}
+              {isSyncing ? '正在同步跨設備心聲...' : '已連線至心靈雲端'}
+              {isSyncing ? <CloudDownload size={10} className="animate-bounce" /> : <Globe size={10} />}
           </span>
       </div>
 
@@ -264,7 +288,6 @@ const App: React.FC = () => {
                   </div>
               </div>
 
-              {/* 車站代碼設定 */}
               <div className="mt-6 flex flex-col items-center gap-2">
                 <span className="text-[9px] text-stone-300 font-bold uppercase tracking-widest">目前連接車站：</span>
                 <div className="flex items-center gap-2 px-3 py-1 bg-stone-50 rounded-lg border border-stone-100">
@@ -286,10 +309,10 @@ const App: React.FC = () => {
                   開始檢測 <ArrowRight className="ml-2 group-hover:translate-x-2 transition-transform" />
                 </button>
                 <button 
-                    onClick={() => setStep(AppStep.COMMUNITY)} 
+                    onClick={() => { syncOthers(); setStep(AppStep.COMMUNITY); }} 
                     className="w-full py-3 font-bold text-stone-400 bg-white/40 border border-stone-100 rounded-2xl flex items-center justify-center gap-2 text-xs active:bg-stone-50 transition-all"
                 >
-                  <Grid size={14} /> 瀏覽心聲牆
+                  <Grid size={14} /> 瀏覽心聲牆並同步
                 </button>
               </div>
             </div>
@@ -317,7 +340,7 @@ const App: React.FC = () => {
                 <div className="w-full flex flex-col items-center">
                   <EnergyCard data={cardData!} analysis={whisperData.analysis} moodLevel={mood} />
                   <div className="w-full max-w-[320px] flex gap-2 mt-6 pb-6">
-                    <button onClick={() => setStep(AppStep.COMMUNITY)} className="flex-1 py-3 bg-white/50 hover:bg-white rounded-xl text-[11px] font-bold flex items-center justify-center gap-2 transition-all border border-stone-100"><Grid size={12} /> 心聲牆</button>
+                    <button onClick={() => { syncOthers(); setStep(AppStep.COMMUNITY); }} className="flex-1 py-3 bg-white/50 hover:bg-white rounded-xl text-[11px] font-bold flex items-center justify-center gap-2 transition-all border border-stone-100"><Grid size={12} /> 同步心聲牆</button>
                     <button onClick={handleRestart} className="flex-1 py-3 bg-stone-800 text-white rounded-xl text-[11px] font-bold flex items-center justify-center gap-2 shadow-[0_3px_0_rgb(44,40,36)] active:translate-y-[3px] active:shadow-none transition-all"><RotateCcw size={12} /> 再試一次</button>
                   </div>
                 </div>
@@ -325,7 +348,7 @@ const App: React.FC = () => {
             </div>
           )}
           
-          {step === AppStep.COMMUNITY && <CommunityBoard logs={logs} onBack={() => setStep(AppStep.WELCOME)} onClearDay={handleClearDay} />}
+          {step === AppStep.COMMUNITY && <CommunityBoard logs={logs} onBack={() => setStep(AppStep.WELCOME)} onClearDay={handleClearDay} onRefresh={syncOthers} isSyncing={isSyncing} />}
         </div>
       </main>
       <footer className="mt-4 text-stone-300 text-[8px] font-bold tracking-[0.4em] uppercase opacity-40 text-center">Youth Center // Soul Station // {stationId}</footer>
