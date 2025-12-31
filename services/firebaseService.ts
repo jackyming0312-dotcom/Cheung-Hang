@@ -43,6 +43,12 @@ if (isFirebaseConfigured) {
   }
 }
 
+// 預先取得 Doc Reference，用於更穩定的同步
+export const getNewLogRef = (stationId: string) => {
+    if (!db) return null;
+    return doc(collection(db, "stations", stationId, "logs"));
+};
+
 const preparePayload = (log: Partial<CommunityLog>) => {
     const p: any = {
         moodLevel: Number(log.moodLevel || 50),
@@ -67,17 +73,17 @@ const preparePayload = (log: Partial<CommunityLog>) => {
     return p;
 };
 
-export const syncLogToCloud = async (stationId: string, log: CommunityLog): Promise<string | null> => {
-  if (!db) return null;
-  try {
-    const colRef = collection(db, "stations", stationId, "logs");
-    const newDocRef = doc(colRef); 
-    const docId = newDocRef.id;
-    await setDoc(newDocRef, { ...preparePayload(log), serverTime: serverTimestamp() });
-    return docId;
-  } catch (e) {
-    return null;
-  }
+export const syncLogWithRef = async (docRef: any, log: CommunityLog) => {
+    if (!db || !docRef) return null;
+    try {
+        await setDoc(docRef, { 
+            ...preparePayload(log), 
+            serverTime: serverTimestamp() 
+        });
+        return docRef.id;
+    } catch (e) {
+        return null;
+    }
 };
 
 export const updateLogOnCloud = async (stationId: string, docId: string, updates: Partial<CommunityLog>) => {
@@ -85,6 +91,7 @@ export const updateLogOnCloud = async (stationId: string, docId: string, updates
     try {
         const docRef = doc(db, "stations", stationId, "logs", docId);
         const payload = preparePayload(updates);
+        // 清理空值
         Object.keys(payload).forEach(key => (payload[key] === "" || payload[key] === null) && delete payload[key]);
         await updateDoc(docRef, payload);
     } catch (e) { }
@@ -95,9 +102,7 @@ export const deleteLog = async (stationId: string, docId: string) => {
     try {
         const docRef = doc(db, "stations", stationId, "logs", docId);
         await deleteDoc(docRef);
-    } catch (e) {
-        console.error("Delete Log Error:", e);
-    }
+    } catch (e) { }
 };
 
 export const deleteLogsAfterDate = async (stationId: string, afterIsoStr: string) => {
@@ -109,31 +114,16 @@ export const deleteLogsAfterDate = async (stationId: string, afterIsoStr: string
         const deletePromises = snapshot.docs.map(d => deleteDoc(doc(db, "stations", stationId, "logs", d.id)));
         await Promise.all(deletePromises);
         return snapshot.size;
-    } catch (e) {
-        console.error("Delete Logs Error:", e);
-        return 0;
-    }
-};
-
-export const deleteLogsBefore = async (stationId: string, beforeIsoStr: string) => {
-    if (!db) return 0;
-    try {
-        const colRef = collection(db, "stations", stationId, "logs");
-        const q = query(colRef, where("createdAt", "<", beforeIsoStr));
-        const snapshot = await getDocs(q);
-        const deletePromises = snapshot.docs.map(d => deleteDoc(doc(db, "stations", stationId, "logs", d.id)));
-        await Promise.all(deletePromises);
-        return snapshot.size;
-    } catch (e) {
-        return 0;
-    }
+    } catch (e) { return 0; }
 };
 
 export const subscribeToStation = (stationId: string, callback: (logs: CommunityLog[]) => void) => {
   if (!db) return () => {};
   const colRef = collection(db, "stations", stationId, "logs");
   const q = query(colRef, orderBy("createdAt", "desc"), limit(60));
-  return onSnapshot(q, (snapshot) => {
+  
+  // 啟用 includeMetadataChanges: true 讓本地寫入立即觸發 UI 更新
+  return onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
     const logs = snapshot.docs.map(doc => {
         const data = doc.data();
         return { ...data, id: doc.id, timestamp: data.createdAt, 

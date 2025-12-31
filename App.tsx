@@ -10,7 +10,7 @@ import EnergyCard from './components/EnergyCard';
 import CommunityBoard from './components/CommunityBoard';
 
 import { generateFullSoulContent } from './services/geminiService';
-import { syncLogToCloud, updateLogOnCloud, subscribeToStation, checkCloudStatus, deleteLogsAfterDate, deleteLog } from './services/firebaseService';
+import { getNewLogRef, syncLogWithRef, updateLogOnCloud, subscribeToStation, checkCloudStatus, deleteLogsAfterDate, deleteLog } from './services/firebaseService';
 import { AppStep, GeminiAnalysisResult, EnergyCardData, CommunityLog, MascotOptions } from './types';
 
 const SOUL_TITLES = ["夜行的貓", "趕路的人", "夢想的園丁", "沉思的星", "微光的旅人", "溫柔的風", "尋光者", "安靜的樹", "海邊的貝殼"];
@@ -26,7 +26,8 @@ const DEFAULT_CARD: EnergyCardData = {
 
 const getDeviceType = () => {
     const ua = navigator.userAgent;
-    if (/Mobile|Android|iP(hone|od)|IEMobile|BlackBerry|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(ua)) return "手機";
+    if (/iPad|iPhone|iPod/.test(ua)) return "iPad/iPhone";
+    if (/Android/.test(ua)) return "Android手機";
     return "電腦";
 };
 
@@ -67,38 +68,43 @@ const App: React.FC = () => {
     setIsLoadingContent(true);
     setIsSyncing(true);
 
-    const syncTimeout = setTimeout(() => setIsSyncing(false), 5000);
     const signature = `${SOUL_TITLES[Math.floor(Math.random() * SOUL_TITLES.length)]} #${Math.floor(1000 + Math.random() * 9000)}`;
     const now = new Date().toISOString();
+    const device = getDeviceType();
+
+    // 1. 先獲取雲端 Doc 參考，確保同步穩定
+    const logRef = getNewLogRef(FIXED_STATION_ID);
+    const docId = logRef ? logRef.id : `local-${Date.now()}`;
 
     const initialLog: CommunityLog = {
-        id: `local-${Date.now()}`,
+        id: docId,
         moodLevel: mood, text: text, timestamp: now,
-        theme: "分析中...", tags: ["正在感應"],
+        theme: "正在感應...", tags: ["#同步中"],
         authorSignature: signature, authorColor: mascotConfig.baseColor,
-        deviceType: getDeviceType(), stationId: FIXED_STATION_ID
+        deviceType: device, stationId: FIXED_STATION_ID
     };
 
-    const cloudSyncPromise = isCloudLive ? syncLogToCloud(FIXED_STATION_ID, initialLog) : Promise.resolve(null);
+    // 2. 立即推送到雲端（同時會觸發本地 UI 快照更新）
+    const cloudSync = logRef ? syncLogWithRef(logRef, initialLog) : Promise.resolve(null);
     
     try {
+        // 3. 同時進行 AI 生成
         const fullContent = await generateFullSoulContent(text, mood, zone);
         setWhisperData({ text, analysis: fullContent.analysis });
         setCardData(fullContent.card); 
         setIsLoadingContent(false);
 
-        cloudSyncPromise.then(async (docId) => {
-            if (docId) {
-                await updateLogOnCloud(FIXED_STATION_ID, docId, {
-                    theme: fullContent.card.theme,
-                    tags: fullContent.analysis.tags,
-                    fullCard: fullContent.card,
-                    replyMessage: fullContent.analysis.replyMessage
-                });
-            }
-            clearTimeout(syncTimeout);
-            setIsSyncing(false);
-        });
+        // 4. AI 完成後，更新雲端數據
+        await cloudSync;
+        if (logRef) {
+            await updateLogOnCloud(FIXED_STATION_ID, docId, {
+                theme: fullContent.card.theme,
+                tags: fullContent.analysis.tags,
+                fullCard: fullContent.card,
+                replyMessage: fullContent.analysis.replyMessage
+            });
+        }
+        setIsSyncing(false);
     } catch (e) {
         setCardData(DEFAULT_CARD);
         setIsLoadingContent(false);
@@ -112,11 +118,11 @@ const App: React.FC = () => {
     startOfToday.setHours(0, 0, 0, 0);
     const isoStr = startOfToday.toISOString();
 
-    if (window.confirm("確定要永久清除今天的所有心聲紀錄嗎？這項操作無法復原。")) {
+    if (window.confirm("確定要永久清除今天的所有心聲紀錄嗎？")) {
         setIsSyncing(true);
         const count = await deleteLogsAfterDate(FIXED_STATION_ID, isoStr);
         setIsSyncing(false);
-        alert(`今日紀錄已歸零，共移除 ${count} 筆。`);
+        alert(`今日紀錄已歸零。`);
     }
   };
 
@@ -150,7 +156,7 @@ const App: React.FC = () => {
                   <CloudOff size={14} className="text-rose-400" />
               )}
               <span className="text-[10px] font-bold text-stone-600 uppercase tracking-widest">
-                  {isSyncing ? '靈魂同步中' : '連線穩定'}
+                  {isSyncing ? '同步中' : '連線穩定'}
               </span>
           </div>
 
