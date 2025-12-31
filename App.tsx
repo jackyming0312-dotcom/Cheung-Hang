@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowRight, RotateCcw, Grid, Volume2, VolumeX, Sparkles, ChevronLeft, Activity, MapPin, Wifi, Cloud, CloudOff } from 'lucide-react';
+import { ArrowRight, RotateCcw, Grid, Volume2, VolumeX, Sparkles, ChevronLeft, Activity, MapPin, Wifi, Cloud, CloudOff, AlertCircle } from 'lucide-react';
 
 import Mascot from './components/Mascot';
 import MoodWater from './components/MoodWater';
@@ -15,13 +15,6 @@ import { AppStep, GeminiAnalysisResult, EnergyCardData, CommunityLog, MascotOpti
 
 const SOUL_TITLES = ["夜行的貓", "趕路的人", "夢想的園丁", "沉思的星", "微光的旅人", "溫柔的風", "尋光者", "安靜的樹", "海邊的貝殼"];
 const FIXED_STATION_ID = "CHEUNG_HANG"; 
-
-const DEFAULT_CARD: EnergyCardData = {
-  quote: "無論今天如何，長亨大熊都會在這裡陪你。",
-  theme: "陪伴",
-  luckyItem: "溫暖的抱抱",
-  category: "生活態度"
-};
 
 const getDeviceType = () => {
     const ua = navigator.userAgent;
@@ -47,22 +40,20 @@ const App: React.FC = () => {
   const [isLoadingCard, setIsLoadingCard] = useState(false);
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncError, setSyncError] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [mascotConfig, setMascotConfig] = useState<MascotOptions>(generateMascotConfig());
   const [logs, setLogs] = useState<CommunityLog[]>([]);
   const isCloudLive = checkCloudStatus();
 
-  // 訂閱雲端數據
+  // 即時監聽雲端資料
   useEffect(() => {
     if (isCloudLive) {
-        console.log("🔗 [App] 正在連接長亨雲端...");
         const unsubscribe = subscribeToStation(FIXED_STATION_ID, (cloudLogs) => {
+            console.log("📥 [App] 已接收最新雲端資料", cloudLogs.length);
             setLogs(cloudLogs);
         });
         return () => unsubscribe();
-    } else {
-        const saved = localStorage.getItem(`vibe_logs_${FIXED_STATION_ID}`);
-        if (saved) setLogs(JSON.parse(saved));
     }
   }, [isCloudLive]);
 
@@ -78,59 +69,51 @@ const App: React.FC = () => {
     setStep(AppStep.REWARD);
     setIsLoadingCard(true);
     setIsSyncing(true);
+    setSyncError(false);
 
-    const tempId = `temp-${Date.now()}`;
     const signature = `${SOUL_TITLES[Math.floor(Math.random() * SOUL_TITLES.length)]} #${Math.floor(1000 + Math.random() * 9000)}`;
     
-    // 1. 建立初始 Log
-    const initialLog: CommunityLog = {
-        id: tempId, moodLevel: mood, text: text,
-        timestamp: new Date().toISOString(),
-        theme: "正在傳送...", tags: ["同步中"],
-        authorSignature: signature, authorColor: mascotConfig.baseColor,
-        deviceType: getDeviceType(), stationId: FIXED_STATION_ID
-    };
-
-    // 2. 先更新本地 UI (樂觀更新)
-    setLogs(prev => [initialLog, ...prev]);
-
     try {
-        // 3. 並行處理 AI 與雲端寫入
-        const aiTask = Promise.all([
+        // 1. 同時執行 AI 分析與卡片生成
+        const [analysisResult, energyCardResult] = await Promise.all([
             analyzeWhisper(text),
             generateEnergyCard(mood, zone, text)
         ]);
 
-        const [aiResults] = await Promise.all([aiTask]);
-        const [analysisResult, energyCardResult] = aiResults;
-
-        // 4. 生成圖像 (這步最慢，放在最後)
+        // 2. 獲取 AI 生成的圖像
         const imageResult = await generateHealingImage(text, mood, zone, energyCardResult);
         const fullCard = { ...energyCardResult, imageUrl: imageResult || undefined };
-
-        const finalLog: CommunityLog = {
-            ...initialLog,
-            theme: energyCardResult.theme,
-            tags: analysisResult.tags,
-            fullCard: fullCard,
-            replyMessage: analysisResult.replyMessage
-        };
 
         setWhisperData({ text, analysis: analysisResult });
         setCardData(fullCard);
 
-        // 5. 正式寫入雲端
+        // 3. 準備最終資料並寫入雲端
+        const finalLog: CommunityLog = {
+            id: `log-${Date.now()}`,
+            moodLevel: mood,
+            text: text,
+            timestamp: new Date().toISOString(),
+            theme: energyCardResult.theme,
+            tags: analysisResult.tags,
+            authorSignature: signature,
+            authorColor: mascotConfig.baseColor,
+            deviceType: getDeviceType(),
+            stationId: FIXED_STATION_ID,
+            fullCard: fullCard,
+            replyMessage: analysisResult.replyMessage
+        };
+
         if (isCloudLive) {
             await syncLogToCloud(FIXED_STATION_ID, finalLog);
+            console.log("☁️ [App] 雲端同步完成");
         } else {
-            setLogs(prev => prev.map(l => l.id === tempId ? finalLog : l));
-            const saved = localStorage.getItem(`vibe_logs_${FIXED_STATION_ID}`);
-            const updated = saved ? [finalLog, ...JSON.parse(saved).filter((l: any) => l.id !== tempId)] : [finalLog];
+            const updated = [finalLog, ...logs];
+            setLogs(updated);
             localStorage.setItem(`vibe_logs_${FIXED_STATION_ID}`, JSON.stringify(updated.slice(0, 50)));
         }
     } catch (e) {
-        console.error("❌ [App] 流程發生錯誤:", e);
-        setCardData(DEFAULT_CARD);
+        console.error("❌ [App] 同步流程中斷", e);
+        setSyncError(true);
     } finally {
         setIsLoadingCard(false);
         setIsSyncing(false);
@@ -140,19 +123,21 @@ const App: React.FC = () => {
   const handleRestart = () => {
     setStep(AppStep.WELCOME);
     setCardData(null);
+    setSyncError(false);
     setMascotConfig(generateMascotConfig());
   };
 
   return (
     <div className="min-h-[100dvh] w-full relative flex flex-col items-center justify-center p-3 md:p-8">
+      {/* 頂部狀態 */}
       <div className="fixed top-4 left-4 z-[100] flex items-center gap-2 bg-white/70 backdrop-blur-xl px-4 py-2 rounded-full border border-white shadow-sm transition-all">
           {isCloudLive ? (
               <Cloud size={14} className={isSyncing ? "text-amber-500 animate-pulse" : "text-emerald-500"} />
           ) : (
               <CloudOff size={14} className="text-stone-300" />
           )}
-          <span className="text-[10px] font-bold text-stone-600 uppercase tracking-widest flex items-center gap-2">
-              {isCloudLive ? (isSyncing ? '同步中...' : '長亨雲端已連線') : '本地模式'}
+          <span className="text-[10px] font-bold text-stone-600 uppercase tracking-widest">
+              {isCloudLive ? (isSyncing ? '正在同步雲端...' : '長亨雲端已連線') : '本地離線模式'}
           </span>
       </div>
 
@@ -209,7 +194,12 @@ const App: React.FC = () => {
                  </div>
               ) : (
                 <div className="w-full flex flex-col items-center">
-                  <EnergyCard data={cardData || DEFAULT_CARD} analysis={whisperData.analysis} moodLevel={mood} />
+                  {syncError && (
+                      <div className="mb-4 flex items-center gap-2 text-rose-500 bg-rose-50 px-4 py-2 rounded-lg border border-rose-100 text-[10px] font-bold">
+                          <AlertCircle size={14} /> 雲端連線失敗，請確認網路或管理員設定。
+                      </div>
+                  )}
+                  <EnergyCard data={cardData!} analysis={whisperData.analysis} moodLevel={mood} />
                   <div className="w-full max-w-[320px] flex gap-2 mt-8 pb-6">
                     <button onClick={() => setStep(AppStep.COMMUNITY)} className="flex-1 py-3 bg-white/50 border border-stone-100 rounded-xl text-xs font-bold flex items-center justify-center gap-2">查看大家的心聲</button>
                     <button onClick={handleRestart} className="flex-1 py-3 bg-stone-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2">再試一次</button>
@@ -231,7 +221,7 @@ const App: React.FC = () => {
           )}
         </div>
       </main>
-      <footer className="mt-4 text-stone-300 text-[8px] font-bold tracking-[0.4em] uppercase opacity-40 text-center">Connected Station: CHEUNG HANG</footer>
+      <footer className="mt-4 text-stone-300 text-[8px] font-bold tracking-[0.4em] uppercase opacity-40 text-center">STATION ID: {FIXED_STATION_ID}</footer>
     </div>
   );
 };
