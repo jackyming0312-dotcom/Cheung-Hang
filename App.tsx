@@ -54,12 +54,13 @@ const App: React.FC = () => {
 
   const showBackButton = step !== AppStep.WELCOME;
 
+  // 訂閱雲端數據
   useEffect(() => {
     if (isCloudLive) {
-        setIsSyncing(true);
+        console.log("🔗 [App] 正在啟動即時同步...");
         const unsubscribe = subscribeToStation(FIXED_STATION_ID, (cloudLogs) => {
+            console.log(`📥 [App] 收到雲端更新：${cloudLogs.length} 則紀錄`);
             setLogs(cloudLogs);
-            setIsSyncing(false);
         });
         return () => unsubscribe();
     } else {
@@ -84,24 +85,24 @@ const App: React.FC = () => {
     const tempId = `temp-${Date.now()}`;
     const signature = `${SOUL_TITLES[Math.floor(Math.random() * SOUL_TITLES.length)]} #${Math.floor(1000 + Math.random() * 9000)}`;
     
+    // 建立臨時 Log 用於「樂觀更新」
     const tempLog: CommunityLog = {
         id: tempId, moodLevel: mood, text: text,
         timestamp: new Date().toISOString(),
-        theme: "AI 感應中...", tags: ["傳輸中"],
+        theme: "AI 感應中...", tags: ["同步中"],
         authorSignature: signature, authorColor: mascotConfig.baseColor,
         deviceType: getDeviceType(), stationId: FIXED_STATION_ID
     };
 
-    // 如果沒連線，存本地；如果連線中，Firebase 會處理這部分
-    if (!isCloudLive) {
-        setLogs(prev => [tempLog, ...prev]);
-        const updated = [tempLog, ...logs];
-        localStorage.setItem(`vibe_logs_${FIXED_STATION_ID}`, JSON.stringify(updated));
-    }
+    // 不論是否連網，立即更新本地 state，讓使用者在心聲牆能馬上看到
+    setLogs(prev => [tempLog, ...prev]);
 
     try {
-        const analysisResult = await analyzeWhisper(text);
-        const energyCardResult = await generateEnergyCard(mood, zone, text);
+        const [analysisResult, energyCardResult] = await Promise.all([
+            analyzeWhisper(text),
+            generateEnergyCard(mood, zone, text)
+        ]);
+        
         const imageResult = await generateHealingImage(text, mood, zone, energyCardResult);
 
         const fullCard = { ...energyCardResult, imageUrl: imageResult || undefined };
@@ -117,13 +118,17 @@ const App: React.FC = () => {
         setCardData(fullCard);
 
         if (isCloudLive) {
+            // 同步至雲端（雲端訂閱會自動更新 logs state）
             await syncLogToCloud(FIXED_STATION_ID, finalLog);
         } else {
+            // 純本地模式，手動更新與存檔
             setLogs(prev => prev.map(l => l.id === tempId ? finalLog : l));
-            const updated = logs.map(l => l.id === tempId ? finalLog : l);
-            localStorage.setItem(`vibe_logs_${FIXED_STATION_ID}`, JSON.stringify(updated));
+            const saved = localStorage.getItem(`vibe_logs_${FIXED_STATION_ID}`);
+            const updated = saved ? [finalLog, ...JSON.parse(saved).filter((l: any) => l.id !== tempId)] : [finalLog];
+            localStorage.setItem(`vibe_logs_${FIXED_STATION_ID}`, JSON.stringify(updated.slice(0, 50)));
         }
     } catch (e) {
+        console.error("❌ [App] 處理心聲失敗", e);
         setCardData(DEFAULT_CARD);
     } finally {
         setIsLoadingCard(false);
@@ -147,7 +152,7 @@ const App: React.FC = () => {
               <CloudOff size={14} className="text-stone-300" />
           )}
           <span className="text-[10px] font-bold text-stone-600 uppercase tracking-widest flex items-center gap-2">
-              {isCloudLive ? (isSyncing ? '同步中...' : '已連線至長亨雲端') : '本地離線模式'}
+              {isCloudLive ? (isSyncing ? '同步中...' : '已連網：長亨雲端') : '本地離線模式'}
               {isCloudLive && !isSyncing && <Activity size={10} className="text-emerald-400" />}
           </span>
       </div>
