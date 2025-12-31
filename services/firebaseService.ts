@@ -1,11 +1,8 @@
 
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp } from "firebase/firestore";
+import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp, doc, updateDoc } from "firebase/firestore";
 import { CommunityLog } from "../types";
 
-/**
- * 🛠️ 長亨車站雲端配置
- */
 const firebaseConfig = {
   apiKey: "AIzaSyBEGjXzQ4mWllK9xqBw-W_UzRf4kTmpTSc",
   authDomain: "cheung-hang-18d82.firebaseapp.com",
@@ -23,76 +20,76 @@ if (isFirebaseConfigured) {
   try {
     const app = initializeApp(firebaseConfig);
     db = getFirestore(app);
-  } catch (e) { 
-    console.error("Firebase Init Error", e); 
-  }
+  } catch (e) { console.error("Firebase Init Error", e); }
 }
 
-export const syncLogToCloud = async (stationId: string, log: CommunityLog) => {
-  if (!db) return;
-  try {
-    const colRef = collection(db, "stations", stationId, "logs");
-    
-    // 🧹 淨化資料：Firebase 不喜歡嵌套太深的物件或含有 undefined 的資料
-    const payload = {
-        moodLevel: Number(log.moodLevel),
+// 淨化資料格式，確保 Firebase 接受
+const preparePayload = (log: Partial<CommunityLog>) => {
+    return {
+        moodLevel: Number(log.moodLevel || 50),
         text: String(log.text || ""),
-        theme: String(log.theme || "心情分享"),
-        tags: Array.isArray(log.tags) ? log.tags : ["日常"],
+        theme: String(log.theme || "同步中..."),
+        tags: Array.isArray(log.tags) ? log.tags : ["連線中"],
         authorSignature: String(log.authorSignature || "匿名旅人"),
         authorColor: String(log.authorColor || "#8d7b68"),
         deviceType: String(log.deviceType || "裝置"),
-        stationId: stationId,
+        stationId: "CHEUNG_HANG",
         replyMessage: String(log.replyMessage || ""),
-        createdAt: new Date().toISOString(),
-        serverTime: serverTimestamp()
+        createdAt: log.timestamp || new Date().toISOString(),
+        quote: log.fullCard?.quote || "",
+        luckyItem: log.fullCard?.luckyItem || "",
+        imageUrl: log.fullCard?.imageUrl || ""
     };
+};
 
-    // 如果有卡片資料，轉化為單純的文字欄位以提高寫入成功率
-    const finalPayload = log.fullCard ? {
-        ...payload,
-        quote: log.fullCard.quote,
-        luckyItem: log.fullCard.luckyItem,
-        imageUrl: log.fullCard.imageUrl || ""
-    } : payload;
-
-    await addDoc(colRef, finalPayload);
-    console.log("✅ [Firebase] 成功寫入雲端");
-    return true;
+export const syncLogToCloud = async (stationId: string, log: CommunityLog) => {
+  if (!db) return null;
+  try {
+    const colRef = collection(db, "stations", stationId, "logs");
+    const docRef = await addDoc(colRef, {
+        ...preparePayload(log),
+        serverTime: serverTimestamp()
+    });
+    return docRef.id;
   } catch (e) {
-    console.warn("⚠️ [Firebase] 寫入雲端被攔截，請確認 Firestore 規則是否為『測試模式』！", e);
-    // 回傳 false 而不拋出錯誤，避免 UI 崩潰
-    return false;
+    console.error("Firebase Write Error", e);
+    return null;
   }
+};
+
+export const updateLogOnCloud = async (stationId: string, docId: string, updates: Partial<CommunityLog>) => {
+    if (!db || !docId) return;
+    try {
+        const docRef = doc(db, "stations", stationId, "logs", docId);
+        await updateDoc(docRef, preparePayload(updates));
+    } catch (e) {
+        console.error("Firebase Update Error", e);
+    }
 };
 
 export const subscribeToStation = (stationId: string, callback: (logs: CommunityLog[]) => void) => {
   if (!db) return () => {};
-  try {
-    const colRef = collection(db, "stations", stationId, "logs");
-    const q = query(colRef, orderBy("createdAt", "desc"), limit(40));
+  const colRef = collection(db, "stations", stationId, "logs");
+  const q = query(colRef, orderBy("createdAt", "desc"), limit(30));
 
-    return onSnapshot(q, (snapshot) => {
-      const logs = snapshot.docs.map(doc => {
-          const data = doc.data();
-          // 將打平的資料重新組合回 CommunityLog 格式
-          return {
-              ...data,
-              id: doc.id,
-              timestamp: data.createdAt,
-              fullCard: data.quote ? {
-                  quote: data.quote,
-                  theme: data.theme,
-                  luckyItem: data.luckyItem,
-                  imageUrl: data.imageUrl
-              } : undefined
-          } as CommunityLog;
-      });
-      callback(logs);
-    }, (err) => {
-      console.warn("Firebase Subscribe Warning", err);
+  return onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
+    const logs = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            ...data,
+            id: doc.id,
+            timestamp: data.createdAt,
+            fullCard: data.quote ? {
+                quote: data.quote,
+                theme: data.theme,
+                luckyItem: data.luckyItem,
+                imageUrl: data.imageUrl,
+                category: data.category
+            } : undefined
+        } as CommunityLog;
     });
-  } catch (e) { return () => {}; }
+    callback(logs);
+  });
 };
 
 export const checkCloudStatus = () => isFirebaseConfigured;

@@ -10,7 +10,7 @@ import EnergyCard from './components/EnergyCard';
 import CommunityBoard from './components/CommunityBoard';
 
 import { generateEnergyCard, analyzeWhisper, generateHealingImage } from './services/geminiService';
-import { syncLogToCloud, subscribeToStation, checkCloudStatus } from './services/firebaseService';
+import { syncLogToCloud, updateLogOnCloud, subscribeToStation, checkCloudStatus } from './services/firebaseService';
 import { AppStep, GeminiAnalysisResult, EnergyCardData, CommunityLog, MascotOptions } from './types';
 
 const SOUL_TITLES = ["夜行的貓", "趕路的人", "夢想的園丁", "沉思的星", "微光的旅人", "溫柔的風", "尋光者", "安靜的樹", "海邊的貝殼"];
@@ -53,11 +53,10 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<CommunityLog[]>([]);
   const isCloudLive = checkCloudStatus();
 
-  // 即時監聽雲端資料
   useEffect(() => {
     if (isCloudLive) {
         const unsubscribe = subscribeToStation(FIXED_STATION_ID, (cloudLogs) => {
-            if (cloudLogs.length > 0) setLogs(cloudLogs);
+            setLogs(cloudLogs);
         });
         return () => unsubscribe();
     }
@@ -75,55 +74,55 @@ const App: React.FC = () => {
     setStep(AppStep.REWARD);
     setIsLoadingCard(true);
     setSyncWarning(false);
+    setIsSyncing(true);
 
     const signature = `${SOUL_TITLES[Math.floor(Math.random() * SOUL_TITLES.length)]} #${Math.floor(1000 + Math.random() * 9000)}`;
-    
+    const now = new Date().toISOString();
+
+    // 🚀 第一階段：立刻同步「純文字內容」到雲端
+    const initialLog: CommunityLog = {
+        id: `local-${Date.now()}`,
+        moodLevel: mood, text: text,
+        timestamp: now,
+        theme: "正在感應...", tags: ["同步中"],
+        authorSignature: signature, authorColor: mascotConfig.baseColor,
+        deviceType: getDeviceType(), stationId: FIXED_STATION_ID
+    };
+
+    let cloudDocId: string | null = null;
+    if (isCloudLive) {
+        cloudDocId = await syncLogToCloud(FIXED_STATION_ID, initialLog);
+        if (!cloudDocId) setSyncWarning(true);
+    }
+
     try {
-        // 1. 執行 AI 分析與卡片生成（這是最重要的體驗）
+        // 🎨 第二階段：背景跑 AI，跑完再更新雲端
         const [analysisResult, energyCardResult] = await Promise.all([
             analyzeWhisper(text),
             generateEnergyCard(mood, zone, text)
         ]);
 
-        // 2. 獲取 AI 生成的圖像
         const imageResult = await generateHealingImage(text, mood, zone, energyCardResult);
         const fullCard = { ...energyCardResult, imageUrl: imageResult || undefined };
 
-        // 立即設定資料以供渲染，確保使用者能看到卡片
         setWhisperData({ text, analysis: analysisResult });
         setCardData(fullCard);
-        setIsLoadingCard(false); // 提早結束 Loading，讓使用者先看卡片
+        setIsLoadingCard(false);
 
-        // 3. 準備最終資料並寫入雲端（非阻塞處理）
-        const finalLog: CommunityLog = {
-            id: `log-${Date.now()}`,
-            moodLevel: mood, text: text,
-            timestamp: new Date().toISOString(),
-            theme: energyCardResult.theme,
-            tags: analysisResult.tags,
-            authorSignature: signature,
-            authorColor: mascotConfig.baseColor,
-            deviceType: getDeviceType(),
-            stationId: FIXED_STATION_ID,
-            fullCard: fullCard,
-            replyMessage: analysisResult.replyMessage
-        };
-
-        if (isCloudLive) {
-            setIsSyncing(true);
-            const success = await syncLogToCloud(FIXED_STATION_ID, finalLog);
-            if (!success) setSyncWarning(true);
-            setIsSyncing(false);
-        } else {
-            // 本地儲存備份
-            const updated = [finalLog, ...logs];
-            setLogs(updated.slice(0, 50));
-            localStorage.setItem(`vibe_logs_${FIXED_STATION_ID}`, JSON.stringify(updated.slice(0, 50)));
+        if (isCloudLive && cloudDocId) {
+            await updateLogOnCloud(FIXED_STATION_ID, cloudDocId, {
+                theme: energyCardResult.theme,
+                tags: analysisResult.tags,
+                fullCard: fullCard,
+                replyMessage: analysisResult.replyMessage
+            });
         }
     } catch (e) {
-        console.error("❌ [App] 流程發生異常", e);
+        console.error("❌ [App] AI 處理失敗", e);
         setCardData(DEFAULT_CARD);
         setIsLoadingCard(false);
+    } finally {
+        setIsSyncing(false);
     }
   };
 
@@ -136,7 +135,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-[100dvh] w-full relative flex flex-col items-center justify-center p-3 md:p-8">
-      {/* 頂部狀態列 */}
       <div className="fixed top-4 left-4 z-[100] flex items-center gap-2 bg-white/70 backdrop-blur-xl px-4 py-2 rounded-full border border-white shadow-sm transition-all">
           {isCloudLive ? (
               <Cloud size={14} className={isSyncing ? "text-amber-500 animate-pulse" : (syncWarning ? "text-rose-400" : "text-emerald-500")} />
@@ -144,7 +142,7 @@ const App: React.FC = () => {
               <CloudOff size={14} className="text-stone-300" />
           )}
           <span className="text-[10px] font-bold text-stone-600 uppercase tracking-widest">
-              {isCloudLive ? (syncWarning ? '雲端連線不穩' : (isSyncing ? '同步中' : '長亨雲端已連線')) : '本地存儲模式'}
+              {isCloudLive ? (syncWarning ? '雲端規則未發佈' : (isSyncing ? '即時同步中' : '長亨雲端已連線')) : '本地存儲模式'}
           </span>
       </div>
 
@@ -203,7 +201,7 @@ const App: React.FC = () => {
                 <div className="w-full flex flex-col items-center">
                   {syncWarning && (
                       <div className="mb-4 flex items-center gap-2 text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100 text-[10px] font-bold">
-                          <AlertCircle size={14} /> 雲端同步受阻，心聲將先儲存於本地裝置。
+                          <AlertCircle size={14} /> 雲端連線失敗。請確認 Firebase Rules 已點擊「Publish」。
                       </div>
                   )}
                   <EnergyCard data={cardData || DEFAULT_CARD} analysis={whisperData.analysis} moodLevel={mood} />
