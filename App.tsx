@@ -67,6 +67,11 @@ const App: React.FC = () => {
     setIsLoadingContent(true);
     setIsSyncing(true);
 
+    // 強制 UI 同步狀態在 5 秒後解除，避免手機端因 Firestore 10秒連線逾時而卡死
+    const syncTimeout = setTimeout(() => {
+        setIsSyncing(false);
+    }, 5000);
+
     const signature = `${SOUL_TITLES[Math.floor(Math.random() * SOUL_TITLES.length)]} #${Math.floor(1000 + Math.random() * 9000)}`;
     const now = new Date().toISOString();
 
@@ -79,34 +84,49 @@ const App: React.FC = () => {
         deviceType: getDeviceType(), stationId: FIXED_STATION_ID
     };
 
-    // 啟動併行任務
-    const cloudIdPromise = isCloudLive ? syncLogToCloud(FIXED_STATION_ID, initialLog) : Promise.resolve(null);
+    const syncToCloudInBackground = async () => {
+        if (!isCloudLive) return null;
+        try {
+            // syncLogToCloud 在有 persistence 的情況下應該立即回傳
+            return await syncLogToCloud(FIXED_STATION_ID, initialLog);
+        } catch (e) {
+            console.warn("Silent Sync Start Failed:", e);
+            return null;
+        }
+    };
+
+    const cloudSyncPromise = syncToCloudInBackground();
     
     try {
-        // 等待 AI 分析（現在帶有超時機制，保證會回傳）
+        // AI 分析（有 10 秒超時機制）
         const fullContent = await generateFullSoulContent(text, mood, zone);
         
-        // 1. 立即更新本地 UI
         setWhisperData({ text, analysis: fullContent.analysis });
         setCardData(fullContent.card); 
         setIsLoadingContent(false);
 
-        // 2. 強制更新雲端，無論 AI 成功還是超時備援
-        const docId = await cloudIdPromise;
-        if (isCloudLive && docId) {
-            await updateLogOnCloud(FIXED_STATION_ID, docId, {
-                theme: fullContent.card.theme,
-                tags: fullContent.analysis.tags,
-                fullCard: fullContent.card,
-                replyMessage: fullContent.analysis.replyMessage
-            });
-        }
+        // 更新雲端
+        cloudSyncPromise.then(async (docId) => {
+            if (docId) {
+                await updateLogOnCloud(FIXED_STATION_ID, docId, {
+                    theme: fullContent.card.theme,
+                    tags: fullContent.analysis.tags,
+                    fullCard: fullContent.card,
+                    replyMessage: fullContent.analysis.replyMessage
+                });
+            }
+            clearTimeout(syncTimeout);
+            setIsSyncing(false);
+        }).catch(() => {
+            clearTimeout(syncTimeout);
+            setIsSyncing(false);
+        });
+
     } catch (e) {
-        console.error("Fatal Process Error:", e);
-        // 最後的防線：顯示默認卡片
+        console.error("Process Error:", e);
         setCardData(DEFAULT_CARD);
         setIsLoadingContent(false);
-    } finally {
+        clearTimeout(syncTimeout);
         setIsSyncing(false);
     }
   };
@@ -143,7 +163,7 @@ const App: React.FC = () => {
                   <CloudOff size={14} className="text-rose-400" />
               )}
               <span className="text-[10px] font-bold text-stone-600 uppercase tracking-widest">
-                  {isSyncing ? '極速感應中' : '連線穩定'}
+                  {isSyncing ? '信號感應中' : '連線穩定'}
               </span>
           </div>
 
@@ -166,7 +186,7 @@ const App: React.FC = () => {
            </div>
            <div className="text-center">
               <h1 className="text-xl md:text-2xl font-bold text-stone-800 serif-font">長亨心靈充電站</h1>
-              <span className="text-[8px] text-stone-400 font-bold tracking-[0.3em] uppercase">Ultra Stability Mode</span>
+              <span className="text-[8px] text-stone-400 font-bold tracking-[0.3em] uppercase">Ultra Stability V2</span>
            </div>
         </header>
 
@@ -193,7 +213,7 @@ const App: React.FC = () => {
                  <div className="flex flex-col items-center gap-6 py-20 text-center">
                     <div className="w-12 h-12 border-2 border-amber-300 border-t-transparent rounded-full animate-spin"></div>
                     <p className="font-bold text-lg text-stone-700 serif-font italic">大熊正在認真感應...</p>
-                    <p className="text-[10px] text-stone-400">正在連接星際信號，請稍候</p>
+                    <p className="text-[10px] text-stone-400">正在連接星際信號，此過程不依賴網路速度</p>
                  </div>
               ) : (
                 <div className="w-full flex flex-col items-center">

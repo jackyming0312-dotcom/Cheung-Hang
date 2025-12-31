@@ -3,7 +3,6 @@ import { initializeApp } from "firebase/app";
 import { 
   initializeFirestore, 
   persistentLocalCache, 
-  persistentMultipleTabManager,
   collection, 
   setDoc,
   onSnapshot, 
@@ -36,12 +35,11 @@ if (isFirebaseConfigured) {
   try {
     const app = initializeApp(firebaseConfig);
     
-    // 啟用離線快取與長輪詢（Long Polling）
-    // experimentalForceLongPolling: true 能夠解決許多行動網路或防火牆環境下 WebSocket 連結失敗導致的 10 秒逾時錯誤
+    // 移除 persistentMultipleTabManager()
+    // 多頁籤管理在行動版 Safari 的隱私模式或特定背景運行時常導致 IndexedDB 鎖死
+    // 使用基礎 persistentLocalCache() 即可支援手機端的離線儲存
     db = initializeFirestore(app, {
-      cache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager()
-      }),
+      cache: persistentLocalCache({}),
       experimentalForceLongPolling: true 
     });
   } catch (e) { 
@@ -68,15 +66,17 @@ const preparePayload = (log: Partial<CommunityLog>) => {
         p.luckyItem = log.fullCard.luckyItem || "";
         p.imageUrl = log.fullCard.imageUrl || "";
         p.category = log.fullCard.category || "";
+        p.relaxationMethod = log.fullCard.relaxationMethod || "";
     }
     return p;
 };
 
-export const syncLogToCloud = async (stationId: string, log: CommunityLog) => {
+/**
+ * 寫入雲端。因為開啟了離線快取，此操作會立即在本地完成，伺服器同步在背景進行。
+ */
+export const syncLogToCloud = async (stationId: string, log: CommunityLog): Promise<string | null> => {
   if (!db) return null;
   try {
-    // 使用 doc(collection(...)) 預先生成 ID，改用 setDoc
-    // 這可以確保在離線狀態下，寫入操作會立即在本地 cache 完成並回傳，不需等待伺服器確認 ID
     const colRef = collection(db, "stations", stationId, "logs");
     const newDocRef = doc(colRef); 
     const docId = newDocRef.id;
@@ -88,7 +88,7 @@ export const syncLogToCloud = async (stationId: string, log: CommunityLog) => {
     
     return docId;
   } catch (e) {
-    console.error("Firebase Write Error", e);
+    console.error("Firebase Write Error:", e);
     return null;
   }
 };
@@ -101,23 +101,21 @@ export const updateLogOnCloud = async (stationId: string, docId: string, updates
         Object.keys(payload).forEach(key => (payload[key] === "" || payload[key] === null) && delete payload[key]);
         await updateDoc(docRef, payload);
     } catch (e) {
-        console.error("Firebase Update Error", e);
+        console.error("Firebase Update Error:", e);
     }
 };
 
-// Renamed from deleteLogsByDate to deleteLogsBefore and added return count for App.tsx compatibility
-export const deleteLogsBefore = async (stationId: string, dateStr: string) => {
+export const deleteLogsBefore = async (stationId: string, beforeIsoStr: string) => {
     if (!db) return 0;
     try {
         const colRef = collection(db, "stations", stationId, "logs");
-        const q = query(colRef, where("createdAt", "<=", dateStr));
+        const q = query(colRef, where("createdAt", "<", beforeIsoStr));
         const snapshot = await getDocs(q);
-        const count = snapshot.size;
         const deletePromises = snapshot.docs.map(d => deleteDoc(doc(db, "stations", stationId, "logs", d.id)));
         await Promise.all(deletePromises);
-        return count;
+        return snapshot.size;
     } catch (e) {
-        console.error("Firebase Delete Error", e);
+        console.error("Firebase Delete Error:", e);
         return 0;
     }
 };
@@ -127,7 +125,7 @@ export const subscribeToStation = (stationId: string, callback: (logs: Community
   const colRef = collection(db, "stations", stationId, "logs");
   const q = query(colRef, orderBy("createdAt", "desc"), limit(60));
 
-  return onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
+  return onSnapshot(q, (snapshot) => {
     const logs = snapshot.docs.map(doc => {
         const data = doc.data();
         return {
@@ -139,11 +137,14 @@ export const subscribeToStation = (stationId: string, callback: (logs: Community
                 theme: data.theme,
                 luckyItem: data.luckyItem,
                 imageUrl: data.imageUrl,
-                category: data.category
+                category: data.category,
+                relaxationMethod: data.relaxationMethod
             } : undefined
         } as CommunityLog;
     });
     callback(logs);
+  }, (err) => {
+    console.warn("Firestore Snapshot error (expected when offline):", err);
   });
 };
 
