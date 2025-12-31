@@ -10,7 +10,7 @@ import EnergyCard from './components/EnergyCard';
 import CommunityBoard from './components/CommunityBoard';
 
 import { generateFullSoulContent } from './services/geminiService';
-import { syncLogToCloud, updateLogOnCloud, subscribeToStation, checkCloudStatus, deleteLogsBefore } from './services/firebaseService';
+import { syncLogToCloud, updateLogOnCloud, subscribeToStation, checkCloudStatus, deleteLogsAfterDate, deleteLog } from './services/firebaseService';
 import { AppStep, GeminiAnalysisResult, EnergyCardData, CommunityLog, MascotOptions } from './types';
 
 const SOUL_TITLES = ["夜行的貓", "趕路的人", "夢想的園丁", "沉思的星", "微光的旅人", "溫柔的風", "尋光者", "安靜的樹", "海邊的貝殼"];
@@ -67,45 +67,26 @@ const App: React.FC = () => {
     setIsLoadingContent(true);
     setIsSyncing(true);
 
-    // 強制 UI 同步狀態在 5 秒後解除，避免手機端因 Firestore 10秒連線逾時而卡死
-    const syncTimeout = setTimeout(() => {
-        setIsSyncing(false);
-    }, 5000);
-
+    const syncTimeout = setTimeout(() => setIsSyncing(false), 5000);
     const signature = `${SOUL_TITLES[Math.floor(Math.random() * SOUL_TITLES.length)]} #${Math.floor(1000 + Math.random() * 9000)}`;
     const now = new Date().toISOString();
 
     const initialLog: CommunityLog = {
         id: `local-${Date.now()}`,
-        moodLevel: mood, text: text,
-        timestamp: now,
-        theme: "感應中...", tags: ["正在同步"],
+        moodLevel: mood, text: text, timestamp: now,
+        theme: "分析中...", tags: ["正在感應"],
         authorSignature: signature, authorColor: mascotConfig.baseColor,
         deviceType: getDeviceType(), stationId: FIXED_STATION_ID
     };
 
-    const syncToCloudInBackground = async () => {
-        if (!isCloudLive) return null;
-        try {
-            // syncLogToCloud 在有 persistence 的情況下應該立即回傳
-            return await syncLogToCloud(FIXED_STATION_ID, initialLog);
-        } catch (e) {
-            console.warn("Silent Sync Start Failed:", e);
-            return null;
-        }
-    };
-
-    const cloudSyncPromise = syncToCloudInBackground();
+    const cloudSyncPromise = isCloudLive ? syncLogToCloud(FIXED_STATION_ID, initialLog) : Promise.resolve(null);
     
     try {
-        // AI 分析（有 10 秒超時機制）
         const fullContent = await generateFullSoulContent(text, mood, zone);
-        
         setWhisperData({ text, analysis: fullContent.analysis });
         setCardData(fullContent.card); 
         setIsLoadingContent(false);
 
-        // 更新雲端
         cloudSyncPromise.then(async (docId) => {
             if (docId) {
                 await updateLogOnCloud(FIXED_STATION_ID, docId, {
@@ -117,29 +98,35 @@ const App: React.FC = () => {
             }
             clearTimeout(syncTimeout);
             setIsSyncing(false);
-        }).catch(() => {
-            clearTimeout(syncTimeout);
-            setIsSyncing(false);
         });
-
     } catch (e) {
-        console.error("Process Error:", e);
         setCardData(DEFAULT_CARD);
         setIsLoadingContent(false);
-        clearTimeout(syncTimeout);
         setIsSyncing(false);
     }
   };
 
-  const handleClearOldLogs = async () => {
+  const handleClearTodayLogs = async () => {
     if (!isCloudLive) return;
-    const targetTime = new Date("2025-12-31T15:09:00").toISOString();
-    if (window.confirm("確定要清除 15:09 之前的所有心聲記錄嗎？")) {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const isoStr = startOfToday.toISOString();
+
+    if (window.confirm("確定要永久清除今天的所有心聲紀錄嗎？這項操作無法復原。")) {
         setIsSyncing(true);
-        const count = await deleteLogsBefore(FIXED_STATION_ID, targetTime);
+        const count = await deleteLogsAfterDate(FIXED_STATION_ID, isoStr);
         setIsSyncing(false);
-        alert(`清除成功，共移除 ${count} 筆歷史紀錄。`);
+        alert(`今日紀錄已歸零，共移除 ${count} 筆。`);
     }
+  };
+
+  const handleDeleteLog = async (docId: string) => {
+      if (!isCloudLive || !docId) return;
+      if (window.confirm("確定要刪除這筆紀錄嗎？")) {
+          setIsSyncing(true);
+          await deleteLog(FIXED_STATION_ID, docId);
+          setIsSyncing(false);
+      }
   };
 
   const handleRestart = () => {
@@ -163,7 +150,7 @@ const App: React.FC = () => {
                   <CloudOff size={14} className="text-rose-400" />
               )}
               <span className="text-[10px] font-bold text-stone-600 uppercase tracking-widest">
-                  {isSyncing ? '信號感應中' : '連線穩定'}
+                  {isSyncing ? '靈魂同步中' : '連線穩定'}
               </span>
           </div>
 
@@ -186,7 +173,7 @@ const App: React.FC = () => {
            </div>
            <div className="text-center">
               <h1 className="text-xl md:text-2xl font-bold text-stone-800 serif-font">長亨心靈充電站</h1>
-              <span className="text-[8px] text-stone-400 font-bold tracking-[0.3em] uppercase">Ultra Stability V2</span>
+              <span className="text-[8px] text-stone-400 font-bold tracking-[0.3em] uppercase">Deep Healing Mode</span>
            </div>
         </header>
 
@@ -212,8 +199,7 @@ const App: React.FC = () => {
               {isLoadingContent ? (
                  <div className="flex flex-col items-center gap-6 py-20 text-center">
                     <div className="w-12 h-12 border-2 border-amber-300 border-t-transparent rounded-full animate-spin"></div>
-                    <p className="font-bold text-lg text-stone-700 serif-font italic">大熊正在認真感應...</p>
-                    <p className="text-[10px] text-stone-400">正在連接星際信號，此過程不依賴網路速度</p>
+                    <p className="font-bold text-lg text-stone-700 serif-font italic">大熊正在讀懂你的心...</p>
                  </div>
               ) : (
                 <div className="w-full flex flex-col items-center">
@@ -235,7 +221,8 @@ const App: React.FC = () => {
             <CommunityBoard 
                 logs={logs} 
                 onBack={() => setStep(AppStep.WELCOME)} 
-                onClearDay={handleClearOldLogs} 
+                onClearDay={() => handleClearTodayLogs()} 
+                onDeleteLog={(id) => handleDeleteLog(id)}
                 onRefresh={() => { window.location.reload(); }} 
                 isSyncing={isSyncing} 
                 onGenerateSyncLink={() => {}} 

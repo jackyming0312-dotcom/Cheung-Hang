@@ -10,8 +10,8 @@ export interface FullSoulContent {
 const FALLBACK_CONTENT: FullSoulContent = {
   analysis: { 
     sentiment: 'neutral', 
-    tags: ['大氣', '平靜'], 
-    replyMessage: "大熊剛才打了個小盹，但你的心聲我已經收到了。在長亨的風中，放鬆一下吧。" 
+    tags: ['#平靜', '#當下'], 
+    replyMessage: "大熊聽到了，這份心情很珍貴。在長亨站的長椅上坐一下，讓風帶走疲累吧。" 
   },
   card: { 
     quote: "慢一點沒關係，長亨大熊會陪你慢慢走。", 
@@ -22,13 +22,9 @@ const FALLBACK_CONTENT: FullSoulContent = {
   }
 };
 
-/**
- * 帶有超時機制的 AI 生成函數，解決手機端卡死問題
- */
 export const generateFullSoulContent = async (text: string, moodLevel: number, zone: string | null): Promise<FullSoulContent> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  // 建立一個 10 秒超時的 Promise
   const timeoutPromise = new Promise<null>((_, reject) => 
     setTimeout(() => reject(new Error("AI_TIMEOUT")), 10000)
   );
@@ -37,7 +33,16 @@ export const generateFullSoulContent = async (text: string, moodLevel: number, z
     try {
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `身為長亨站療癒大熊，分析心聲並回傳JSON。要求：replyMessage充滿鼓勵, theme是生活關鍵字, relaxationMethod是具體放鬆練習。心聲:${text}, 心情:${moodLevel}, 區:${zone}`,
+        contents: `你是一位極具洞察力與溫暖的療癒心理大叔「長亨大熊」。
+        用戶輸入心聲：「${text}」（心情電力：${moodLevel}%，感興趣領域：${zone}）。
+        
+        請嚴格遵守以下要求生成 JSON 回應：
+        1. analysis.replyMessage: 拒絕罐頭式的陪伴語。必須「針對內容」給予精準的共鳴、啟發性的對話。如果是負面內容，請溫柔接住；如果是目標，請具體給予力量。
+        2. analysis.tags: 根據內容生成 3 個感性的 Hashtag（如：#拒絕內耗、#勇敢轉身、#微光生活）。
+        3. card.theme: 用 2-4 個字總結此心聲的生命課題。
+        4. card.quote: 生成一句能觸動此用戶當下心靈的金句。
+        5. card.relaxationMethod: 一個針對此情緒狀態的具體放鬆小建議。
+        6. card.category: 根據心聲分類為 '生活態度'、'情緒共處' 或 '放鬆練習'。`,
         config: {
           responseMimeType: "application/json",
           responseSchema: {
@@ -81,10 +86,9 @@ export const generateFullSoulContent = async (text: string, moodLevel: number, z
   };
 
   try {
-    // 競速：AI 任務 vs 10秒超時
     return await Promise.race([aiTask(), timeoutPromise]) as FullSoulContent;
   } catch (error) {
-    console.warn("Gemini Service timed out or failed, using fallback.", error);
+    console.warn("Gemini Service timed out or failed.", error);
     return FALLBACK_CONTENT;
   }
 };
