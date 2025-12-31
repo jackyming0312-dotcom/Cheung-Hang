@@ -16,13 +16,36 @@ import { AppStep, GeminiAnalysisResult, EnergyCardData, CommunityLog, MascotOpti
 const SOUL_TITLES = ["夜行的貓", "趕路的人", "夢想的園丁", "沉思的星", "微光的旅人", "溫柔的風", "尋光者", "安靜的樹", "海邊的貝殼"];
 const FIXED_STATION_ID = "CHEUNG_HANG"; 
 
-const DEFAULT_CARD: EnergyCardData = {
-  quote: "無論今天如何，長亨大熊都會在這裡陪你。",
-  theme: "陪伴",
-  luckyItem: "溫暖的抱抱",
-  relaxationMethod: "閉上眼睛，感受心跳的節奏。",
-  category: "生活態度"
-};
+const DEFAULT_CARDS: EnergyCardData[] = [
+  {
+    quote: "無論今天如何，長亨大熊都會在這裡陪你。",
+    theme: "陪伴",
+    luckyItem: "溫暖的抱抱",
+    relaxationMethod: "閉上眼睛，感受心跳的節奏。",
+    category: "生活態度"
+  },
+  {
+    quote: "世界很吵，但你可以把心關靜音一下。",
+    theme: "寧靜",
+    luckyItem: "抗噪耳機",
+    relaxationMethod: "找一首純音樂，聽到結束為止。",
+    category: "放鬆練習"
+  },
+  {
+    quote: "所有的發生，都是為了把你帶到對的地方。",
+    theme: "信任",
+    luckyItem: "指南針",
+    relaxationMethod: "回想一件過去讓你覺得很幸運的小事。",
+    category: "生活態度"
+  },
+  {
+    quote: "情緒像天氣，來了會走，你只需要撐傘。",
+    theme: "接納",
+    luckyItem: "透明雨傘",
+    relaxationMethod: "想像煩惱隨著呼氣排出體外。",
+    category: "情緒共處"
+  }
+];
 
 const getDeviceType = () => {
     const ua = navigator.userAgent;
@@ -106,7 +129,9 @@ const App: React.FC = () => {
         }
         setIsSyncing(false);
     } catch (e) {
-        setCardData(DEFAULT_CARD);
+        // Randomly select a default card on error
+        const randomDefault = DEFAULT_CARDS[Math.floor(Math.random() * DEFAULT_CARDS.length)];
+        setCardData(randomDefault);
         setIsLoadingContent(false);
         setIsSyncing(false);
     }
@@ -210,7 +235,7 @@ const App: React.FC = () => {
               ) : (
                 <div className="w-full flex flex-col items-center">
                   <EnergyCard 
-                    data={cardData || DEFAULT_CARD} 
+                    data={cardData || DEFAULT_CARDS[0]} 
                     analysis={whisperData.analysis} 
                     moodLevel={mood} 
                   />
