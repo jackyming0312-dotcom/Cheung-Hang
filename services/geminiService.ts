@@ -2,7 +2,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { EnergyCardData, GeminiAnalysisResult } from "../types";
 
-// 本地備用題庫：當 AI 失敗時從這裡隨機挑選，避免永遠出現「陪伴」
 const FALLBACK_CARDS: EnergyCardData[] = [
   { quote: "今天的雲很美，適合把煩惱寄託在上面。", theme: "放空", luckyItem: "軟綿綿的枕頭", category: "放鬆練習" },
   { quote: "你已經很努力了，現在可以稍微休息一下。", theme: "許可", luckyItem: "一杯溫牛奶", category: "情緒共處" },
@@ -20,7 +19,7 @@ export const analyzeWhisper = async (text: string): Promise<GeminiAnalysisResult
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `分析心聲: "${text}"。以繁體中文回傳 JSON: {sentiment: "positive"|"neutral"|"negative", tags: string[], replyMessage: string}。`,
+      contents: `分析這段心聲的深層情緒: "${text}"。請以繁體中文回傳 JSON: {sentiment: "positive"|"neutral"|"negative", tags: string[], replyMessage: string(一段暖心的話)}。`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -43,7 +42,14 @@ export const analyzeWhisper = async (text: string): Promise<GeminiAnalysisResult
 export const generateHealingImage = async (userText: string, moodLevel: number, zone: string | null, cardData?: EnergyCardData): Promise<string | null> => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     try {
-        const prompt = `A soft, healing, Studio Ghibli style digital art. A giant fluffy brown teddy bear sitting peacefully in a sunlit room in Cheung Hang. Theme: ${cardData?.theme || 'Peace'}. High-end lo-fi aesthetic, watercolor textures, serene atmosphere.`;
+        // 根據分類調整繪圖氛圍
+        let sceneExtra = "";
+        if (cardData?.category === '放鬆練習') sceneExtra = "misty forest, peaceful stream, cool blue and green tones";
+        else if (cardData?.category === '情緒共處') sceneExtra = "cozy warm interior, candlelight, soft pink and lavender textures";
+        else sceneExtra = "wide bright window, sunny morning, golden oak wood colors";
+
+        const prompt = `A cinematic, soft, Studio Ghibli inspired illustration. A large gentle brown teddy bear in a specific scene: ${sceneExtra}. Context: ${cardData?.theme || 'Peace'}. Style: nostalgic watercolor, high-quality lo-fi wallpaper aesthetic, serene and healing, detailed textures.`;
+        
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash-image',
             contents: { parts: [{ text: prompt }] },
@@ -59,7 +65,15 @@ export const generateHealingImage = async (userText: string, moodLevel: number, 
 export const generateEnergyCard = async (moodLevel: number, zone: string | null, userText: string): Promise<EnergyCardData> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
-    const prompt = `心聲：「${userText}」，電力：${moodLevel}%，區域：${zone}。請以「長亨大熊」身分生成療癒卡 JSON: {quote: string(15字內), theme: string(主題), luckyItem: string, category: "生活態度"|"情緒共處"|"放鬆練習"}。`;
+    const prompt = `
+      根據使用者的心聲：「${userText}」，電力：${moodLevel}%，感應區域：${zone}。
+      請以「長亨大熊」身分生成一張獨一無二的能量卡。
+      卡片必須從三個維度中擇一：
+      1. '生活態度': 給予積極或智慧的觀點。
+      2. '情緒共處': 陪伴使用者接納目前的心情。
+      3. '放鬆練習': 提供一個具體的放鬆動作或想像。
+      回傳繁體中文 JSON: {quote: string(充滿詩意的15字內短語), theme: string(2-4字主題), luckyItem: string(療癒小物), category: "生活態度"|"情緒共處"|"放鬆練習"}。
+    `;
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,

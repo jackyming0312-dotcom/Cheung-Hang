@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowRight, RotateCcw, Grid, Volume2, VolumeX, Sparkles, ChevronLeft, Activity, MapPin, Wifi, Cloud, CloudOff, AlertCircle } from 'lucide-react';
+import { ArrowRight, RotateCcw, Grid, Volume2, VolumeX, Sparkles, ChevronLeft, Activity, MapPin, Wifi, Cloud, CloudOff, AlertCircle, Undo2 } from 'lucide-react';
 
 import Mascot from './components/Mascot';
 import MoodWater from './components/MoodWater';
@@ -79,7 +79,6 @@ const App: React.FC = () => {
     const signature = `${SOUL_TITLES[Math.floor(Math.random() * SOUL_TITLES.length)]} #${Math.floor(1000 + Math.random() * 9000)}`;
     const now = new Date().toISOString();
 
-    // 🚀 第一階段：立刻同步「純文字內容」到雲端
     const initialLog: CommunityLog = {
         id: `local-${Date.now()}`,
         moodLevel: mood, text: text,
@@ -96,7 +95,6 @@ const App: React.FC = () => {
     }
 
     try {
-        // 🎨 第二階段：背景跑 AI，跑完再更新雲端
         const [analysisResult, energyCardResult] = await Promise.all([
             analyzeWhisper(text),
             generateEnergyCard(mood, zone, text)
@@ -133,30 +131,46 @@ const App: React.FC = () => {
     setMascotConfig(generateMascotConfig());
   };
 
+  const handleBack = () => {
+    if (step === AppStep.MOOD_WATER) setStep(AppStep.WELCOME);
+    else if (step === AppStep.VIBE_MAP) setStep(AppStep.MOOD_WATER);
+    else if (step === AppStep.WHISPER_HOLE) setStep(AppStep.VIBE_MAP);
+    else if (step === AppStep.REWARD) setStep(AppStep.WHISPER_HOLE);
+    else if (step === AppStep.COMMUNITY) setStep(AppStep.WELCOME);
+  };
+
   return (
     <div className="min-h-[100dvh] w-full relative flex flex-col items-center justify-center p-3 md:p-8">
-      <div className="fixed top-4 left-4 z-[100] flex items-center gap-2 bg-white/70 backdrop-blur-xl px-4 py-2 rounded-full border border-white shadow-sm transition-all">
-          {isCloudLive ? (
-              <Cloud size={14} className={isSyncing ? "text-amber-500 animate-pulse" : (syncWarning ? "text-rose-400" : "text-emerald-500")} />
-          ) : (
-              <CloudOff size={14} className="text-stone-300" />
-          )}
-          <span className="text-[10px] font-bold text-stone-600 uppercase tracking-widest">
-              {isCloudLive ? (syncWarning ? '雲端規則未發佈' : (isSyncing ? '即時同步中' : '長亨雲端已連線')) : '本地存儲模式'}
-          </span>
-      </div>
+      {/* 頂部導覽列 */}
+      <div className="fixed top-4 left-4 right-4 z-[100] flex items-center justify-between">
+          <div className="flex items-center gap-2 bg-white/70 backdrop-blur-xl px-4 py-2 rounded-full border border-white shadow-sm">
+              {step !== AppStep.WELCOME && (
+                  <button onClick={handleBack} className="mr-2 p-1 hover:bg-stone-100 rounded-full transition-colors">
+                      <ChevronLeft size={16} className="text-stone-600" />
+                  </button>
+              )}
+              {isCloudLive ? (
+                  <Cloud size={14} className={isSyncing ? "text-amber-500 animate-pulse" : (syncWarning ? "text-rose-400" : "text-emerald-500")} />
+              ) : (
+                  <CloudOff size={14} className="text-stone-300" />
+              )}
+              <span className="text-[10px] font-bold text-stone-600 uppercase tracking-widest">
+                  {isCloudLive ? (syncWarning ? '雲端連線失敗' : (isSyncing ? '同步中' : '已連線')) : '本地存儲'}
+              </span>
+          </div>
 
-      <button 
-        onClick={() => {
-            if (!audioRef.current) return;
-            if (isMusicPlaying) audioRef.current.pause();
-            else audioRef.current.play().catch(() => {});
-            setIsMusicPlaying(!isMusicPlaying);
-        }}
-        className="fixed top-4 right-4 z-[100] p-3 bg-white/60 backdrop-blur-xl rounded-full shadow-lg border border-white text-stone-600 transition-all"
-      >
-        {isMusicPlaying ? <Volume2 size={18} className="text-amber-500" /> : <VolumeX size={18} />}
-      </button>
+          <button 
+            onClick={() => {
+                if (!audioRef.current) return;
+                if (isMusicPlaying) audioRef.current.pause();
+                else audioRef.current.play().catch(() => {});
+                setIsMusicPlaying(!isMusicPlaying);
+            }}
+            className="p-3 bg-white/60 backdrop-blur-xl rounded-full shadow-lg border border-white text-stone-600 transition-all"
+          >
+            {isMusicPlaying ? <Volume2 size={18} className="text-amber-500" /> : <VolumeX size={18} />}
+          </button>
+      </div>
 
       <main className="w-full max-w-2xl min-h-[min(680px,85dvh)] glass-panel rounded-[1.8rem] md:rounded-[2.5rem] p-5 md:p-12 shadow-2xl flex flex-col relative animate-soft-in overflow-hidden z-10">
         <header className="w-full flex flex-col items-center mb-5 md:mb-8 pt-2">
@@ -177,16 +191,16 @@ const App: React.FC = () => {
           {step === AppStep.WELCOME && (
             <div className="w-full flex flex-col justify-between h-full max-w-sm mx-auto animate-soft-in">
               <div className="bg-white/95 p-8 rounded-[1.5rem] border border-stone-100 shadow-md text-center paper-stack mt-4">
-                <p className="text-stone-600 leading-relaxed serif-font italic">"這裡匯聚了長亨所有人的心聲。<br/>寫下你的故事，同步到大牆面吧。"</p>
+                <p className="text-stone-600 leading-relaxed serif-font italic">"每一段心聲，都值得被溫柔以待。<br/>在這裡，讓 AI 為你的心情充充電。"</p>
               </div>
               <div className="space-y-3 w-full mt-10">
-                <button onClick={() => setStep(AppStep.MOOD_WATER)} className="w-full py-4 font-bold text-white text-lg bg-stone-800 rounded-2xl shadow-[0_4px_0_rgb(44,40,36)] active:translate-y-[4px] active:shadow-none transition-all flex items-center justify-center group">開始記錄 <ArrowRight className="ml-2 group-hover:translate-x-2 transition-transform" /></button>
-                <button onClick={() => setStep(AppStep.COMMUNITY)} className="w-full py-3 font-bold text-stone-400 bg-white/40 border border-stone-100 rounded-2xl flex items-center justify-center gap-2 text-xs hover:bg-white/60 transition-all"><Grid size={14} /> 進入全域心聲長廊</button>
+                <button onClick={() => setStep(AppStep.MOOD_WATER)} className="w-full py-4 font-bold text-white text-lg bg-stone-800 rounded-2xl shadow-[0_4px_0_rgb(44,40,36)] active:translate-y-[4px] active:shadow-none transition-all flex items-center justify-center group">開始充電 <ArrowRight className="ml-2 group-hover:translate-x-2 transition-transform" /></button>
+                <button onClick={() => setStep(AppStep.COMMUNITY)} className="w-full py-3 font-bold text-stone-400 bg-white/40 border border-stone-100 rounded-2xl flex items-center justify-center gap-2 text-xs hover:bg-white/60 transition-all"><Grid size={14} /> 進入心聲長廊</button>
               </div>
             </div>
           )}
 
-          {step === AppStep.MOOD_WATER && <div className="w-full flex flex-col items-center animate-soft-in"><MoodWater value={mood} onChange={setMood} /><button onClick={() => setStep(AppStep.VIBE_MAP)} className="w-full max-w-xs py-4 bg-stone-800 text-white rounded-2xl font-bold mt-8 shadow-[0_4px_0_rgb(44,40,36)] active:translate-y-[4px] transition-all">確認電量</button></div>}
+          {step === AppStep.MOOD_WATER && <div className="w-full flex flex-col items-center animate-soft-in"><MoodWater value={mood} onChange={setMood} /><button onClick={() => setStep(AppStep.VIBE_MAP)} className="w-full max-w-xs py-4 bg-stone-800 text-white rounded-2xl font-bold mt-8 shadow-[0_4px_0_rgb(44,40,36)] active:translate-y-[4px] transition-all">下一步</button></div>}
           {step === AppStep.VIBE_MAP && <VibeMap onZoneSelect={(z) => { setZone(z); setTimeout(() => setStep(AppStep.WHISPER_HOLE), 300); }} />}
           {step === AppStep.WHISPER_HOLE && <WhisperHole onComplete={handleWhisperComplete} />}
           
@@ -195,19 +209,21 @@ const App: React.FC = () => {
               {isLoadingCard ? (
                  <div className="flex flex-col items-center gap-6 py-20 text-center">
                     <div className="w-12 h-12 border-2 border-amber-300 border-t-transparent rounded-full animate-spin"></div>
-                    <p className="font-bold text-lg text-stone-700 serif-font italic">正在為您的心聲充電...</p>
+                    <p className="font-bold text-lg text-stone-700 serif-font italic">AI 正在為您調製專屬能量...</p>
                  </div>
               ) : (
                 <div className="w-full flex flex-col items-center">
                   {syncWarning && (
                       <div className="mb-4 flex items-center gap-2 text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100 text-[10px] font-bold">
-                          <AlertCircle size={14} /> 雲端連線失敗。請確認 Firebase Rules 已點擊「Publish」。
+                          <AlertCircle size={14} /> 雲端連線失敗。請確認 Firebase Rules 已發佈。
                       </div>
                   )}
                   <EnergyCard data={cardData || DEFAULT_CARD} analysis={whisperData.analysis} moodLevel={mood} />
-                  <div className="w-full max-w-[320px] flex gap-2 mt-8 pb-6">
-                    <button onClick={() => setStep(AppStep.COMMUNITY)} className="flex-1 py-3 bg-white/50 border border-stone-100 rounded-xl text-xs font-bold flex items-center justify-center gap-2">查看大家的心聲</button>
-                    <button onClick={handleRestart} className="flex-1 py-3 bg-stone-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2">再試一次</button>
+                  
+                  <div className="w-full max-w-[320px] grid grid-cols-2 gap-2 mt-8 pb-6">
+                    <button onClick={() => setStep(AppStep.COMMUNITY)} className="py-3 bg-white/50 border border-stone-100 rounded-xl text-xs font-bold flex items-center justify-center gap-2">心聲牆</button>
+                    <button onClick={handleRestart} className="py-3 bg-stone-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2">回到首頁</button>
+                    <button onClick={() => setStep(AppStep.WHISPER_HOLE)} className="col-span-2 py-3 bg-stone-100 text-stone-500 border border-stone-200 rounded-xl text-[10px] font-bold flex items-center justify-center gap-2 uppercase tracking-widest"><Undo2 size={12} /> 返回修改心聲內容</button>
                   </div>
                 </div>
               )}

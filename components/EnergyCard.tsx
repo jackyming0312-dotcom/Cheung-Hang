@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Sparkle, Compass, Heart, Wind } from 'lucide-react';
+import { Sparkle, Compass, Heart, Wind, Quote } from 'lucide-react';
 import { EnergyCardData, GeminiAnalysisResult } from '../types';
 
 interface EnergyCardProps {
@@ -12,94 +12,124 @@ interface EnergyCardProps {
 const EnergyCard: React.FC<EnergyCardProps> = ({ data, analysis, moodLevel }) => {
   if (!data) return null;
 
-  const getGradient = () => {
-    if (moodLevel > 70) return "from-[#fffdf7] to-[#fffaf2]"; 
-    if (moodLevel > 40) return "from-[#fafbfc] to-[#f7f9fa]";
-    return "from-[#ffffff] to-[#fafafa]"; 
+  // 根據分類定義不同的配色方案
+  const getThemeStyles = () => {
+    switch(data.category) {
+      case '生活態度':
+        return {
+          gradient: "from-[#fffbf0] to-[#fff5e6]",
+          accent: "text-amber-600",
+          border: "border-amber-100/50",
+          bgTag: "bg-amber-50",
+          icon: <Compass size={14} />,
+          label: "Life Attitude"
+        };
+      case '情緒共處':
+        return {
+          gradient: "from-[#fffafc] to-[#f7eef2]",
+          accent: "text-rose-600",
+          border: "border-rose-100/50",
+          bgTag: "bg-rose-50",
+          icon: <Heart size={14} />,
+          label: "Emotional Peace"
+        };
+      case '放鬆練習':
+        return {
+          gradient: "from-[#f5fafb] to-[#e6f2f3]",
+          accent: "text-cyan-700",
+          border: "border-cyan-100/50",
+          bgTag: "bg-cyan-50",
+          icon: <Wind size={14} />,
+          label: "Daily Ritual"
+        };
+      default:
+        return {
+          gradient: "from-white to-stone-50",
+          accent: "text-stone-600",
+          border: "border-stone-100",
+          bgTag: "bg-stone-50",
+          icon: <Sparkle size={14} />,
+          label: "Cheung Hang"
+        };
+    }
   };
 
-  const getAccentColor = () => {
-      if (moodLevel > 70) return "text-amber-600";
-      if (moodLevel > 40) return "text-slate-600";
-      return "text-stone-600";
-  };
-
-  const getCategoryIcon = () => {
-      switch(data.category) {
-          case '生活態度': return <Compass size={12} />;
-          case '情緒共處': return <Heart size={12} />;
-          case '放鬆練習': return <Wind size={12} />;
-          default: return <Sparkle size={12} />;
-      }
-  };
+  const styles = getThemeStyles();
 
   return (
     <div className="flex flex-col items-center w-full max-w-sm mx-auto animate-soft-in">
       <div className={`
-        relative w-full bg-gradient-to-br ${getGradient()} 
-        p-6 md:p-8 rounded-[2rem] shadow-xl border border-stone-100
-        flex flex-col items-center text-center transition-all duration-1000
+        relative w-full bg-gradient-to-br ${styles.gradient} 
+        p-6 md:p-8 rounded-[2.2rem] shadow-2xl border-2 ${styles.border}
+        flex flex-col items-center text-center transition-all duration-700
       `}>
-        {/* Washi Tape - 保持水平 */}
-        <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-20 h-5 washi-tape opacity-50 z-20"></div>
+        {/* 紙膠帶 */}
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-6 washi-tape opacity-60 z-20"></div>
 
-        {/* 分類標籤 */}
-        {data.category && (
-            <div className="absolute top-6 right-6 px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full border border-stone-100 shadow-sm flex items-center gap-1.5 z-30">
-                <span className={getAccentColor()}>{getCategoryIcon()}</span>
-                <span className="text-[9px] font-bold text-stone-500 tracking-wider uppercase">{data.category}</span>
-            </div>
-        )}
+        {/* 動態分類標籤 */}
+        <div className={`absolute top-6 right-6 px-4 py-1.5 ${styles.bgTag} backdrop-blur-md rounded-full border border-white/50 shadow-sm flex items-center gap-2 z-30`}>
+            <span className={styles.accent}>{styles.icon}</span>
+            <span className={`text-[10px] font-black ${styles.accent} tracking-widest uppercase`}>{data.category || 'RECOVERY'}</span>
+        </div>
 
-        {/* 靜態相片框 */}
-        <div className="relative z-10 w-full mb-6 mt-4">
-            <div className="bg-white p-3 pb-12 shadow-md border border-stone-50">
+        {/* 插畫框 */}
+        <div className="relative z-10 w-full mb-8 mt-6">
+            <div className="bg-white p-3 pb-14 shadow-xl border border-stone-50 transform rotate-[1deg] transition-transform hover:rotate-0">
                 {data.imageUrl ? (
                     <img 
                         src={data.imageUrl} 
                         alt="Healing Illustration" 
-                        className="w-full aspect-square object-cover filter brightness-[1.01]" 
+                        className="w-full aspect-square object-cover" 
                     />
                 ) : (
-                    <div className="w-full aspect-square bg-stone-50 flex items-center justify-center text-4xl">
+                    <div className="w-full aspect-square bg-stone-50 flex items-center justify-center text-5xl">
                         🧸
                     </div>
                 )}
-                <div className="mt-4 text-[7px] font-mono text-stone-300 tracking-[0.2em] text-left ml-1 uppercase">
-                    STATION RECORD // {data.category || 'RECOVERY'}
+                <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center opacity-40">
+                    <span className="text-[8px] font-mono tracking-widest uppercase">{styles.label}</span>
+                    <span className="text-[8px] font-mono">CH_STATION_2025</span>
                 </div>
             </div>
         </div>
         
         {/* 文字內容 */}
-        <div className="relative z-10 w-full space-y-5 px-2">
-          <div className="space-y-1">
-            <p className="text-[8px] font-bold text-stone-300 tracking-[0.3em] uppercase">Bear's Wisdom</p>
-            <h1 className={`text-2xl font-bold ${getAccentColor()} serif-font`}>
+        <div className="relative z-10 w-full space-y-6 px-4">
+          <div className="space-y-2">
+            <div className="flex items-center justify-center gap-2">
+                <div className="h-[1px] w-4 bg-stone-200"></div>
+                <p className="text-[9px] font-black text-stone-300 tracking-[0.4em] uppercase">Bear's Wisdom</p>
+                <div className="h-[1px] w-4 bg-stone-200"></div>
+            </div>
+            <h1 className={`text-3xl font-bold ${styles.accent} serif-font tracking-tight`}>
               {data.theme}
             </h1>
           </div>
           
-          <div className="min-h-[3rem] flex items-center justify-center">
-            <p className="text-stone-600 serif-font text-base leading-relaxed italic">
-              "{data.quote}"
+          <div className="min-h-[4rem] flex flex-col items-center justify-center relative px-6">
+            <Quote className="absolute -top-2 -left-2 text-stone-100" size={32} />
+            <p className="text-stone-700 serif-font text-lg md:text-xl leading-relaxed italic relative z-10">
+              {data.quote}
             </p>
           </div>
 
-          <div className="pt-5 border-t border-dashed border-stone-100 flex flex-col items-center gap-2">
-             <span className="text-[8px] font-bold text-stone-300 tracking-widest uppercase">Lucky Guardian</span>
-             <span className="px-4 py-1.5 bg-white/80 rounded-full text-stone-600 font-bold text-xs border border-white/50">
-                ✨ {data.luckyItem}
-             </span>
+          <div className="pt-6 border-t border-dashed border-stone-200 flex flex-col items-center gap-3">
+             <span className="text-[9px] font-bold text-stone-400 tracking-widest uppercase">今日療癒守護者</span>
+             <div className={`px-5 py-2 ${styles.bgTag} rounded-full text-stone-800 font-bold text-sm border-2 border-white shadow-sm flex items-center gap-2`}>
+                <span className="animate-bounce">✨</span> {data.luckyItem}
+             </div>
           </div>
         </div>
       </div>
       
-      {/* 靜態悄悄話 */}
+      {/* 悄悄話卡片 */}
       {analysis?.replyMessage && (
-        <div className="mt-8 max-w-[280px] w-full relative bg-[#fffef7] p-5 shadow-lg border-l-4 border-amber-200">
-           <p className="text-stone-600 font-handwriting leading-relaxed text-sm">
-               <span className="font-bold text-stone-800 text-base">🧸 大熊悄悄話：</span><br/>
+        <div className="mt-8 max-w-[300px] w-full relative bg-[#fffdf5] p-6 shadow-xl border-l-4 border-amber-300 transform -rotate-1">
+           <div className="absolute -top-3 -right-3 w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center text-amber-500 shadow-sm">
+              <Quote size={14} />
+           </div>
+           <p className="text-stone-600 font-handwriting leading-relaxed text-base">
+               <span className="font-bold text-stone-800 text-lg border-b-2 border-amber-200 mb-2 inline-block">大熊悄悄話：</span><br/>
                {analysis.replyMessage}
            </p>
         </div>
