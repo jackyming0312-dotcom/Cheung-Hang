@@ -7,61 +7,78 @@ export interface FullSoulContent {
   card: EnergyCardData;
 }
 
-const FALLBACK_CARDS: EnergyCardData[] = [
+// 定義備用卡片及其對應的標籤，確保即使 AI 失敗，標籤也能對應主題
+const FALLBACK_CONTENT_POOL = [
   {
-    quote: "慢一點沒關係，長亨大熊會陪你慢慢走。",
-    theme: "沉穩節奏",
-    luckyItem: "溫暖的茶",
-    category: "生活態度",
-    relaxationMethod: "深呼吸三次，感受空氣進入肺部的清涼。"
+    card: {
+      quote: "慢一點沒關係，長亨大熊會陪你慢慢走。",
+      theme: "沉穩節奏",
+      luckyItem: "溫暖的茶",
+      category: "生活態度" as const,
+      relaxationMethod: "深呼吸三次，感受空氣進入肺部的清涼。"
+    },
+    tags: ['#慢下來', '#自我對話', '#長亨日常']
   },
   {
-    quote: "允許自己休息，是為了走更長遠的路。",
-    theme: "自我照顧",
-    luckyItem: "柔軟的枕頭",
-    category: "放鬆練習",
-    relaxationMethod: "給自己十分鐘，什麼都不做，只發呆。"
+    card: {
+      quote: "允許自己休息，是為了走更長遠的路。",
+      theme: "自我照顧",
+      luckyItem: "柔軟的枕頭",
+      category: "放鬆練習" as const,
+      relaxationMethod: "給自己十分鐘，什麼都不做，只發呆。"
+    },
+    tags: ['#休息是權利', '#放空', '#愛自己']
   },
   {
-    quote: "你的感受沒有對錯，它們都是你的一部分。",
-    theme: "接納情緒",
-    luckyItem: "鏡子",
-    category: "情緒共處",
-    relaxationMethod: "對著鏡子裡的自己微笑，說聲「辛苦了」。"
+    card: {
+      quote: "你的感受沒有對錯，它們都是你的一部分。",
+      theme: "接納情緒",
+      luckyItem: "鏡子",
+      category: "情緒共處" as const,
+      relaxationMethod: "對著鏡子裡的自己微笑，說聲「辛苦了」。"
+    },
+    tags: ['#情緒釋放', '#真實的你', '#溫柔接納']
   },
   {
-    quote: "暴風雨後，空氣總是最清新的。",
-    theme: "雨過天晴",
-    luckyItem: "窗邊的陽光",
-    category: "生活態度",
-    relaxationMethod: "看看窗外的天空，尋找一片形狀有趣的雲。"
+    card: {
+      quote: "暴風雨後，空氣總是最清新的。",
+      theme: "雨過天晴",
+      luckyItem: "窗邊的陽光",
+      category: "生活態度" as const,
+      relaxationMethod: "看看窗外的天空，尋找一片形狀有趣的雲。"
+    },
+    tags: ['#希望', '#轉念', '#雨後天晴']
   },
   {
-    quote: "像樹一樣，向下扎根，向上生長。",
-    theme: "生命力",
-    luckyItem: "綠色植物",
-    category: "生活態度",
-    relaxationMethod: "赤腳踩在地面上，感受大地的支撐。"
+    card: {
+      quote: "像樹一樣，向下扎根，向上生長。",
+      theme: "生命力",
+      luckyItem: "綠色植物",
+      category: "生活態度" as const,
+      relaxationMethod: "赤腳踩在地面上，感受大地的支撐。"
+    },
+    tags: ['#成長', '#扎根', '#生命力量']
   }
 ];
 
 const getRandomFallbackContent = (): FullSoulContent => {
-  const card = FALLBACK_CARDS[Math.floor(Math.random() * FALLBACK_CARDS.length)];
+  const selection = FALLBACK_CONTENT_POOL[Math.floor(Math.random() * FALLBACK_CONTENT_POOL.length)];
   return {
     analysis: {
       sentiment: 'neutral',
-      tags: ['#日常', '#陪伴', '#安放'],
+      tags: selection.tags,
       replyMessage: "大熊感應到你的心聲了。有些日子也許比較沉重，但請記得，你擁有讓自己快樂起來的力量。長亨站永遠為你點燈。"
     },
-    card
+    card: selection.card
   };
 };
 
 export const generateFullSoulContent = async (text: string, moodLevel: number, zone: string | null): Promise<FullSoulContent> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
+  // 縮短超時時間至 8000ms (8秒)，讓體驗更流暢
   const timeoutPromise = new Promise<null>((_, reject) => 
-    setTimeout(() => reject(new Error("AI_TIMEOUT")), 12000)
+    setTimeout(() => reject(new Error("AI_TIMEOUT")), 8000)
   );
 
   const aiTask = async (): Promise<FullSoulContent> => {
@@ -79,7 +96,7 @@ export const generateFullSoulContent = async (text: string, moodLevel: number, z
         5. card.relaxationMethod: 一個針對此情緒狀態的具體放鬆小建議。
         6. card.category: 根據心聲分類為 '生活態度'、'情緒共處' 或 '放鬆練習'。`,
         config: {
-          temperature: 1.2,
+          temperature: 1.3, // 提高創造力
           topK: 40,
           topP: 0.95,
           responseMimeType: "application/json",
@@ -113,9 +130,13 @@ export const generateFullSoulContent = async (text: string, moodLevel: number, z
 
       if (!response.text) throw new Error("EMPTY_RESPONSE");
       const result = JSON.parse(response.text);
+      
+      // 確保結果結構完整，若缺漏則回退
+      if (!result.analysis || !result.card) return getRandomFallbackContent();
+
       return {
-        analysis: result.analysis || getRandomFallbackContent().analysis,
-        card: result.card || getRandomFallbackContent().card
+        analysis: result.analysis,
+        card: result.card
       };
     } catch (e) {
       console.error("Internal Gemini Error:", e);
