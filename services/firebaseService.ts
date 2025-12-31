@@ -3,6 +3,9 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp } from "firebase/firestore";
 import { CommunityLog } from "../types";
 
+/**
+ * 🛠️ 長亨車站雲端配置
+ */
 const firebaseConfig = {
   apiKey: "AIzaSyBEGjXzQ4mWllK9xqBw-W_UzRf4kTmpTSc",
   authDomain: "cheung-hang-18d82.firebaseapp.com",
@@ -20,7 +23,9 @@ if (isFirebaseConfigured) {
   try {
     const app = initializeApp(firebaseConfig);
     db = getFirestore(app);
-  } catch (e) { console.error("Firebase Init Error", e); }
+  } catch (e) { 
+    console.error("Firebase Init Error", e); 
+  }
 }
 
 export const syncLogToCloud = async (stationId: string, log: CommunityLog) => {
@@ -28,28 +33,36 @@ export const syncLogToCloud = async (stationId: string, log: CommunityLog) => {
   try {
     const colRef = collection(db, "stations", stationId, "logs");
     
-    // 🔥 重要：平整化資料以確保 Firebase 能夠順利解析
+    // 🧹 淨化資料：Firebase 不喜歡嵌套太深的物件或含有 undefined 的資料
     const payload = {
-        moodLevel: log.moodLevel,
-        text: log.text || "",
-        theme: log.theme || "心情分享",
-        tags: Array.isArray(log.tags) ? log.tags : [],
-        authorSignature: log.authorSignature || "匿名旅人",
-        authorColor: log.authorColor || "#8d7b68",
-        deviceType: log.deviceType || "手機",
+        moodLevel: Number(log.moodLevel),
+        text: String(log.text || ""),
+        theme: String(log.theme || "心情分享"),
+        tags: Array.isArray(log.tags) ? log.tags : ["日常"],
+        authorSignature: String(log.authorSignature || "匿名旅人"),
+        authorColor: String(log.authorColor || "#8d7b68"),
+        deviceType: String(log.deviceType || "裝置"),
         stationId: stationId,
-        replyMessage: log.replyMessage || "",
+        replyMessage: String(log.replyMessage || ""),
         createdAt: new Date().toISOString(),
-        serverTime: serverTimestamp(),
-        // 將複雜物件轉為 JSON 字串存儲，避免嵌套深度過大
-        cardJson: log.fullCard ? JSON.stringify(log.fullCard) : null
+        serverTime: serverTimestamp()
     };
 
-    const docRef = await addDoc(colRef, payload);
-    return docRef.id;
+    // 如果有卡片資料，轉化為單純的文字欄位以提高寫入成功率
+    const finalPayload = log.fullCard ? {
+        ...payload,
+        quote: log.fullCard.quote,
+        luckyItem: log.fullCard.luckyItem,
+        imageUrl: log.fullCard.imageUrl || ""
+    } : payload;
+
+    await addDoc(colRef, finalPayload);
+    console.log("✅ [Firebase] 成功寫入雲端");
+    return true;
   } catch (e) {
-    console.error("🔥 [Firebase] 寫入雲端失敗，請確認資料庫 Rules！", e);
-    throw e;
+    console.warn("⚠️ [Firebase] 寫入雲端被攔截，請確認 Firestore 規則是否為『測試模式』！", e);
+    // 回傳 false 而不拋出錯誤，避免 UI 崩潰
+    return false;
   }
 };
 
@@ -57,25 +70,27 @@ export const subscribeToStation = (stationId: string, callback: (logs: Community
   if (!db) return () => {};
   try {
     const colRef = collection(db, "stations", stationId, "logs");
-    const q = query(colRef, orderBy("createdAt", "desc"), limit(50));
+    const q = query(colRef, orderBy("createdAt", "desc"), limit(40));
 
     return onSnapshot(q, (snapshot) => {
       const logs = snapshot.docs.map(doc => {
           const data = doc.data();
-          let fullCard = null;
-          if (data.cardJson) {
-              try { fullCard = JSON.parse(data.cardJson); } catch(e) {}
-          }
+          // 將打平的資料重新組合回 CommunityLog 格式
           return {
               ...data,
               id: doc.id,
-              fullCard: fullCard,
-              timestamp: data.createdAt
+              timestamp: data.createdAt,
+              fullCard: data.quote ? {
+                  quote: data.quote,
+                  theme: data.theme,
+                  luckyItem: data.luckyItem,
+                  imageUrl: data.imageUrl
+              } : undefined
           } as CommunityLog;
       });
       callback(logs);
     }, (err) => {
-      console.error("Firebase Subscribe Error", err);
+      console.warn("Firebase Subscribe Warning", err);
     });
   } catch (e) { return () => {}; }
 };
