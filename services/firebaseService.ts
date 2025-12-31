@@ -1,29 +1,25 @@
 
 import { initializeApp } from "firebase/app";
-// Fix: Consolidate Firestore imports to resolve "no exported member" errors which often occur in certain build environments when using multiline imports for sub-packages
 import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp } from "firebase/firestore";
 import { CommunityLog } from "../types";
 
 /**
- * 🛠️ 長亨車站雲端配置
- * 
- * 操作步驟：
- * 1. 在 Firebase 控制台點擊左上角「齒輪 -> Project settings」
- * 2. 下拉找到「Your apps」，點擊「</>」圖示註冊 App
- * 3. 複製畫面上的 firebaseConfig 物件內容並貼在下方：
+ * 🛠️ 長亨車站雲端配置 - 已更新為您的專屬金鑰
  */
 const firebaseConfig = {
-  apiKey: "在此貼上您的 apiKey",
-  authDomain: "在此貼上您的 authDomain",
-  projectId: "在此貼上您的 projectId",
-  storageBucket: "在此貼上您的 storageBucket",
-  messagingSenderId: "在此貼上您的 messagingSenderId",
-  appId: "在此貼上您的 appId"
+  apiKey: "AIzaSyBEGjXzQ4mWllK9xqBw-W_UzRf4kTmpTSc",
+  authDomain: "cheung-hang-18d82.firebaseapp.com",
+  projectId: "cheung-hang-18d82",
+  storageBucket: "cheung-hang-18d82.firebasestorage.app",
+  messagingSenderId: "192349198294",
+  appId: "1:192349198294:web:2081a3f233cf20864bb677",
+  measurementId: "G-KB7RGYH2C8"
 };
 
-// --- 以下代碼請勿改動 ---
+// --- 自動檢測配置狀態 ---
 
 const isFirebaseConfigured = 
+  firebaseConfig.apiKey && 
   firebaseConfig.apiKey !== "在此貼上您的 apiKey" && 
   firebaseConfig.apiKey.startsWith("AIza");
 
