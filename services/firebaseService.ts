@@ -90,16 +90,6 @@ export const updateLogOnCloud = async (stationId: string, docId: string, updates
     } catch (e) { }
 };
 
-export const deleteLog = async (stationId: string, docId: string) => {
-    if (!db || !docId) return;
-    try {
-        const docRef = doc(db, "stations", stationId, "logs", docId);
-        await deleteDoc(docRef);
-    } catch (e) {
-        console.error("Delete Log Error:", e);
-    }
-};
-
 export const deleteLogsAfterDate = async (stationId: string, afterIsoStr: string) => {
     if (!db) return 0;
     try {

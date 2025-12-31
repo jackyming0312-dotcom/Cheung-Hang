@@ -10,7 +10,7 @@ import EnergyCard from './components/EnergyCard';
 import CommunityBoard from './components/CommunityBoard';
 
 import { generateFullSoulContent } from './services/geminiService';
-import { syncLogToCloud, updateLogOnCloud, subscribeToStation, checkCloudStatus, deleteLogsAfterDate, deleteLog } from './services/firebaseService';
+import { syncLogToCloud, updateLogOnCloud, subscribeToStation, checkCloudStatus, deleteLogsAfterDate } from './services/firebaseService';
 import { AppStep, GeminiAnalysisResult, EnergyCardData, CommunityLog, MascotOptions } from './types';
 
 const SOUL_TITLES = ["夜行的貓", "趕路的人", "夢想的園丁", "沉思的星", "微光的旅人", "溫柔的風", "尋光者", "安靜的樹", "海邊的貝殼"];
@@ -120,15 +120,6 @@ const App: React.FC = () => {
     }
   };
 
-  const handleDeleteLog = async (docId: string) => {
-      if (!isCloudLive || !docId) return;
-      if (window.confirm("確定要刪除這筆紀錄嗎？")) {
-          setIsSyncing(true);
-          await deleteLog(FIXED_STATION_ID, docId);
-          setIsSyncing(false);
-      }
-  };
-
   const handleRestart = () => {
     setStep(AppStep.WELCOME);
     setCardData(null);
@@ -222,7 +213,6 @@ const App: React.FC = () => {
                 logs={logs} 
                 onBack={() => setStep(AppStep.WELCOME)} 
                 onClearDay={() => handleClearTodayLogs()} 
-                onDeleteLog={(id) => handleDeleteLog(id)}
                 onRefresh={() => { window.location.reload(); }} 
                 isSyncing={isSyncing} 
                 onGenerateSyncLink={() => {}} 
