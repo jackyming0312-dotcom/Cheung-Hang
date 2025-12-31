@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { MascotOptions } from '../types';
 
 interface MascotProps {
@@ -9,18 +9,11 @@ interface MascotProps {
   onClick?: () => void;
 }
 
-// 經典長亨大熊相片
+// 靜態大熊相片
 const CHEUNG_HANG_BEAR_PHOTO = "https://images.unsplash.com/photo-1559454403-b8fb88521f11?q=80&w=1000&auto=format&fit=crop";
 
-const Mascot: React.FC<MascotProps> = ({ expression, options, className = '', onClick }) => {
+const Mascot: React.FC<MascotProps> = ({ className = '', onClick }) => {
   const [bubbleText, setBubbleText] = useState<string | null>(null);
-
-  const dynamicStyle = useMemo(() => {
-    return {
-      filter: 'saturate(0.9) contrast(1.02) brightness(1.0)',
-      transition: 'none' // 禁用過度效果
-    };
-  }, []);
 
   const bearQuotes = [
     "長亨站永遠為你開著喔...",
@@ -51,23 +44,16 @@ const Mascot: React.FC<MascotProps> = ({ expression, options, className = '', on
         </div>
       )}
 
-      {/* 相片容器 - 完全靜態 */}
+      {/* 相片容器 - 絕對靜態 */}
       <div className="relative w-full h-full flex items-center justify-center">
-        {/* 背景光暈 - 靜態 */}
-        <div 
-           className="absolute inset-4 rounded-full blur-[30px] opacity-10"
-           style={{ backgroundColor: options.baseColor }}
-        ></div>
-
         <img 
           src={CHEUNG_HANG_BEAR_PHOTO} 
           alt="The Static Bear"
           className="w-full h-full object-contain drop-shadow-md relative z-10"
-          style={dynamicStyle}
+          style={{ transition: 'none' }} 
         />
       </div>
 
-      {/* 底部陰影 */}
       <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-[50%] h-2 bg-stone-900/5 blur-md rounded-full"></div>
     </div>
   );

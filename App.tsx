@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowRight, RotateCcw, Grid, Volume2, VolumeX, Sparkles, ChevronLeft, Activity, MapPin, Wifi } from 'lucide-react';
+import { ArrowRight, RotateCcw, Grid, Volume2, VolumeX, Sparkles, ChevronLeft, Activity, MapPin, Wifi, Cloud, CloudOff } from 'lucide-react';
 
 import Mascot from './components/Mascot';
 import MoodWater from './components/MoodWater';
@@ -91,10 +91,15 @@ const App: React.FC = () => {
         authorSignature: signature, authorColor: mascotConfig.baseColor,
         deviceType: getDeviceType(), stationId: FIXED_STATION_ID
     };
-    if (!isCloudLive) setLogs(prev => [tempLog, ...prev]);
+
+    // 如果沒連線，存本地；如果連線中，Firebase 會處理這部分
+    if (!isCloudLive) {
+        setLogs(prev => [tempLog, ...prev]);
+        const updated = [tempLog, ...logs];
+        localStorage.setItem(`vibe_logs_${FIXED_STATION_ID}`, JSON.stringify(updated));
+    }
 
     try {
-        // 先生成卡片文字（包含類別），再用該類別生成圖片
         const analysisResult = await analyzeWhisper(text);
         const energyCardResult = await generateEnergyCard(mood, zone, text);
         const imageResult = await generateHealingImage(text, mood, zone, energyCardResult);
@@ -115,6 +120,8 @@ const App: React.FC = () => {
             await syncLogToCloud(FIXED_STATION_ID, finalLog);
         } else {
             setLogs(prev => prev.map(l => l.id === tempId ? finalLog : l));
+            const updated = logs.map(l => l.id === tempId ? finalLog : l);
+            localStorage.setItem(`vibe_logs_${FIXED_STATION_ID}`, JSON.stringify(updated));
         }
     } catch (e) {
         setCardData(DEFAULT_CARD);
@@ -133,11 +140,15 @@ const App: React.FC = () => {
   return (
     <div className="min-h-[100dvh] w-full relative flex flex-col items-center justify-center p-3 md:p-8">
       {/* 狀態列 */}
-      <div className="fixed top-4 left-4 z-[100] flex items-center gap-2 bg-white/60 backdrop-blur-xl px-3 py-1.5 rounded-full border border-white shadow-sm">
-          <div className={`w-2 h-2 rounded-full ${isCloudLive ? (isSyncing ? 'bg-orange-400 animate-pulse' : 'bg-emerald-500') : 'bg-stone-300'}`}></div>
-          <span className="text-[10px] font-bold text-stone-500 uppercase tracking-widest flex items-center gap-1">
-              {isCloudLive ? (isSyncing ? 'Synchronizing' : 'Cheung Hang Global') : 'Personal Mode'}
-              {isCloudLive ? <Activity size={10} className="animate-pulse" /> : <Wifi size={10} className="opacity-30" />}
+      <div className="fixed top-4 left-4 z-[100] flex items-center gap-2 bg-white/70 backdrop-blur-xl px-4 py-2 rounded-full border border-white shadow-sm transition-all">
+          {isCloudLive ? (
+              <Cloud size={14} className={isSyncing ? "text-amber-500 animate-pulse" : "text-emerald-500"} />
+          ) : (
+              <CloudOff size={14} className="text-stone-300" />
+          )}
+          <span className="text-[10px] font-bold text-stone-600 uppercase tracking-widest flex items-center gap-2">
+              {isCloudLive ? (isSyncing ? '同步中...' : '已連線至長亨雲端') : '本地離線模式'}
+              {isCloudLive && !isSyncing && <Activity size={10} className="text-emerald-400" />}
           </span>
       </div>
 
@@ -150,7 +161,7 @@ const App: React.FC = () => {
         }}
         className="fixed top-4 right-4 z-[100] p-3 bg-white/60 backdrop-blur-xl rounded-full shadow-lg border border-white text-stone-600 transition-all"
       >
-        {isMusicPlaying ? <Volume2 size={18} className="text-amber-500 animate-pulse" /> : <VolumeX size={18} />}
+        {isMusicPlaying ? <Volume2 size={18} className="text-amber-500" /> : <VolumeX size={18} />}
       </button>
 
       <main className="w-full max-w-2xl min-h-[min(680px,85dvh)] glass-panel rounded-[1.8rem] md:rounded-[2.5rem] p-5 md:p-12 shadow-2xl flex flex-col relative animate-soft-in overflow-hidden z-10">
