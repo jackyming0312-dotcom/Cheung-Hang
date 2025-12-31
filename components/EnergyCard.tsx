@@ -1,18 +1,18 @@
 
 import React from 'react';
-import { Sparkle, Compass, Heart, Wind, Quote } from 'lucide-react';
+import { Sparkle, Compass, Heart, Wind, Quote, Palette } from 'lucide-react';
 import { EnergyCardData, GeminiAnalysisResult } from '../types';
 
 interface EnergyCardProps {
   data: EnergyCardData;
   analysis: GeminiAnalysisResult | null;
   moodLevel: number;
+  isImageLoading?: boolean;
 }
 
-const EnergyCard: React.FC<EnergyCardProps> = ({ data, analysis, moodLevel }) => {
+const EnergyCard: React.FC<EnergyCardProps> = ({ data, analysis, moodLevel, isImageLoading = false }) => {
   if (!data) return null;
 
-  // 根據分類定義不同的配色方案
   const getThemeStyles = () => {
     switch(data.category) {
       case '生活態度':
@@ -66,23 +66,28 @@ const EnergyCard: React.FC<EnergyCardProps> = ({ data, analysis, moodLevel }) =>
         {/* 紙膠帶 */}
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-6 washi-tape opacity-60 z-20"></div>
 
-        {/* 動態分類標籤 */}
+        {/* 分類標籤 */}
         <div className={`absolute top-6 right-6 px-4 py-1.5 ${styles.bgTag} backdrop-blur-md rounded-full border border-white/50 shadow-sm flex items-center gap-2 z-30`}>
             <span className={styles.accent}>{styles.icon}</span>
             <span className={`text-[10px] font-black ${styles.accent} tracking-widest uppercase`}>{data.category || 'RECOVERY'}</span>
         </div>
 
-        {/* 插畫框 */}
-        <div className="relative z-10 w-full mb-8 mt-6">
-            <div className="bg-white p-3 pb-14 shadow-xl border border-stone-50 transform rotate-[1deg] transition-transform hover:rotate-0">
-                {data.imageUrl ? (
+        {/* 插畫框優化 */}
+        <div className="relative z-10 w-full mb-8 mt-6 px-2">
+            <div className="bg-white p-3 pb-14 shadow-xl border border-stone-50 transform rotate-[1deg] transition-all hover:rotate-0 overflow-hidden">
+                {isImageLoading ? (
+                    <div className="w-full aspect-square bg-stone-50 flex flex-col items-center justify-center gap-3 animate-pulse">
+                        <Palette className="text-stone-200 animate-bounce" size={32} />
+                        <span className="text-[10px] text-stone-300 font-bold tracking-widest uppercase">大熊正在為你作畫...</span>
+                    </div>
+                ) : data.imageUrl ? (
                     <img 
                         src={data.imageUrl} 
                         alt="Healing Illustration" 
-                        className="w-full aspect-square object-cover" 
+                        className="w-full aspect-square object-cover animate-soft-in" 
                     />
                 ) : (
-                    <div className="w-full aspect-square bg-stone-50 flex items-center justify-center text-5xl">
+                    <div className="w-full aspect-square bg-stone-50 flex items-center justify-center text-5xl grayscale opacity-30">
                         🧸
                     </div>
                 )}
@@ -115,7 +120,7 @@ const EnergyCard: React.FC<EnergyCardProps> = ({ data, analysis, moodLevel }) =>
 
           <div className="pt-6 border-t border-dashed border-stone-200 flex flex-col items-center gap-3">
              <span className="text-[9px] font-bold text-stone-400 tracking-widest uppercase">今日療癒守護者</span>
-             <div className={`px-5 py-2 ${styles.bgTag} rounded-full text-stone-800 font-bold text-sm border-2 border-white shadow-sm flex items-center gap-2`}>
+             <div className={`px-5 py-2 ${styles.bgTag} rounded-full text-stone-800 font-bold text-sm border-2 border-white shadow-sm flex items-center gap-2 transition-all`}>
                 <span className="animate-bounce">✨</span> {data.luckyItem}
              </div>
           </div>
@@ -124,7 +129,7 @@ const EnergyCard: React.FC<EnergyCardProps> = ({ data, analysis, moodLevel }) =>
       
       {/* 悄悄話卡片 */}
       {analysis?.replyMessage && (
-        <div className="mt-8 max-w-[300px] w-full relative bg-[#fffdf5] p-6 shadow-xl border-l-4 border-amber-300 transform -rotate-1">
+        <div className="mt-8 max-w-[300px] w-full relative bg-[#fffdf5] p-6 shadow-xl border-l-4 border-amber-300 transform -rotate-1 animate-soft-in">
            <div className="absolute -top-3 -right-3 w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center text-amber-500 shadow-sm">
               <Quote size={14} />
            </div>

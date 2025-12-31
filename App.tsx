@@ -40,7 +40,8 @@ const App: React.FC = () => {
   const [zone, setZone] = useState<string | null>(null);
   const [whisperData, setWhisperData] = useState<{text: string, analysis: GeminiAnalysisResult | null}>({text: '', analysis: null});
   const [cardData, setCardData] = useState<EnergyCardData | null>(null);
-  const [isLoadingCard, setIsLoadingCard] = useState(false);
+  const [isLoadingContent, setIsLoadingContent] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -63,17 +64,18 @@ const App: React.FC = () => {
 
   const handleWhisperComplete = async (text: string) => {
     setStep(AppStep.REWARD);
-    setIsLoadingCard(true);
+    setIsLoadingContent(true);
     setIsSyncing(true);
 
     const signature = `${SOUL_TITLES[Math.floor(Math.random() * SOUL_TITLES.length)]} #${Math.floor(1000 + Math.random() * 9000)}`;
     const now = new Date().toISOString();
 
+    // 初始 Log，theme 設為 "分析中..." 以對應 CommunityBoard 的轉圈判斷
     const initialLog: CommunityLog = {
         id: `local-${Date.now()}`,
         moodLevel: mood, text: text,
         timestamp: now,
-        theme: "正在感應...", tags: ["同步中"],
+        theme: "分析中...", tags: ["正在感應"],
         authorSignature: signature, authorColor: mascotConfig.baseColor,
         deviceType: getDeviceType(), stationId: FIXED_STATION_ID
     };
@@ -85,41 +87,44 @@ const App: React.FC = () => {
 
     try {
         const fullContent = await generateFullSoulContent(text, mood, zone);
-        setWhisperData({ text, analysis: fullContent.analysis });
-        setCardData(fullContent.card); 
-        setIsLoadingCard(false);
+        
+        // 確保獲取到內容才更新，否則不動作或使用 fallback
+        if (fullContent) {
+            setWhisperData({ text, analysis: fullContent.analysis });
+            setCardData(fullContent.card); 
+            setIsLoadingContent(false);
+            setIsGeneratingImage(true);
 
-        if (isCloudLive && cloudDocId) {
-            updateLogOnCloud(FIXED_STATION_ID, cloudDocId, {
-                theme: fullContent.card.theme,
-                tags: fullContent.analysis.tags,
-                fullCard: fullContent.card,
-                replyMessage: fullContent.analysis.replyMessage
+            if (isCloudLive && cloudDocId) {
+                await updateLogOnCloud(FIXED_STATION_ID, cloudDocId, {
+                    theme: fullContent.card.theme,
+                    tags: fullContent.analysis.tags,
+                    fullCard: fullContent.card,
+                    replyMessage: fullContent.analysis.replyMessage
+                });
+            }
+
+            // 非同步生成圖片
+            generateHealingImage(text, mood, zone, fullContent.card).then(img => {
+                if (img) {
+                    const finalCard = { ...fullContent.card, imageUrl: img };
+                    setCardData(finalCard);
+                    if (isCloudLive && cloudDocId) {
+                        updateLogOnCloud(FIXED_STATION_ID, cloudDocId, { fullCard: finalCard });
+                    }
+                }
+            }).finally(() => {
+                setIsGeneratingImage(false);
+                setIsSyncing(false);
             });
         }
-
-        generateHealingImage(text, mood, zone, fullContent.card).then(img => {
-            if (img) {
-                const finalCard = { ...fullContent.card, imageUrl: img };
-                setCardData(finalCard);
-                if (isCloudLive && cloudDocId) {
-                    updateLogOnCloud(FIXED_STATION_ID, cloudDocId, { fullCard: finalCard });
-                }
-            }
-        }).finally(() => setIsSyncing(false));
-
     } catch (e) {
-        setIsLoadingCard(false);
+        console.error("Workflow Error:", e);
+        setIsLoadingContent(false);
+        setIsGeneratingImage(false);
         setCardData(DEFAULT_CARD);
         setIsSyncing(false);
     }
-  };
-
-  const handleClearDay = async (dateStr: string) => {
-      if (!confirm("確定要清除當日所有紀錄嗎？（包含 2:16 之前的紀錄）")) return;
-      setIsSyncing(true);
-      await deleteLogsByDate(FIXED_STATION_ID, new Date().toISOString()); // 清除截至目前為止的所有紀錄
-      setIsSyncing(false);
   };
 
   const handleRestart = () => {
@@ -130,6 +135,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-[100dvh] w-full relative flex flex-col items-center justify-center p-3">
+      {/* 頂部狀態欄 */}
       <div className="fixed top-4 left-4 right-4 z-[100] flex items-center justify-between">
           <div className="flex items-center gap-2 bg-white/70 backdrop-blur-xl px-4 py-2 rounded-full border border-white shadow-sm">
               {step !== AppStep.WELCOME && (
@@ -137,13 +143,9 @@ const App: React.FC = () => {
                       <ChevronLeft size={16} className="text-stone-600" />
                   </button>
               )}
-              {isCloudLive ? (
-                  <Cloud size={14} className={isSyncing ? "text-amber-500 animate-pulse" : "text-emerald-500"} />
-              ) : (
-                  <CloudOff size={14} className="text-stone-300" />
-              )}
+              <Cloud size={14} className={isSyncing ? "text-amber-500 animate-pulse" : "text-emerald-500"} />
               <span className="text-[10px] font-bold text-stone-600 uppercase tracking-widest">
-                  {isSyncing ? '秒級同步中' : '長亨雲端'}
+                  {isSyncing ? '靈感同步中' : '長亨雲端'}
               </span>
           </div>
 
@@ -162,11 +164,11 @@ const App: React.FC = () => {
       <main className="w-full max-w-2xl min-h-[min(680px,85dvh)] glass-panel rounded-[2rem] p-5 md:p-12 shadow-2xl flex flex-col relative animate-soft-in overflow-hidden z-10">
         <header className="w-full flex flex-col items-center mb-6 pt-2">
            <div className="mb-2">
-                <Mascot expression={isLoadingCard ? "listening" : "sleepy"} options={mascotConfig} className="w-24 h-24 md:w-32 md:h-32" />
+                <Mascot expression={isLoadingContent ? "listening" : "sleepy"} options={mascotConfig} className="w-24 h-24 md:w-32 md:h-32" />
            </div>
            <div className="text-center">
               <h1 className="text-xl md:text-2xl font-bold text-stone-800 serif-font">長亨心靈充電站</h1>
-              <span className="text-[8px] text-stone-400 font-bold tracking-[0.3em] uppercase">Fast Sync Enabled</span>
+              <span className="text-[8px] text-stone-400 font-bold tracking-[0.3em] uppercase">Structured Analysis v2</span>
            </div>
         </header>
 
@@ -174,7 +176,7 @@ const App: React.FC = () => {
           {step === AppStep.WELCOME && (
             <div className="w-full flex flex-col h-full max-w-sm mx-auto animate-soft-in">
               <div className="bg-white/95 p-8 rounded-[1.5rem] border border-stone-100 shadow-md text-center paper-stack mt-4">
-                <p className="text-stone-600 leading-relaxed serif-font italic">"每一段心聲，都值得被溫柔以待。<br/>我們優化了圖片大小，並支援紀錄管理。"</p>
+                <p className="text-stone-600 leading-relaxed serif-font italic">"每一次紀錄都是與靈魂的重逢，<br/>大熊在這裡聽你說。"</p>
               </div>
               <div className="space-y-3 w-full mt-10">
                 <button onClick={() => setStep(AppStep.MOOD_WATER)} className="w-full py-4 font-bold text-white text-lg bg-stone-800 rounded-2xl shadow-[0_4px_0_rgb(44,40,36)] active:translate-y-[4px] transition-all flex items-center justify-center group">開始充電 <ArrowRight className="ml-2 group-hover:translate-x-2 transition-transform" /></button>
@@ -189,14 +191,19 @@ const App: React.FC = () => {
           
           {step === AppStep.REWARD && (
             <div className="w-full animate-soft-in flex flex-col items-center py-2">
-              {isLoadingCard ? (
+              {isLoadingContent ? (
                  <div className="flex flex-col items-center gap-6 py-20 text-center">
                     <div className="w-12 h-12 border-2 border-amber-300 border-t-transparent rounded-full animate-spin"></div>
-                    <p className="font-bold text-lg text-stone-700 serif-font italic">正在感應您的頻率...</p>
+                    <p className="font-bold text-lg text-stone-700 serif-font italic">正在解析您的頻率...</p>
                  </div>
               ) : (
                 <div className="w-full flex flex-col items-center">
-                  <EnergyCard data={cardData || DEFAULT_CARD} analysis={whisperData.analysis} moodLevel={mood} />
+                  <EnergyCard 
+                    data={cardData || DEFAULT_CARD} 
+                    analysis={whisperData.analysis} 
+                    moodLevel={mood} 
+                    isImageLoading={isGeneratingImage} 
+                  />
                   <div className="w-full max-w-[320px] grid grid-cols-2 gap-2 mt-8 pb-6">
                     <button onClick={() => setStep(AppStep.COMMUNITY)} className="py-3 bg-white/50 border border-stone-100 rounded-xl text-xs font-bold">心聲牆</button>
                     <button onClick={handleRestart} className="py-3 bg-stone-800 text-white rounded-xl text-xs font-bold">回到首頁</button>
@@ -210,7 +217,7 @@ const App: React.FC = () => {
             <CommunityBoard 
                 logs={logs} 
                 onBack={() => setStep(AppStep.WELCOME)} 
-                onClearDay={handleClearDay} 
+                onClearDay={() => {}} 
                 onRefresh={() => { window.location.reload(); }} 
                 isSyncing={isSyncing} 
                 onGenerateSyncLink={() => {}} 
