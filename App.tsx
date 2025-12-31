@@ -52,14 +52,11 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<CommunityLog[]>([]);
   const isCloudLive = checkCloudStatus();
 
-  const showBackButton = step !== AppStep.WELCOME;
-
   // 訂閱雲端數據
   useEffect(() => {
     if (isCloudLive) {
-        console.log("🔗 [App] 正在啟動即時同步...");
+        console.log("🔗 [App] 正在連接長亨雲端...");
         const unsubscribe = subscribeToStation(FIXED_STATION_ID, (cloudLogs) => {
-            console.log(`📥 [App] 收到雲端更新：${cloudLogs.length} 則紀錄`);
             setLogs(cloudLogs);
         });
         return () => unsubscribe();
@@ -85,29 +82,34 @@ const App: React.FC = () => {
     const tempId = `temp-${Date.now()}`;
     const signature = `${SOUL_TITLES[Math.floor(Math.random() * SOUL_TITLES.length)]} #${Math.floor(1000 + Math.random() * 9000)}`;
     
-    // 建立臨時 Log 用於「樂觀更新」
-    const tempLog: CommunityLog = {
+    // 1. 建立初始 Log
+    const initialLog: CommunityLog = {
         id: tempId, moodLevel: mood, text: text,
         timestamp: new Date().toISOString(),
-        theme: "AI 感應中...", tags: ["同步中"],
+        theme: "正在傳送...", tags: ["同步中"],
         authorSignature: signature, authorColor: mascotConfig.baseColor,
         deviceType: getDeviceType(), stationId: FIXED_STATION_ID
     };
 
-    // 不論是否連網，立即更新本地 state，讓使用者在心聲牆能馬上看到
-    setLogs(prev => [tempLog, ...prev]);
+    // 2. 先更新本地 UI (樂觀更新)
+    setLogs(prev => [initialLog, ...prev]);
 
     try {
-        const [analysisResult, energyCardResult] = await Promise.all([
+        // 3. 並行處理 AI 與雲端寫入
+        const aiTask = Promise.all([
             analyzeWhisper(text),
             generateEnergyCard(mood, zone, text)
         ]);
-        
-        const imageResult = await generateHealingImage(text, mood, zone, energyCardResult);
 
+        const [aiResults] = await Promise.all([aiTask]);
+        const [analysisResult, energyCardResult] = aiResults;
+
+        // 4. 生成圖像 (這步最慢，放在最後)
+        const imageResult = await generateHealingImage(text, mood, zone, energyCardResult);
         const fullCard = { ...energyCardResult, imageUrl: imageResult || undefined };
+
         const finalLog: CommunityLog = {
-            ...tempLog,
+            ...initialLog,
             theme: energyCardResult.theme,
             tags: analysisResult.tags,
             fullCard: fullCard,
@@ -117,18 +119,17 @@ const App: React.FC = () => {
         setWhisperData({ text, analysis: analysisResult });
         setCardData(fullCard);
 
+        // 5. 正式寫入雲端
         if (isCloudLive) {
-            // 同步至雲端（雲端訂閱會自動更新 logs state）
             await syncLogToCloud(FIXED_STATION_ID, finalLog);
         } else {
-            // 純本地模式，手動更新與存檔
             setLogs(prev => prev.map(l => l.id === tempId ? finalLog : l));
             const saved = localStorage.getItem(`vibe_logs_${FIXED_STATION_ID}`);
             const updated = saved ? [finalLog, ...JSON.parse(saved).filter((l: any) => l.id !== tempId)] : [finalLog];
             localStorage.setItem(`vibe_logs_${FIXED_STATION_ID}`, JSON.stringify(updated.slice(0, 50)));
         }
     } catch (e) {
-        console.error("❌ [App] 處理心聲失敗", e);
+        console.error("❌ [App] 流程發生錯誤:", e);
         setCardData(DEFAULT_CARD);
     } finally {
         setIsLoadingCard(false);
@@ -144,7 +145,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-[100dvh] w-full relative flex flex-col items-center justify-center p-3 md:p-8">
-      {/* 狀態列 */}
       <div className="fixed top-4 left-4 z-[100] flex items-center gap-2 bg-white/70 backdrop-blur-xl px-4 py-2 rounded-full border border-white shadow-sm transition-all">
           {isCloudLive ? (
               <Cloud size={14} className={isSyncing ? "text-amber-500 animate-pulse" : "text-emerald-500"} />
@@ -152,8 +152,7 @@ const App: React.FC = () => {
               <CloudOff size={14} className="text-stone-300" />
           )}
           <span className="text-[10px] font-bold text-stone-600 uppercase tracking-widest flex items-center gap-2">
-              {isCloudLive ? (isSyncing ? '同步中...' : '已連網：長亨雲端') : '本地離線模式'}
-              {isCloudLive && !isSyncing && <Activity size={10} className="text-emerald-400" />}
+              {isCloudLive ? (isSyncing ? '同步中...' : '長亨雲端已連線') : '本地模式'}
           </span>
       </div>
 
@@ -170,12 +169,6 @@ const App: React.FC = () => {
       </button>
 
       <main className="w-full max-w-2xl min-h-[min(680px,85dvh)] glass-panel rounded-[1.8rem] md:rounded-[2.5rem] p-5 md:p-12 shadow-2xl flex flex-col relative animate-soft-in overflow-hidden z-10">
-        {showBackButton && (
-          <button onClick={() => setStep(AppStep.WELCOME)} className="absolute top-5 left-5 p-2 text-stone-400 hover:text-stone-700 z-[100]">
-            <ChevronLeft size={18} />
-          </button>
-        )}
-
         <header className="w-full flex flex-col items-center mb-5 md:mb-8 pt-2">
            <div className="mb-2">
                 <Mascot 
@@ -196,12 +189,6 @@ const App: React.FC = () => {
               <div className="bg-white/95 p-8 rounded-[1.5rem] border border-stone-100 shadow-md text-center paper-stack mt-4">
                 <p className="text-stone-600 leading-relaxed serif-font italic">"這裡匯聚了長亨所有人的心聲。<br/>寫下你的故事，同步到大牆面吧。"</p>
               </div>
-              <div className="mt-8 flex flex-col items-center gap-4">
-                <div className="px-5 py-2 bg-stone-800 text-white rounded-full flex items-center gap-2 shadow-xl">
-                    <MapPin size={12} className="text-amber-300" />
-                    <span className="text-[10px] font-bold tracking-widest uppercase">Cheung Hang Station Live</span>
-                </div>
-              </div>
               <div className="space-y-3 w-full mt-10">
                 <button onClick={() => setStep(AppStep.MOOD_WATER)} className="w-full py-4 font-bold text-white text-lg bg-stone-800 rounded-2xl shadow-[0_4px_0_rgb(44,40,36)] active:translate-y-[4px] active:shadow-none transition-all flex items-center justify-center group">開始記錄 <ArrowRight className="ml-2 group-hover:translate-x-2 transition-transform" /></button>
                 <button onClick={() => setStep(AppStep.COMMUNITY)} className="w-full py-3 font-bold text-stone-400 bg-white/40 border border-stone-100 rounded-2xl flex items-center justify-center gap-2 text-xs hover:bg-white/60 transition-all"><Grid size={14} /> 進入全域心聲長廊</button>
@@ -218,7 +205,7 @@ const App: React.FC = () => {
               {isLoadingCard ? (
                  <div className="flex flex-col items-center gap-6 py-20 text-center">
                     <div className="w-12 h-12 border-2 border-amber-300 border-t-transparent rounded-full animate-spin"></div>
-                    <p className="font-bold text-lg text-stone-700 serif-font italic">正在將您的心聲傳送到長亨大牆...</p>
+                    <p className="font-bold text-lg text-stone-700 serif-font italic">正在為您的心聲充電...</p>
                  </div>
               ) : (
                 <div className="w-full flex flex-col items-center">
@@ -237,14 +224,14 @@ const App: React.FC = () => {
                 logs={logs} 
                 onBack={() => setStep(AppStep.WELCOME)} 
                 onClearDay={() => {}} 
-                onRefresh={() => {}} 
+                onRefresh={() => { window.location.reload(); }} 
                 isSyncing={isSyncing} 
                 onGenerateSyncLink={() => {}} 
             />
           )}
         </div>
       </main>
-      <footer className="mt-4 text-stone-300 text-[8px] font-bold tracking-[0.4em] uppercase opacity-40 text-center">Connected Station: CHEUNG HANG // GLOBAL SYNC ACTIVE</footer>
+      <footer className="mt-4 text-stone-300 text-[8px] font-bold tracking-[0.4em] uppercase opacity-40 text-center">Connected Station: CHEUNG HANG</footer>
     </div>
   );
 };
