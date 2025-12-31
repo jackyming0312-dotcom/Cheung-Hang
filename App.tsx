@@ -49,9 +49,10 @@ const DEFAULT_CARDS: EnergyCardData[] = [
 
 const getDeviceType = () => {
     const ua = navigator.userAgent;
-    if (/iPad|iPhone|iPod/.test(ua)) return "iPad/iPhone";
+    if (/iPad/.test(ua)) return "iPad";
+    if (/iPhone|iPod/.test(ua)) return "iPhone";
     if (/Android/.test(ua)) return "Android手機";
-    return "電腦";
+    return "電腦端";
 };
 
 const generateMascotConfig = (): MascotOptions => ({
@@ -87,7 +88,6 @@ const App: React.FC = () => {
   }, []);
 
   const handleWhisperComplete = async (text: string) => {
-    // 切換介面狀態，顯示等待動畫
     setStep(AppStep.REWARD);
     setIsLoadingContent(true);
     setIsSyncing(true);
@@ -96,50 +96,56 @@ const App: React.FC = () => {
     const now = new Date().toISOString();
     const device = getDeviceType();
 
-    // 1. 準備 ID，但不立即上傳
+    // 1. 先獲取雲端 Doc 參考
     const logRef = getNewLogRef(FIXED_STATION_ID);
     const docId = logRef ? logRef.id : `local-${Date.now()}`;
 
+    // 2. 立即構建初始 Log 並同步 (Optimistic Sync)
+    // 這樣其他裝置的心聲牆會立刻出現這則心聲，Hashtag 暫時顯示為「正在感應」
+    const initialLog: CommunityLog = {
+        id: docId,
+        moodLevel: mood, 
+        text: text, 
+        timestamp: now,
+        theme: "感應中...", 
+        tags: ["#新心聲", "#同步中"], 
+        authorSignature: signature, 
+        authorColor: mascotConfig.baseColor,
+        deviceType: device, 
+        stationId: FIXED_STATION_ID
+    };
+
+    if (logRef) {
+        // 不等待，直接異步上傳
+        syncLogWithRef(logRef, initialLog);
+    }
+
     try {
-        // 2. 先等待 AI 生成完整內容 (含 Hashtag)
-        // 這樣做可以確保上傳到心聲牆時，資料已經是完整的，不會有 "同步中" 的過渡狀態
+        // 3. 背景執行 AI 生成
         const fullContent = await generateFullSoulContent(text, mood, zone);
         
-        // 3. 更新本地顯示結果
+        // 4. 更新本地結果顯示
         setWhisperData({ text, analysis: fullContent.analysis });
         setCardData(fullContent.card); 
         setIsLoadingContent(false);
 
-        // 4. 構建完整的 Log 物件
-        const finalLog: CommunityLog = {
-            id: docId,
-            moodLevel: mood, 
-            text: text, 
-            timestamp: now,
-            theme: fullContent.card.theme, 
-            tags: fullContent.analysis.tags, // 確保這里已經有 AI 生成的 tags
-            authorSignature: signature, 
-            authorColor: mascotConfig.baseColor,
-            deviceType: device, 
-            stationId: FIXED_STATION_ID,
-            fullCard: fullContent.card,
-            replyMessage: fullContent.analysis.replyMessage
-        };
-
-        // 5. 一次性同步到雲端
+        // 5. AI 完成後，更新雲端數據 (包含正確的 Hashtags)
         if (logRef) {
-            await syncLogWithRef(logRef, finalLog);
+            await updateLogOnCloud(FIXED_STATION_ID, docId, {
+                theme: fullContent.card.theme,
+                tags: fullContent.analysis.tags,
+                fullCard: fullContent.card,
+                replyMessage: fullContent.analysis.replyMessage
+            });
         }
         
         setIsSyncing(false);
 
     } catch (e) {
-        // 萬一發生嚴重錯誤，使用預設值確保流程不卡住
         const randomDefault = DEFAULT_CARDS[Math.floor(Math.random() * DEFAULT_CARDS.length)];
         setCardData(randomDefault);
         setIsLoadingContent(false);
         setIsSyncing(false);
-        console.error("Critical flow error", e);
     }
   };
 
