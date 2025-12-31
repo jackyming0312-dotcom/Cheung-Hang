@@ -23,23 +23,27 @@ if (isFirebaseConfigured) {
   } catch (e) { console.error("Firebase Init Error", e); }
 }
 
-// 淨化資料格式，確保 Firebase 接受
 const preparePayload = (log: Partial<CommunityLog>) => {
-    return {
+    const p: any = {
         moodLevel: Number(log.moodLevel || 50),
         text: String(log.text || ""),
-        theme: String(log.theme || "同步中..."),
-        tags: Array.isArray(log.tags) ? log.tags : ["連線中"],
-        authorSignature: String(log.authorSignature || "匿名旅人"),
-        authorColor: String(log.authorColor || "#8d7b68"),
-        deviceType: String(log.deviceType || "裝置"),
+        theme: String(log.theme || ""),
+        tags: Array.isArray(log.tags) ? log.tags : [],
+        authorSignature: String(log.authorSignature || ""),
+        authorColor: String(log.authorColor || ""),
+        deviceType: String(log.deviceType || ""),
         stationId: "CHEUNG_HANG",
         replyMessage: String(log.replyMessage || ""),
-        createdAt: log.timestamp || new Date().toISOString(),
-        quote: log.fullCard?.quote || "",
-        luckyItem: log.fullCard?.luckyItem || "",
-        imageUrl: log.fullCard?.imageUrl || ""
+        createdAt: log.timestamp || new Date().toISOString()
     };
+    
+    if (log.fullCard) {
+        p.quote = log.fullCard.quote || "";
+        p.luckyItem = log.fullCard.luckyItem || "";
+        p.imageUrl = log.fullCard.imageUrl || "";
+        p.category = log.fullCard.category || "";
+    }
+    return p;
 };
 
 export const syncLogToCloud = async (stationId: string, log: CommunityLog) => {
@@ -61,7 +65,10 @@ export const updateLogOnCloud = async (stationId: string, docId: string, updates
     if (!db || !docId) return;
     try {
         const docRef = doc(db, "stations", stationId, "logs", docId);
-        await updateDoc(docRef, preparePayload(updates));
+        const payload = preparePayload(updates);
+        // 移除空值欄位，避免覆蓋掉原本已有的資料
+        Object.keys(payload).forEach(key => (payload[key] === "" || payload[key] === null) && delete payload[key]);
+        await updateDoc(docRef, payload);
     } catch (e) {
         console.error("Firebase Update Error", e);
     }
@@ -70,8 +77,9 @@ export const updateLogOnCloud = async (stationId: string, docId: string, updates
 export const subscribeToStation = (stationId: string, callback: (logs: CommunityLog[]) => void) => {
   if (!db) return () => {};
   const colRef = collection(db, "stations", stationId, "logs");
-  const q = query(colRef, orderBy("createdAt", "desc"), limit(30));
+  const q = query(colRef, orderBy("createdAt", "desc"), limit(40));
 
+  // 關鍵優化：啟用 includeMetadataChanges，讓本地寫入瞬間反映在 UI 上
   return onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
     const logs = snapshot.docs.map(doc => {
         const data = doc.data();

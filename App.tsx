@@ -88,6 +88,7 @@ const App: React.FC = () => {
         deviceType: getDeviceType(), stationId: FIXED_STATION_ID
     };
 
+    // 🚀 第一階段：立刻同步文字 (1秒內)
     let cloudDocId: string | null = null;
     if (isCloudLive) {
         cloudDocId = await syncLogToCloud(FIXED_STATION_ID, initialLog);
@@ -95,31 +96,48 @@ const App: React.FC = () => {
     }
 
     try {
+        // 🚀 第二階段：生成 AI 文本 (約 3 秒)
         const [analysisResult, energyCardResult] = await Promise.all([
             analyzeWhisper(text),
             generateEnergyCard(mood, zone, text)
         ]);
 
-        const imageResult = await generateHealingImage(text, mood, zone, energyCardResult);
-        const fullCard = { ...energyCardResult, imageUrl: imageResult || undefined };
-
+        // 立即展示文本內容，讓使用者不用等圖片
         setWhisperData({ text, analysis: analysisResult });
-        setCardData(fullCard);
+        setCardData(energyCardResult); 
         setIsLoadingCard(false);
 
+        // 立刻更新雲端 (讓手機端的「感應中」消失)
         if (isCloudLive && cloudDocId) {
-            await updateLogOnCloud(FIXED_STATION_ID, cloudDocId, {
+            updateLogOnCloud(FIXED_STATION_ID, cloudDocId, {
                 theme: energyCardResult.theme,
                 tags: analysisResult.tags,
-                fullCard: fullCard,
+                fullCard: energyCardResult,
                 replyMessage: analysisResult.replyMessage
             });
         }
+
+        // 🚀 第三階段：生成 AI 圖像 (約 10-15 秒，背景執行)
+        generateHealingImage(text, mood, zone, energyCardResult).then(imageResult => {
+            if (imageResult) {
+                const finalCard = { ...energyCardResult, imageUrl: imageResult };
+                setCardData(finalCard); // 更新本地顯示
+                
+                // 更新雲端圖像
+                if (isCloudLive && cloudDocId) {
+                    updateLogOnCloud(FIXED_STATION_ID, cloudDocId, {
+                        fullCard: finalCard
+                    });
+                }
+            }
+        }).finally(() => {
+            setIsSyncing(false);
+        });
+
     } catch (e) {
         console.error("❌ [App] AI 處理失敗", e);
         setCardData(DEFAULT_CARD);
         setIsLoadingCard(false);
-    } finally {
         setIsSyncing(false);
     }
   };
@@ -141,7 +159,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-[100dvh] w-full relative flex flex-col items-center justify-center p-3 md:p-8">
-      {/* 頂部導覽列 */}
       <div className="fixed top-4 left-4 right-4 z-[100] flex items-center justify-between">
           <div className="flex items-center gap-2 bg-white/70 backdrop-blur-xl px-4 py-2 rounded-full border border-white shadow-sm">
               {step !== AppStep.WELCOME && (
@@ -155,7 +172,7 @@ const App: React.FC = () => {
                   <CloudOff size={14} className="text-stone-300" />
               )}
               <span className="text-[10px] font-bold text-stone-600 uppercase tracking-widest">
-                  {isCloudLive ? (syncWarning ? '雲端連線失敗' : (isSyncing ? '同步中' : '已連線')) : '本地存儲'}
+                  {isCloudLive ? (syncWarning ? '雲端規則未發佈' : (isSyncing ? '秒級同步中' : '已連線')) : '本地模式'}
               </span>
           </div>
 
@@ -209,13 +226,13 @@ const App: React.FC = () => {
               {isLoadingCard ? (
                  <div className="flex flex-col items-center gap-6 py-20 text-center">
                     <div className="w-12 h-12 border-2 border-amber-300 border-t-transparent rounded-full animate-spin"></div>
-                    <p className="font-bold text-lg text-stone-700 serif-font italic">AI 正在為您調製專屬能量...</p>
+                    <p className="font-bold text-lg text-stone-700 serif-font italic">AI 正在感應您的頻率...</p>
                  </div>
               ) : (
                 <div className="w-full flex flex-col items-center">
                   {syncWarning && (
                       <div className="mb-4 flex items-center gap-2 text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100 text-[10px] font-bold">
-                          <AlertCircle size={14} /> 雲端連線失敗。請確認 Firebase Rules 已發佈。
+                          <AlertCircle size={14} /> 雲端連線失敗。請確認規則已 Publish。
                       </div>
                   )}
                   <EnergyCard data={cardData || DEFAULT_CARD} analysis={whisperData.analysis} moodLevel={mood} />
@@ -223,7 +240,7 @@ const App: React.FC = () => {
                   <div className="w-full max-w-[320px] grid grid-cols-2 gap-2 mt-8 pb-6">
                     <button onClick={() => setStep(AppStep.COMMUNITY)} className="py-3 bg-white/50 border border-stone-100 rounded-xl text-xs font-bold flex items-center justify-center gap-2">心聲牆</button>
                     <button onClick={handleRestart} className="py-3 bg-stone-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2">回到首頁</button>
-                    <button onClick={() => setStep(AppStep.WHISPER_HOLE)} className="col-span-2 py-3 bg-stone-100 text-stone-500 border border-stone-200 rounded-xl text-[10px] font-bold flex items-center justify-center gap-2 uppercase tracking-widest"><Undo2 size={12} /> 返回修改心聲內容</button>
+                    <button onClick={() => setStep(AppStep.WHISPER_HOLE)} className="col-span-2 py-3 bg-stone-100 text-stone-500 border border-stone-200 rounded-xl text-[10px] font-bold flex items-center justify-center gap-2 uppercase tracking-widest"><Undo2 size={12} /> 返回修改內容</button>
                   </div>
                 </div>
               )}
