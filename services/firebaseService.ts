@@ -8,87 +8,77 @@ import {
   query, 
   orderBy, 
   limit,
-  Timestamp,
   serverTimestamp 
 } from "firebase/firestore";
 import { CommunityLog } from "../types";
 
-// 注意：請確保在您的環境變數或此處填入正確的 Firebase 配置
+/**
+ * 🛠️ 跨手機同步執行指南：
+ * 
+ * 1. 請將您在 Firebase 控制台「專案設定」中取得的 Config 貼在下方。
+ * 2. 務必確認 Firestore Database 已經開啟「Test Mode」。
+ */
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_ID",
+  apiKey: "YOUR_API_KEY", // 👈 從 Firebase 複製 API Key 貼到這裡
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID", // 👈 貼上您的專案 ID
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
   appId: "YOUR_APP_ID"
 };
 
-// 檢查 Firebase 是否已配置 (檢測是否仍為預設預留字串)
-const isFirebaseConfigured = firebaseConfig.projectId !== "YOUR_PROJECT_ID" && firebaseConfig.projectId !== "";
+// 偵測是否已成功配置
+const isFirebaseConfigured = 
+  firebaseConfig.apiKey !== "YOUR_API_KEY" && 
+  firebaseConfig.apiKey.startsWith("AIza");
 
 let db: any = null;
+
 if (isFirebaseConfigured) {
   try {
     const app = initializeApp(firebaseConfig);
     db = getFirestore(app);
+    console.log("🚀 [Firebase] 雲端同步模式已啟動。");
   } catch (e) {
-    console.error("Firebase 初始化失敗", e);
+    console.error("❌ [Firebase] 初始化失敗", e);
   }
 }
 
-/**
- * 送出心聲到雲端 (跨設備同步核心)
- */
 export const syncLogToCloud = async (stationId: string, log: CommunityLog) => {
-  if (!db) {
-    console.warn("Firebase 未配置，心聲將僅保存在本地設備。");
-    return;
-  }
-
+  if (!db) return;
   try {
     const colRef = collection(db, "stations", stationId, "logs");
-    // 使用 serverTimestamp 確保所有設備的時間線一致，不受本機時間誤差影響
     await addDoc(colRef, {
       ...log,
-      serverTime: serverTimestamp() 
+      serverTime: serverTimestamp(), // 使用伺服器時間確保同步順序一致
+      createdAt: new Date().toISOString()
     });
   } catch (e) {
-    console.error("雲端同步失敗:", e);
+    console.error("[Firebase] 上傳失敗:", e);
   }
 };
 
-/**
- * 訂閱雲端即時更新 (這是讓其他設備「立即看見」的關鍵)
- */
 export const subscribeToStation = (stationId: string, callback: (logs: CommunityLog[]) => void) => {
-  if (!db) {
-    console.warn("無法啟動即時同步：Firebase 未連接。");
-    return () => {};
-  }
-
+  if (!db) return () => {};
   try {
     const colRef = collection(db, "stations", stationId, "logs");
-    // 監聽最近的 50 則紀錄，按伺服器時間排序
     const q = query(colRef, orderBy("serverTime", "desc"), limit(50));
 
-    // onSnapshot 會在資料庫有任何變動時立即觸發回呼
+    // 即時監聽：當 A 手機留言，B 手機的畫面會自動更新
     return onSnapshot(q, (snapshot) => {
       const logs = snapshot.docs.map(doc => {
           const data = doc.data();
           return {
               ...data,
               id: doc.id,
-              // 優雅處理時間轉換
-              timestamp: data.serverTime ? data.serverTime.toDate().toISOString() : data.timestamp
+              timestamp: data.serverTime ? data.serverTime.toDate().toISOString() : data.createdAt
           } as CommunityLog;
       });
-      console.log(`[Firebase] 接收到來自 ${stationId} 的即時更新，共 ${logs.length} 則紀錄。`);
       callback(logs);
     }, (error) => {
-      console.error("Firebase 訂閱發生錯誤:", error);
+      console.error("[Firebase] 監聽失敗 (請確認資料庫已設為 Test Mode):", error);
     });
   } catch (e) {
-    console.error("設定監聽器失敗:", e);
     return () => {};
   }
 };

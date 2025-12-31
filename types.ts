@@ -42,6 +42,7 @@ export interface EnergyCardData {
   theme: string;
   luckyItem: string;
   imageUrl?: string; 
+  category?: '生活態度' | '情緒共處' | '放鬆練習'; // 新增：卡片維度分類
 }
 
 export interface CommunityLog {
@@ -53,8 +54,8 @@ export interface CommunityLog {
   tags: string[];
   authorSignature?: string; 
   authorColor?: string;     
-  deviceType?: string;      // 新增：設備類型 (e.g., iPad, Phone)
-  stationId?: string;       // 新增：所屬車站 ID
+  deviceType?: string;      
+  stationId?: string;       
   fullCard?: EnergyCardData;
   replyMessage?: string;
 }
