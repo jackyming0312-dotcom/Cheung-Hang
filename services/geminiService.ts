@@ -13,6 +13,36 @@ const FALLBACK_CONTENT: FullSoulContent = {
   card: { quote: "慢一點沒關係，長亨大熊會陪你慢慢走。", theme: "節奏", luckyItem: "舒適的舊球鞋", category: "生活態度" }
 };
 
+// 圖片壓縮輔助函數
+const compressBase64Image = (base64Str: string, maxWidth = 512): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      if (width > maxWidth) {
+        height = Math.round((height * maxWidth) / width);
+        width = maxWidth;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, width, height);
+        // 使用 jpeg 並設定品質為 0.7 以大幅縮減體積
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      } else {
+        resolve(base64Str);
+      }
+    };
+    img.onerror = () => resolve(base64Str);
+  });
+};
+
 export const generateFullSoulContent = async (text: string, moodLevel: number, zone: string | null): Promise<FullSoulContent> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
@@ -40,11 +70,11 @@ export const generateFullSoulContent = async (text: string, moodLevel: number, z
     `;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview", // 使用最快的模型
+      model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
-        thinkingConfig: { thinkingBudget: 0 } // 關閉深度思考以追求極速回應
+        thinkingConfig: { thinkingBudget: 0 }
       }
     });
 
@@ -70,12 +100,15 @@ export const generateHealingImage = async (userText: string, moodLevel: number, 
             config: { imageConfig: { aspectRatio: "1:1" } }
         });
         for (const part of response.candidates?.[0]?.content?.parts || []) {
-            if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
+            if (part.inlineData) {
+              const originalBase64 = `data:image/png;base64,${part.inlineData.data}`;
+              // 執行壓縮，避免 Firestore 報錯
+              return await compressBase64Image(originalBase64);
+            }
         }
         return null;
     } catch (error) { return null; }
 };
 
-// 保留舊導出以相容，但內部調用新邏輯
 export const analyzeWhisper = async (text: string) => (await generateFullSoulContent(text, 50, null)).analysis;
 export const generateEnergyCard = async (mood: number, zone: string | null, text: string) => (await generateFullSoulContent(text, mood, zone)).card;

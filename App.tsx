@@ -10,7 +10,7 @@ import EnergyCard from './components/EnergyCard';
 import CommunityBoard from './components/CommunityBoard';
 
 import { generateFullSoulContent, generateHealingImage } from './services/geminiService';
-import { syncLogToCloud, updateLogOnCloud, subscribeToStation, checkCloudStatus } from './services/firebaseService';
+import { syncLogToCloud, updateLogOnCloud, subscribeToStation, checkCloudStatus, deleteLogsByDate } from './services/firebaseService';
 import { AppStep, GeminiAnalysisResult, EnergyCardData, CommunityLog, MascotOptions } from './types';
 
 const SOUL_TITLES = ["夜行的貓", "趕路的人", "夢想的園丁", "沉思的星", "微光的旅人", "溫柔的風", "尋光者", "安靜的樹", "海邊的貝殼"];
@@ -43,7 +43,6 @@ const App: React.FC = () => {
   const [isLoadingCard, setIsLoadingCard] = useState(false);
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [syncWarning, setSyncWarning] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [mascotConfig, setMascotConfig] = useState<MascotOptions>(generateMascotConfig());
   const [logs, setLogs] = useState<CommunityLog[]>([]);
@@ -70,7 +69,6 @@ const App: React.FC = () => {
     const signature = `${SOUL_TITLES[Math.floor(Math.random() * SOUL_TITLES.length)]} #${Math.floor(1000 + Math.random() * 9000)}`;
     const now = new Date().toISOString();
 
-    // 🚀 1. 立即同步第一階段 (純文字)
     const initialLog: CommunityLog = {
         id: `local-${Date.now()}`,
         moodLevel: mood, text: text,
@@ -86,15 +84,11 @@ const App: React.FC = () => {
     }
 
     try {
-        // 🚀 2. 合併請求：一次拿完所有 AI 文字資料 (最快 1-2 秒完成)
         const fullContent = await generateFullSoulContent(text, mood, zone);
-        
-        // 立即展示結果，解除 Loading 狀態
         setWhisperData({ text, analysis: fullContent.analysis });
         setCardData(fullContent.card); 
         setIsLoadingCard(false);
 
-        // 同步更新雲端標題 (手機端會在這一刻看到標題變換)
         if (isCloudLive && cloudDocId) {
             updateLogOnCloud(FIXED_STATION_ID, cloudDocId, {
                 theme: fullContent.card.theme,
@@ -104,7 +98,6 @@ const App: React.FC = () => {
             });
         }
 
-        // 🚀 3. 背景繪圖 (不影響使用者看文字)
         generateHealingImage(text, mood, zone, fullContent.card).then(img => {
             if (img) {
                 const finalCard = { ...fullContent.card, imageUrl: img };
@@ -120,6 +113,13 @@ const App: React.FC = () => {
         setCardData(DEFAULT_CARD);
         setIsSyncing(false);
     }
+  };
+
+  const handleClearDay = async (dateStr: string) => {
+      if (!confirm("確定要清除當日所有紀錄嗎？（包含 2:16 之前的紀錄）")) return;
+      setIsSyncing(true);
+      await deleteLogsByDate(FIXED_STATION_ID, new Date().toISOString()); // 清除截至目前為止的所有紀錄
+      setIsSyncing(false);
   };
 
   const handleRestart = () => {
@@ -174,7 +174,7 @@ const App: React.FC = () => {
           {step === AppStep.WELCOME && (
             <div className="w-full flex flex-col h-full max-w-sm mx-auto animate-soft-in">
               <div className="bg-white/95 p-8 rounded-[1.5rem] border border-stone-100 shadow-md text-center paper-stack mt-4">
-                <p className="text-stone-600 leading-relaxed serif-font italic">"每一段心聲，都值得被溫柔以待。<br/>我們優化了同步速度，讓療癒不等待。"</p>
+                <p className="text-stone-600 leading-relaxed serif-font italic">"每一段心聲，都值得被溫柔以待。<br/>我們優化了圖片大小，並支援紀錄管理。"</p>
               </div>
               <div className="space-y-3 w-full mt-10">
                 <button onClick={() => setStep(AppStep.MOOD_WATER)} className="w-full py-4 font-bold text-white text-lg bg-stone-800 rounded-2xl shadow-[0_4px_0_rgb(44,40,36)] active:translate-y-[4px] transition-all flex items-center justify-center group">開始充電 <ArrowRight className="ml-2 group-hover:translate-x-2 transition-transform" /></button>
@@ -210,7 +210,7 @@ const App: React.FC = () => {
             <CommunityBoard 
                 logs={logs} 
                 onBack={() => setStep(AppStep.WELCOME)} 
-                onClearDay={() => {}} 
+                onClearDay={handleClearDay} 
                 onRefresh={() => { window.location.reload(); }} 
                 isSyncing={isSyncing} 
                 onGenerateSyncLink={() => {}} 
