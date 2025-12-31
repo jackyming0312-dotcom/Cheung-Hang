@@ -8,12 +8,13 @@ interface CommunityBoardProps {
   logs: CommunityLog[];
   onBack: () => void;
   onClearDay: () => void;
+  onDeleteLog: (id: string) => void;
   onRefresh: () => void;
   isSyncing: boolean;
   onGenerateSyncLink: () => void;
 }
 
-const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDay, onRefresh, isSyncing, onGenerateSyncLink }) => {
+const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDay, onDeleteLog, onRefresh, isSyncing, onGenerateSyncLink }) => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [activeCard, setActiveCard] = useState<CommunityLog | null>(null);
   
@@ -112,31 +113,41 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                     {displayLogs.map((log) => {
                         const isAnalyzing = log.tags.includes("正在感應") || log.theme === "分析中...";
                         return (
-                            <div key={log.id} onClick={() => log.fullCard && setActiveCard(log)} className={`p-5 rounded-2xl border transition-all duration-300 flex flex-col gap-3 relative overflow-hidden group ${isAnalyzing ? 'bg-stone-50 border-stone-200 animate-pulse' : 'bg-white border-stone-100 hover:shadow-xl hover:-translate-y-1 cursor-pointer'}`}>
-                                <div className="flex justify-between items-start">
-                                    <div className="flex flex-col">
-                                        <div className="flex items-center gap-2">
-                                           <span className="text-xl">{isAnalyzing ? <Loader2 size={16} className="animate-spin text-stone-300" /> : '✨'}</span>
-                                           <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${isAnalyzing ? 'text-stone-300' : 'text-stone-400'}`}>
-                                              {log.theme}
-                                           </span>
+                            <div key={log.id} className="relative group">
+                                {/* Individual Delete Button */}
+                                <button 
+                                  onClick={(e) => { e.stopPropagation(); onDeleteLog(log.id); }}
+                                  className="absolute top-2 right-2 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-sm text-stone-300 hover:text-rose-500 hover:bg-white z-20 transition-all opacity-0 group-hover:opacity-100"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                                
+                                <div onClick={() => log.fullCard && setActiveCard(log)} className={`p-5 h-full rounded-2xl border transition-all duration-300 flex flex-col gap-3 relative overflow-hidden ${isAnalyzing ? 'bg-stone-50 border-stone-200 animate-pulse' : 'bg-white border-stone-100 hover:shadow-xl hover:-translate-y-1 cursor-pointer'}`}>
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex flex-col">
+                                            <div className="flex items-center gap-2">
+                                               <span className="text-xl">{isAnalyzing ? <Loader2 size={16} className="animate-spin text-stone-300" /> : '✨'}</span>
+                                               <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${isAnalyzing ? 'text-stone-300' : 'text-stone-400'}`}>
+                                                  {log.theme}
+                                               </span>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col items-end opacity-40 pr-6">
+                                            <div className="flex items-center gap-1 font-mono text-[9px]">
+                                                <Clock size={10} /> {new Date(log.timestamp).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'})}
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="flex flex-col items-end opacity-40">
-                                        <div className="flex items-center gap-1 font-mono text-[9px]">
-                                            <Clock size={10} /> {new Date(log.timestamp).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'})}
-                                        </div>
+                                    <p className={`text-sm font-medium leading-relaxed line-clamp-3 serif-font italic ${isAnalyzing ? 'text-stone-300' : 'text-stone-700'}`}>
+                                        {log.text}
+                                    </p>
+                                    <div className="mt-auto pt-3 border-t border-stone-50 flex flex-wrap gap-1.5">
+                                        {log.tags.map((t, idx) => (
+                                            <span key={idx} className="text-[9px] px-2 py-0.5 bg-stone-100 text-stone-500 rounded-full font-bold">
+                                                {t.startsWith('#') ? t : `#${t}`}
+                                            </span>
+                                        ))}
                                     </div>
-                                </div>
-                                <p className={`text-sm font-medium leading-relaxed line-clamp-3 serif-font italic ${isAnalyzing ? 'text-stone-300' : 'text-stone-700'}`}>
-                                    {log.text}
-                                </p>
-                                <div className="mt-auto pt-3 border-t border-stone-50 flex flex-wrap gap-1.5">
-                                    {log.tags.map((t, idx) => (
-                                        <span key={idx} className="text-[9px] px-2 py-0.5 bg-stone-100 text-stone-500 rounded-full font-bold">
-                                            {t.startsWith('#') ? t : `#${t}`}
-                                        </span>
-                                    ))}
                                 </div>
                             </div>
                         );
