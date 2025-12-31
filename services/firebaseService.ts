@@ -105,16 +105,20 @@ export const updateLogOnCloud = async (stationId: string, docId: string, updates
     }
 };
 
-export const deleteLogsByDate = async (stationId: string, dateStr: string) => {
-    if (!db) return;
+// Renamed from deleteLogsByDate to deleteLogsBefore and added return count for App.tsx compatibility
+export const deleteLogsBefore = async (stationId: string, dateStr: string) => {
+    if (!db) return 0;
     try {
         const colRef = collection(db, "stations", stationId, "logs");
         const q = query(colRef, where("createdAt", "<=", dateStr));
         const snapshot = await getDocs(q);
+        const count = snapshot.size;
         const deletePromises = snapshot.docs.map(d => deleteDoc(doc(db, "stations", stationId, "logs", d.id)));
         await Promise.all(deletePromises);
+        return count;
     } catch (e) {
         console.error("Firebase Delete Error", e);
+        return 0;
     }
 };
 

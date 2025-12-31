@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowRight, Grid, Volume2, VolumeX, ChevronLeft, Cloud } from 'lucide-react';
+import { ArrowRight, Grid, Volume2, VolumeX, ChevronLeft, Cloud, CloudOff } from 'lucide-react';
 
 import Mascot from './components/Mascot';
 import MoodWater from './components/MoodWater';
@@ -10,7 +10,7 @@ import EnergyCard from './components/EnergyCard';
 import CommunityBoard from './components/CommunityBoard';
 
 import { generateFullSoulContent } from './services/geminiService';
-import { syncLogToCloud, updateLogOnCloud, subscribeToStation, checkCloudStatus } from './services/firebaseService';
+import { syncLogToCloud, updateLogOnCloud, subscribeToStation, checkCloudStatus, deleteLogsBefore } from './services/firebaseService';
 import { AppStep, GeminiAnalysisResult, EnergyCardData, CommunityLog, MascotOptions } from './types';
 
 const SOUL_TITLES = ["夜行的貓", "趕路的人", "夢想的園丁", "沉思的星", "微光的旅人", "溫柔的風", "尋光者", "安靜的樹", "海邊的貝殼"];
@@ -79,35 +79,46 @@ const App: React.FC = () => {
         deviceType: getDeviceType(), stationId: FIXED_STATION_ID
     };
 
+    // 啟動併行任務
     const cloudIdPromise = isCloudLive ? syncLogToCloud(FIXED_STATION_ID, initialLog) : Promise.resolve(null);
-    const aiAnalysisPromise = generateFullSoulContent(text, mood, zone);
-
+    
     try {
-        const fullContent = await aiAnalysisPromise;
+        // 等待 AI 分析（現在帶有超時機制，保證會回傳）
+        const fullContent = await generateFullSoulContent(text, mood, zone);
         
-        if (fullContent) {
-            setWhisperData({ text, analysis: fullContent.analysis });
-            setCardData(fullContent.card); 
-            setIsLoadingContent(false);
-            setIsSyncing(false);
+        // 1. 立即更新本地 UI
+        setWhisperData({ text, analysis: fullContent.analysis });
+        setCardData(fullContent.card); 
+        setIsLoadingContent(false);
 
-            // 背景更新雲端
-            cloudIdPromise.then(async (docId) => {
-                if (isCloudLive && docId) {
-                    await updateLogOnCloud(FIXED_STATION_ID, docId, {
-                        theme: fullContent.card.theme,
-                        tags: fullContent.analysis.tags,
-                        fullCard: fullContent.card,
-                        replyMessage: fullContent.analysis.replyMessage
-                    });
-                }
+        // 2. 強制更新雲端，無論 AI 成功還是超時備援
+        const docId = await cloudIdPromise;
+        if (isCloudLive && docId) {
+            await updateLogOnCloud(FIXED_STATION_ID, docId, {
+                theme: fullContent.card.theme,
+                tags: fullContent.analysis.tags,
+                fullCard: fullContent.card,
+                replyMessage: fullContent.analysis.replyMessage
             });
         }
     } catch (e) {
-        console.error("Critical Analysis Error:", e);
-        setIsLoadingContent(false);
-        setIsSyncing(false);
+        console.error("Fatal Process Error:", e);
+        // 最後的防線：顯示默認卡片
         setCardData(DEFAULT_CARD);
+        setIsLoadingContent(false);
+    } finally {
+        setIsSyncing(false);
+    }
+  };
+
+  const handleClearOldLogs = async () => {
+    if (!isCloudLive) return;
+    const targetTime = new Date("2025-12-31T15:09:00").toISOString();
+    if (window.confirm("確定要清除 15:09 之前的所有心聲記錄嗎？")) {
+        setIsSyncing(true);
+        const count = await deleteLogsBefore(FIXED_STATION_ID, targetTime);
+        setIsSyncing(false);
+        alert(`清除成功，共移除 ${count} 筆歷史紀錄。`);
     }
   };
 
@@ -126,9 +137,13 @@ const App: React.FC = () => {
                       <ChevronLeft size={16} className="text-stone-600" />
                   </button>
               )}
-              <Cloud size={14} className={isSyncing ? "text-amber-500 animate-pulse" : "text-emerald-500"} />
+              {isCloudLive ? (
+                  <Cloud size={14} className={isSyncing ? "text-amber-500 animate-pulse" : "text-emerald-500"} />
+              ) : (
+                  <CloudOff size={14} className="text-rose-400" />
+              )}
               <span className="text-[10px] font-bold text-stone-600 uppercase tracking-widest">
-                  {isSyncing ? '極速分析中' : '連線穩定'}
+                  {isSyncing ? '極速感應中' : '連線穩定'}
               </span>
           </div>
 
@@ -151,7 +166,7 @@ const App: React.FC = () => {
            </div>
            <div className="text-center">
               <h1 className="text-xl md:text-2xl font-bold text-stone-800 serif-font">長亨心靈充電站</h1>
-              <span className="text-[8px] text-stone-400 font-bold tracking-[0.3em] uppercase">No-Image Speed Mode</span>
+              <span className="text-[8px] text-stone-400 font-bold tracking-[0.3em] uppercase">Ultra Stability Mode</span>
            </div>
         </header>
 
@@ -178,6 +193,7 @@ const App: React.FC = () => {
                  <div className="flex flex-col items-center gap-6 py-20 text-center">
                     <div className="w-12 h-12 border-2 border-amber-300 border-t-transparent rounded-full animate-spin"></div>
                     <p className="font-bold text-lg text-stone-700 serif-font italic">大熊正在認真感應...</p>
+                    <p className="text-[10px] text-stone-400">正在連接星際信號，請稍候</p>
                  </div>
               ) : (
                 <div className="w-full flex flex-col items-center">
@@ -199,7 +215,7 @@ const App: React.FC = () => {
             <CommunityBoard 
                 logs={logs} 
                 onBack={() => setStep(AppStep.WELCOME)} 
-                onClearDay={() => {}} 
+                onClearDay={handleClearOldLogs} 
                 onRefresh={() => { window.location.reload(); }} 
                 isSyncing={isSyncing} 
                 onGenerateSyncLink={() => {}} 
