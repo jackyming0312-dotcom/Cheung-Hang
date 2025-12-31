@@ -42,8 +42,8 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
 
   const getMoodColor = (level: number, isAnalyzing: boolean) => {
       if (isAnalyzing) return 'bg-stone-50 border-stone-200 text-stone-400 animate-pulse';
-      if (level > 70) return 'bg-orange-50/80 border-orange-200 text-orange-900';
-      if (level > 40) return 'bg-amber-50/80 border-amber-200 text-amber-900';
+      if (level > 70) return 'bg-orange-50/80 border-orange-200 text-orange-900 shadow-[inset_0_0_20px_rgba(251,146,60,0.05)]';
+      if (level > 40) return 'bg-amber-50/80 border-amber-200 text-amber-900 shadow-[inset_0_0_20px_rgba(245,158,11,0.05)]';
       return 'bg-stone-50/80 border-stone-200 text-stone-700';
   };
 
@@ -123,22 +123,26 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-6 content-start px-1">
                     {displayLogs.map((log) => {
-                        // 同時判斷「分析中」與「感應中」確保動畫出現
-                        const isAnalyzing = log.theme.includes("分析") || log.theme.includes("感應") || log.theme.includes("同步");
+                        // 【關鍵修復】：如果 theme 已經不是初始佔位符，且 tags 包含真實內容，就視為完成
+                        const isAnalyzing = (log.theme === "分析中..." || log.tags.includes("正在感應")) && !log.replyMessage;
+                        
                         return (
                             <div 
                                 key={log.id} 
                                 onClick={() => log.fullCard && setActiveCard(log)}
                                 className={`
-                                    p-5 rounded-2xl border transition-all duration-500 flex flex-col gap-3 relative overflow-hidden group animate-soft-in
+                                    p-5 rounded-2xl border transition-all duration-300 flex flex-col gap-3 relative overflow-hidden group animate-soft-in
                                     ${getMoodColor(log.moodLevel, isAnalyzing)}
                                     ${log.fullCard ? 'cursor-pointer hover:shadow-lg hover:-translate-y-1' : 'opacity-90'}
                                 `}
                             >
                                 <div className="flex justify-between items-start">
                                     <div className="flex flex-col">
-                                        <span className="text-2xl mb-1">{isAnalyzing ? <Loader2 size={24} className="animate-spin text-stone-300" /> : getMoodIcon(log.moodLevel)}</span>
-                                        <span className={`text-[10px] font-bold uppercase tracking-widest ${isAnalyzing ? 'opacity-30' : 'opacity-40'}`}>
+                                        <div className="flex items-center gap-2">
+                                           <span className="text-2xl mb-1">{isAnalyzing ? <Loader2 size={24} className="animate-spin text-stone-300" /> : getMoodIcon(log.moodLevel)}</span>
+                                           {!isAnalyzing && log.fullCard && <Sparkles size={12} className="text-amber-400 animate-pulse" />}
+                                        </div>
+                                        <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${isAnalyzing ? 'opacity-30' : 'opacity-60 text-stone-500'}`}>
                                             {log.theme}
                                         </span>
                                     </div>
@@ -155,20 +159,20 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                                         </div>
                                     </div>
                                 </div>
-                                <p className={`text-sm font-medium leading-relaxed line-clamp-4 serif-font italic ${isAnalyzing ? 'opacity-50' : ''}`}>
+                                <p className={`text-sm font-medium leading-relaxed line-clamp-4 serif-font italic ${isAnalyzing ? 'opacity-50' : 'text-stone-800'}`}>
                                     {log.text}
                                 </p>
                                 <div className="mt-auto pt-3 border-t border-black/5 flex flex-col gap-2">
                                     <div className="flex flex-wrap gap-1.5">
                                         {log.tags.map((t, idx) => (
-                                            <span key={idx} className="text-[9px] px-2 py-0.5 bg-white/40 rounded-full font-bold opacity-70">
+                                            <span key={idx} className={`text-[9px] px-2 py-0.5 rounded-full font-bold transition-colors ${isAnalyzing ? 'bg-stone-200/40 text-stone-400' : 'bg-white/60 text-stone-500 shadow-sm'}`}>
                                                 #{t}
                                             </span>
                                         ))}
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-[8px] font-bold text-stone-400 italic">{log.authorSignature}</span>
-                                        {log.fullCard && <Sparkles size={10} className="text-amber-500 animate-pulse" />}
+                                        <span className="text-[8px] font-bold text-stone-400 italic tracking-wider">{log.authorSignature}</span>
+                                        {log.replyMessage && <div className="text-[8px] px-2 py-0.5 bg-amber-100 text-amber-700 rounded-md font-black animate-soft-in">大熊回覆中...</div>}
                                     </div>
                                 </div>
                             </div>
@@ -178,7 +182,7 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
             )}
         </div>
 
-        <button onClick={onBack} className="w-full max-w-xs px-6 py-3.5 bg-stone-800 text-white rounded-xl font-bold shadow-[0_4px_0_rgb(44,40,36)] active:translate-y-[4px] mt-4 mb-2">
+        <button onClick={onBack} className="w-full max-w-xs px-6 py-3.5 bg-stone-800 text-white rounded-xl font-bold shadow-[0_4px_0_rgb(44,40,36)] active:translate-y-[4px] mt-4 mb-2 text-xs md:text-sm">
             返回首頁
         </button>
     </div>

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowRight, RotateCcw, Grid, Volume2, VolumeX, Sparkles, ChevronLeft, Activity, MapPin, Wifi, Cloud, CloudOff, AlertCircle, Undo2 } from 'lucide-react';
+import { ArrowRight, Grid, Volume2, VolumeX, ChevronLeft, Cloud } from 'lucide-react';
 
 import Mascot from './components/Mascot';
 import MoodWater from './components/MoodWater';
@@ -9,8 +9,8 @@ import WhisperHole from './components/WhisperHole';
 import EnergyCard from './components/EnergyCard';
 import CommunityBoard from './components/CommunityBoard';
 
-import { generateFullSoulContent, generateHealingImage } from './services/geminiService';
-import { syncLogToCloud, updateLogOnCloud, subscribeToStation, checkCloudStatus, deleteLogsByDate } from './services/firebaseService';
+import { generateFullSoulContent } from './services/geminiService';
+import { syncLogToCloud, updateLogOnCloud, subscribeToStation, checkCloudStatus } from './services/firebaseService';
 import { AppStep, GeminiAnalysisResult, EnergyCardData, CommunityLog, MascotOptions } from './types';
 
 const SOUL_TITLES = ["夜行的貓", "趕路的人", "夢想的園丁", "沉思的星", "微光的旅人", "溫柔的風", "尋光者", "安靜的樹", "海邊的貝殼"];
@@ -20,6 +20,7 @@ const DEFAULT_CARD: EnergyCardData = {
   quote: "無論今天如何，長亨大熊都會在這裡陪你。",
   theme: "陪伴",
   luckyItem: "溫暖的抱抱",
+  relaxationMethod: "閉上眼睛，感受心跳的節奏。",
   category: "生活態度"
 };
 
@@ -41,7 +42,6 @@ const App: React.FC = () => {
   const [whisperData, setWhisperData] = useState<{text: string, analysis: GeminiAnalysisResult | null}>({text: '', analysis: null});
   const [cardData, setCardData] = useState<EnergyCardData | null>(null);
   const [isLoadingContent, setIsLoadingContent] = useState(false);
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -56,7 +56,7 @@ const App: React.FC = () => {
   }, [isCloudLive]);
 
   useEffect(() => {
-    const audio = new Audio("https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3");
+    const audio = new Audio("https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3?key=placeholder");
     audio.loop = true;
     audio.volume = 0.2;
     audioRef.current = audio;
@@ -70,60 +70,44 @@ const App: React.FC = () => {
     const signature = `${SOUL_TITLES[Math.floor(Math.random() * SOUL_TITLES.length)]} #${Math.floor(1000 + Math.random() * 9000)}`;
     const now = new Date().toISOString();
 
-    // 初始 Log，theme 設為 "分析中..." 以對應 CommunityBoard 的轉圈判斷
     const initialLog: CommunityLog = {
         id: `local-${Date.now()}`,
         moodLevel: mood, text: text,
         timestamp: now,
-        theme: "分析中...", tags: ["正在感應"],
+        theme: "感應中...", tags: ["正在同步"],
         authorSignature: signature, authorColor: mascotConfig.baseColor,
         deviceType: getDeviceType(), stationId: FIXED_STATION_ID
     };
 
-    let cloudDocId: string | null = null;
-    if (isCloudLive) {
-        cloudDocId = await syncLogToCloud(FIXED_STATION_ID, initialLog);
-    }
+    const cloudIdPromise = isCloudLive ? syncLogToCloud(FIXED_STATION_ID, initialLog) : Promise.resolve(null);
+    const aiAnalysisPromise = generateFullSoulContent(text, mood, zone);
 
     try {
-        const fullContent = await generateFullSoulContent(text, mood, zone);
+        const fullContent = await aiAnalysisPromise;
         
-        // 確保獲取到內容才更新，否則不動作或使用 fallback
         if (fullContent) {
             setWhisperData({ text, analysis: fullContent.analysis });
             setCardData(fullContent.card); 
             setIsLoadingContent(false);
-            setIsGeneratingImage(true);
+            setIsSyncing(false);
 
-            if (isCloudLive && cloudDocId) {
-                await updateLogOnCloud(FIXED_STATION_ID, cloudDocId, {
-                    theme: fullContent.card.theme,
-                    tags: fullContent.analysis.tags,
-                    fullCard: fullContent.card,
-                    replyMessage: fullContent.analysis.replyMessage
-                });
-            }
-
-            // 非同步生成圖片
-            generateHealingImage(text, mood, zone, fullContent.card).then(img => {
-                if (img) {
-                    const finalCard = { ...fullContent.card, imageUrl: img };
-                    setCardData(finalCard);
-                    if (isCloudLive && cloudDocId) {
-                        updateLogOnCloud(FIXED_STATION_ID, cloudDocId, { fullCard: finalCard });
-                    }
+            // 背景更新雲端
+            cloudIdPromise.then(async (docId) => {
+                if (isCloudLive && docId) {
+                    await updateLogOnCloud(FIXED_STATION_ID, docId, {
+                        theme: fullContent.card.theme,
+                        tags: fullContent.analysis.tags,
+                        fullCard: fullContent.card,
+                        replyMessage: fullContent.analysis.replyMessage
+                    });
                 }
-            }).finally(() => {
-                setIsGeneratingImage(false);
-                setIsSyncing(false);
             });
         }
     } catch (e) {
-        console.error("Workflow Error:", e);
+        console.error("Critical Analysis Error:", e);
         setIsLoadingContent(false);
-        setIsGeneratingImage(false);
-        setCardData(DEFAULT_CARD);
         setIsSyncing(false);
+        setCardData(DEFAULT_CARD);
     }
   };
 
@@ -135,7 +119,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-[100dvh] w-full relative flex flex-col items-center justify-center p-3">
-      {/* 頂部狀態欄 */}
       <div className="fixed top-4 left-4 right-4 z-[100] flex items-center justify-between">
           <div className="flex items-center gap-2 bg-white/70 backdrop-blur-xl px-4 py-2 rounded-full border border-white shadow-sm">
               {step !== AppStep.WELCOME && (
@@ -145,7 +128,7 @@ const App: React.FC = () => {
               )}
               <Cloud size={14} className={isSyncing ? "text-amber-500 animate-pulse" : "text-emerald-500"} />
               <span className="text-[10px] font-bold text-stone-600 uppercase tracking-widest">
-                  {isSyncing ? '靈感同步中' : '長亨雲端'}
+                  {isSyncing ? '極速分析中' : '連線穩定'}
               </span>
           </div>
 
@@ -168,7 +151,7 @@ const App: React.FC = () => {
            </div>
            <div className="text-center">
               <h1 className="text-xl md:text-2xl font-bold text-stone-800 serif-font">長亨心靈充電站</h1>
-              <span className="text-[8px] text-stone-400 font-bold tracking-[0.3em] uppercase">Structured Analysis v2</span>
+              <span className="text-[8px] text-stone-400 font-bold tracking-[0.3em] uppercase">No-Image Speed Mode</span>
            </div>
         </header>
 
@@ -179,8 +162,8 @@ const App: React.FC = () => {
                 <p className="text-stone-600 leading-relaxed serif-font italic">"每一次紀錄都是與靈魂的重逢，<br/>大熊在這裡聽你說。"</p>
               </div>
               <div className="space-y-3 w-full mt-10">
-                <button onClick={() => setStep(AppStep.MOOD_WATER)} className="w-full py-4 font-bold text-white text-lg bg-stone-800 rounded-2xl shadow-[0_4px_0_rgb(44,40,36)] active:translate-y-[4px] transition-all flex items-center justify-center group">開始充電 <ArrowRight className="ml-2 group-hover:translate-x-2 transition-transform" /></button>
-                <button onClick={() => setStep(AppStep.COMMUNITY)} className="w-full py-3 font-bold text-stone-400 bg-white/40 border border-stone-100 rounded-2xl flex items-center justify-center gap-2 text-xs hover:bg-white/60 transition-all"><Grid size={14} /> 進入心聲長廊</button>
+                <button onClick={() => setStep(AppStep.MOOD_WATER)} className="w-full py-4 font-bold text-white text-lg bg-stone-800 rounded-2xl shadow-[0_4px_0_rgb(44,40,36)] active:translate-y-[4px] transition-all flex items-center justify-center group text-sm md:text-base">開始充電 <ArrowRight className="ml-2 group-hover:translate-x-2 transition-transform" /></button>
+                <button onClick={() => setStep(AppStep.COMMUNITY)} className="w-full py-3 font-bold text-stone-400 bg-white/40 border border-stone-100 rounded-2xl flex items-center justify-center gap-2 text-[10px] md:text-xs hover:bg-white/60 transition-all"><Grid size={14} /> 進入心聲長廊</button>
               </div>
             </div>
           )}
@@ -194,7 +177,7 @@ const App: React.FC = () => {
               {isLoadingContent ? (
                  <div className="flex flex-col items-center gap-6 py-20 text-center">
                     <div className="w-12 h-12 border-2 border-amber-300 border-t-transparent rounded-full animate-spin"></div>
-                    <p className="font-bold text-lg text-stone-700 serif-font italic">正在解析您的頻率...</p>
+                    <p className="font-bold text-lg text-stone-700 serif-font italic">大熊正在認真感應...</p>
                  </div>
               ) : (
                 <div className="w-full flex flex-col items-center">
@@ -202,7 +185,6 @@ const App: React.FC = () => {
                     data={cardData || DEFAULT_CARD} 
                     analysis={whisperData.analysis} 
                     moodLevel={mood} 
-                    isImageLoading={isGeneratingImage} 
                   />
                   <div className="w-full max-w-[320px] grid grid-cols-2 gap-2 mt-8 pb-6">
                     <button onClick={() => setStep(AppStep.COMMUNITY)} className="py-3 bg-white/50 border border-stone-100 rounded-xl text-xs font-bold">心聲牆</button>

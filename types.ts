@@ -41,8 +41,9 @@ export interface EnergyCardData {
   quote: string;
   theme: string;
   luckyItem: string;
+  relaxationMethod: string; // 新增：具體的放鬆建議
   imageUrl?: string; 
-  category?: '生活態度' | '情緒共處' | '放鬆練習'; // 新增：卡片維度分類
+  category?: '生活態度' | '情緒共處' | '放鬆練習'; 
 }
 
 export interface CommunityLog {

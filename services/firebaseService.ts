@@ -1,6 +1,22 @@
 
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp, doc, updateDoc, deleteDoc, getDocs, where } from "firebase/firestore";
+import { 
+  initializeFirestore, 
+  persistentLocalCache, 
+  persistentMultipleTabManager,
+  collection, 
+  setDoc,
+  onSnapshot, 
+  query, 
+  orderBy, 
+  limit, 
+  serverTimestamp, 
+  doc, 
+  updateDoc, 
+  deleteDoc, 
+  getDocs, 
+  where 
+} from "firebase/firestore";
 import { CommunityLog } from "../types";
 
 const firebaseConfig = {
@@ -19,8 +35,18 @@ let db: any = null;
 if (isFirebaseConfigured) {
   try {
     const app = initializeApp(firebaseConfig);
-    db = getFirestore(app);
-  } catch (e) { console.error("Firebase Init Error", e); }
+    
+    // 啟用離線快取與長輪詢（Long Polling）
+    // experimentalForceLongPolling: true 能夠解決許多行動網路或防火牆環境下 WebSocket 連結失敗導致的 10 秒逾時錯誤
+    db = initializeFirestore(app, {
+      cache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+      }),
+      experimentalForceLongPolling: true 
+    });
+  } catch (e) { 
+    console.error("Firebase Init Error", e); 
+  }
 }
 
 const preparePayload = (log: Partial<CommunityLog>) => {
@@ -49,12 +75,18 @@ const preparePayload = (log: Partial<CommunityLog>) => {
 export const syncLogToCloud = async (stationId: string, log: CommunityLog) => {
   if (!db) return null;
   try {
+    // 使用 doc(collection(...)) 預先生成 ID，改用 setDoc
+    // 這可以確保在離線狀態下，寫入操作會立即在本地 cache 完成並回傳，不需等待伺服器確認 ID
     const colRef = collection(db, "stations", stationId, "logs");
-    const docRef = await addDoc(colRef, {
+    const newDocRef = doc(colRef); 
+    const docId = newDocRef.id;
+    
+    await setDoc(newDocRef, {
         ...preparePayload(log),
         serverTime: serverTimestamp()
     });
-    return docRef.id;
+    
+    return docId;
   } catch (e) {
     console.error("Firebase Write Error", e);
     return null;
@@ -66,7 +98,6 @@ export const updateLogOnCloud = async (stationId: string, docId: string, updates
     try {
         const docRef = doc(db, "stations", stationId, "logs", docId);
         const payload = preparePayload(updates);
-        // 移除空值欄位
         Object.keys(payload).forEach(key => (payload[key] === "" || payload[key] === null) && delete payload[key]);
         await updateDoc(docRef, payload);
     } catch (e) {
@@ -74,17 +105,14 @@ export const updateLogOnCloud = async (stationId: string, docId: string, updates
     }
 };
 
-// 刪除特定日期之前的紀錄
 export const deleteLogsByDate = async (stationId: string, dateStr: string) => {
     if (!db) return;
     try {
         const colRef = collection(db, "stations", stationId, "logs");
-        // 取得該日期的所有文檔並刪除 (這是一個簡單的實作，針對您要清理特定時間點前的需求)
         const q = query(colRef, where("createdAt", "<=", dateStr));
         const snapshot = await getDocs(q);
         const deletePromises = snapshot.docs.map(d => deleteDoc(doc(db, "stations", stationId, "logs", d.id)));
         await Promise.all(deletePromises);
-        console.log(`Deleted ${snapshot.size} logs.`);
     } catch (e) {
         console.error("Firebase Delete Error", e);
     }
