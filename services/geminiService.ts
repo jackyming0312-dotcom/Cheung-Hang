@@ -7,11 +7,10 @@ export interface FullSoulContent {
   card: EnergyCardData;
 }
 
-// 豐富的備用內容池
 const FALLBACK_CONTENT_POOL = [
   {
     card: {
-      quote: "慢一點沒關係，長亨大熊會陪你慢慢走。",
+      quote: "慢一點沒關係，亨仔會陪你慢慢走。",
       theme: "沉穩節奏",
       luckyItem: "溫暖的茶",
       category: "生活態度" as const,
@@ -48,26 +47,16 @@ const FALLBACK_CONTENT_POOL = [
       relaxationMethod: "伸展雙手向上，想像自己是一棵吸收能量的樹。"
     },
     tags: ['#韌性', '#微光', '#生命力']
-  },
-  {
-    card: {
-      quote: "情緒像雲朵，來了會散，你只需要看著它。",
-      theme: "情緒觀察",
-      luckyItem: "透明水杯",
-      category: "情緒共處" as const,
-      relaxationMethod: "慢吞吞喝下一杯溫水，感受水分流過喉嚨。"
-    },
-    tags: ['#接納', '#如雲起落', '#平靜']
   }
 ];
 
-const getRandomFallbackContent = (): FullSoulContent => {
+export const getRandomFallbackContent = (): FullSoulContent => {
   const selection = FALLBACK_CONTENT_POOL[Math.floor(Math.random() * FALLBACK_CONTENT_POOL.length)];
   return {
     analysis: {
       sentiment: 'neutral',
       tags: selection.tags,
-      replyMessage: "大熊感應到你的心聲了。有些日子也許比較沉重，但請記得，你擁有讓自己快樂起來的力量。"
+      replyMessage: "亨仔感應到你的心聲了。無論今天如何，你都值得被溫柔對待，長亨站永遠為你亮著燈。"
     },
     card: selection.card
   };
@@ -77,27 +66,27 @@ export const generateFullSoulContent = async (text: string, moodLevel: number, z
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const timeoutPromise = new Promise<null>((_, reject) => 
-    setTimeout(() => reject(new Error("AI_TIMEOUT")), 9000)
+    setTimeout(() => reject(new Error("AI_TIMEOUT")), 8000)
   );
 
   const aiTask = async (): Promise<FullSoulContent> => {
     try {
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `你是一位極具洞察力與溫暖的療癒心理大叔「長亨大熊」。
+        contents: `你是一位極具洞察力與溫暖的療癒守護者「亨仔」。
         用戶輸入心聲：「${text}」（心情電力：${moodLevel}%，感興趣領域：${zone}）。
         
-        請嚴格遵守以下要求生成 JSON 回應：
-        1. analysis.replyMessage: 拒絕罐頭語。針對內容給予共鳴。
-        2. analysis.tags: 生成 3 個感性的 Hashtag（必須以 # 開頭）。
-        3. card.theme: 用 2-4 個字總結。
-        4. card.quote: 生成一句能觸動心靈的金句（要隨機且多樣）。
-        5. card.relaxationMethod: 具體的放鬆小建議。
-        6. card.category: 分類為 '生活態度'、'情緒共處' 或 '放鬆練習'。`,
+        請嚴格遵守 JSON 回應：
+        1. analysis.replyMessage: 亨仔的語氣是溫暖、親切、帶點幽默的大哥哥。針對內容給予一段感性的療癒鼓勵 (30-50字)。
+        2. analysis.tags: 生成 3-4 個感性 Hashtag (需含 #)。
+        3. card.theme: 2-4 字總結主題。
+        4. card.quote: 一句心靈金句。
+        5. card.relaxationMethod: 一個具體放鬆練習。
+        6. card.category: '生活態度', '情緒共處' 或 '放鬆練習'。`,
         config: {
-          temperature: 1.4, // 增加隨機性與多樣性
-          topK: 64,
-          topP: 0.95,
+          temperature: 1.2,
+          topK: 40,
+          topP: 0.9,
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
@@ -134,7 +123,7 @@ export const generateFullSoulContent = async (text: string, moodLevel: number, z
         card: result.card
       };
     } catch (e) {
-      console.error("Gemini Error:", e);
+      console.error("Gemini Internal Error:", e);
       return getRandomFallbackContent();
     }
   };

@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { CommunityLog, EnergyCardData, GeminiAnalysisResult } from '../types';
-import { ChevronLeft, ChevronRight, Calendar, PenLine, Clock, Loader2, Trash2, Sparkles, X, Smartphone, Tablet, Monitor, RefreshCw, Eraser } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Clock, Loader2, Trash2, Sparkles, X, Heart, RefreshCw, Eraser } from 'lucide-react';
 import EnergyCard from './EnergyCard';
 
 interface CommunityBoardProps {
@@ -14,7 +14,7 @@ interface CommunityBoardProps {
   onGenerateSyncLink: () => void;
 }
 
-const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDay, onDeleteLog, onRefresh, isSyncing, onGenerateSyncLink }) => {
+const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDay, onDeleteLog, onRefresh, isSyncing }) => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [activeCard, setActiveCard] = useState<CommunityLog | null>(null);
   
@@ -29,9 +29,9 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
   const collectiveMood = useMemo(() => {
       if (displayLogs.length === 0) return null;
       const avg = displayLogs.reduce((acc, log) => acc + log.moodLevel, 0) / displayLogs.length;
-      if (avg > 70) return "充滿暖意";
-      if (avg > 40) return "平靜沉穩";
-      return "需要抱抱";
+      if (avg > 70) return "暖心療癒";
+      if (avg > 40) return "寧靜安穩";
+      return "需要溫柔";
   }, [displayLogs]);
 
   const changeDate = (offset: number) => {
@@ -55,7 +55,7 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                         <EnergyCard 
                             data={activeCard.fullCard} 
                             moodLevel={activeCard.moodLevel}
-                            analysis={activeCard.replyMessage ? { replyMessage: activeCard.replyMessage } as GeminiAnalysisResult : null}
+                            analysis={activeCard.replyMessage ? { replyMessage: activeCard.replyMessage, tags: activeCard.tags } as GeminiAnalysisResult : null}
                         />
                     </div>
                 </div>
@@ -63,12 +63,12 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
         )}
 
         <div className="text-center mb-4">
-            <h2 className="text-2xl font-bold text-stone-800 serif-font">靈魂燈火：心聲長廊</h2>
+            <h2 className="text-2xl font-bold text-stone-800 serif-font tracking-tight">靈魂燈火：心聲長廊</h2>
             <div className="flex items-center justify-center gap-2 mt-1">
                  {collectiveMood && (
                     <div className="flex items-center gap-1.5 px-3 py-0.5 bg-white/60 rounded-full border border-stone-100 shadow-sm">
-                        <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">今日共感</span>
-                        <span className="text-[10px] font-bold text-amber-600">{collectiveMood}</span>
+                        <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">今日場域</span>
+                        <span className="text-[10px] font-bold text-amber-600 flex items-center gap-1"><Heart size={10}/> {collectiveMood}</span>
                     </div>
                  )}
             </div>
@@ -85,19 +85,12 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
             <button onClick={() => changeDate(1)} disabled={isToday} className={`p-1 rounded-full transition-colors ${isToday ? 'text-stone-300 cursor-not-allowed' : 'text-stone-600 hover:bg-stone-200'}`}>
                 <ChevronRight size={18} />
             </button>
-            
             <div className="h-4 w-[1px] bg-stone-200 mx-1"></div>
-            
             <button onClick={onRefresh} className={`p-1.5 rounded-full hover:bg-stone-100 ${isSyncing ? 'text-amber-500 animate-spin' : 'text-stone-400'}`}>
                 <RefreshCw size={14} />
             </button>
-
             {isToday && (
-               <button 
-                  onClick={onClearDay} 
-                  className="p-1.5 rounded-full text-stone-300 hover:text-rose-400 hover:bg-rose-50 transition-colors"
-                  title="清除今日紀錄"
-               >
+               <button onClick={onClearDay} className="p-1.5 rounded-full text-stone-300 hover:text-rose-400 hover:bg-rose-50 transition-colors" title="清除今日紀錄">
                   <Eraser size={14} />
                </button>
             )}
@@ -106,47 +99,83 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
         <div className="w-full flex-1 overflow-y-auto pr-1 custom-scrollbar min-h-[300px]">
             {displayLogs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-stone-400 py-10 bg-white/30 rounded-[2rem] border border-dashed border-stone-200 mx-4">
-                    <p className="font-medium text-stone-400 text-sm italic">此處目前靜悄悄的</p>
+                    <p className="font-medium text-stone-400 text-sm italic">此處目前靜悄悄的...</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-6 px-1">
+                <div className="grid grid-cols-1 gap-6 pb-6 px-1">
                     {displayLogs.map((log) => {
-                        const isAnalyzing = log.tags.includes("正在感應") || log.theme === "分析中...";
+                        const isAnalyzing = log.tags.includes("同步中") || log.theme === "感應中...";
                         return (
-                            <div key={log.id} className="relative group">
-                                {/* Individual Delete Button */}
+                            <div key={log.id} className="relative group animate-soft-in">
                                 <button 
                                   onClick={(e) => { e.stopPropagation(); onDeleteLog(log.id); }}
-                                  className="absolute top-2 right-2 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-sm text-stone-300 hover:text-rose-500 hover:bg-white z-20 transition-all opacity-0 group-hover:opacity-100"
+                                  className="absolute -top-2 -right-2 p-2 bg-white rounded-full shadow-md text-stone-300 hover:text-rose-500 hover:scale-110 z-20 transition-all opacity-0 group-hover:opacity-100 border border-stone-100"
                                 >
                                   <Trash2 size={12} />
                                 </button>
                                 
-                                <div onClick={() => log.fullCard && setActiveCard(log)} className={`p-5 h-full rounded-2xl border transition-all duration-300 flex flex-col gap-3 relative overflow-hidden ${isAnalyzing ? 'bg-stone-50 border-stone-200 animate-pulse' : 'bg-white border-stone-100 hover:shadow-xl hover:-translate-y-1 cursor-pointer'}`}>
-                                    <div className="flex justify-between items-start">
-                                        <div className="flex flex-col">
-                                            <div className="flex items-center gap-2">
-                                               <span className="text-xl">{isAnalyzing ? <Loader2 size={16} className="animate-spin text-stone-300" /> : '✨'}</span>
-                                               <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${isAnalyzing ? 'text-stone-300' : 'text-stone-400'}`}>
-                                                  {log.theme}
-                                               </span>
+                                <div 
+                                    onClick={() => !isAnalyzing && log.fullCard && setActiveCard(log)} 
+                                    className={`
+                                        p-6 rounded-[1.5rem] border transition-all duration-500 flex flex-col gap-4 relative overflow-hidden
+                                        ${isAnalyzing 
+                                            ? 'bg-stone-50 border-stone-200 cursor-default' 
+                                            : 'bg-white border-stone-100 hover:shadow-xl hover:-translate-y-1 cursor-pointer shadow-sm'}
+                                    `}
+                                >
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center gap-2">
+                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-bold shadow-sm`} style={{ backgroundColor: log.authorColor || '#8d7b68' }}>
+                                                {log.authorSignature?.substring(0, 1) || '旅'}
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] font-bold text-stone-800">{log.authorSignature || "旅人"}</span>
+                                                <span className="text-[8px] font-mono text-stone-300 flex items-center gap-1 uppercase tracking-tighter">
+                                                    <Clock size={8} /> {new Date(log.timestamp).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'})} • {log.deviceType}
+                                                </span>
                                             </div>
                                         </div>
-                                        <div className="flex flex-col items-end opacity-40 pr-6">
-                                            <div className="flex items-center gap-1 font-mono text-[9px]">
-                                                <Clock size={10} /> {new Date(log.timestamp).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'})}
-                                            </div>
+                                        <div className={`px-3 py-1 rounded-full text-[9px] font-black tracking-widest uppercase border ${isAnalyzing ? 'bg-stone-100 text-stone-300' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
+                                            {log.theme}
                                         </div>
                                     </div>
-                                    <p className={`text-sm font-medium leading-relaxed line-clamp-3 serif-font italic ${isAnalyzing ? 'text-stone-300' : 'text-stone-700'}`}>
-                                        {log.text}
-                                    </p>
-                                    <div className="mt-auto pt-3 border-t border-stone-50 flex flex-wrap gap-1.5">
-                                        {log.tags.map((t, idx) => (
-                                            <span key={idx} className="text-[9px] px-2 py-0.5 bg-stone-100 text-stone-500 rounded-full font-bold">
-                                                {t.startsWith('#') ? t : `#${t}`}
-                                            </span>
-                                        ))}
+
+                                    <div className="relative pl-4 border-l-2 border-stone-100">
+                                        <p className={`text-base font-medium leading-relaxed serif-font italic ${isAnalyzing ? 'text-stone-300' : 'text-stone-700'}`}>
+                                            {log.text}
+                                        </p>
+                                    </div>
+
+                                    <div className={`mt-2 p-5 rounded-[1.25rem] transition-all duration-1000 ${isAnalyzing ? 'bg-stone-50 animate-pulse' : 'bg-gradient-to-br from-[#fffdf5] to-[#fff8e1] border border-amber-100 shadow-sm'}`}>
+                                        {isAnalyzing ? (
+                                            <div className="flex items-center gap-3 text-stone-300">
+                                                <Loader2 size={14} className="animate-spin" />
+                                                <span className="text-[10px] font-bold italic">亨仔正在讀懂你的心聲...</span>
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col gap-3">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="shrink-0 mt-1 p-1 bg-amber-200 rounded-full">
+                                                        <Sparkles size={12} className="text-amber-700" />
+                                                    </div>
+                                                    <div className="flex flex-col gap-1">
+                                                       <span className="text-[9px] font-black text-amber-800/40 uppercase tracking-widest">Encouragement</span>
+                                                       <p className="text-xs text-stone-700 leading-relaxed font-medium">
+                                                          <span className="text-amber-700 font-black mr-1">🐻 亨仔：</span>
+                                                          {log.replyMessage || "很高興聽你分享，願這份勇氣陪伴你。"}
+                                                       </p>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="flex flex-wrap gap-2 mt-2 pt-3 border-t border-amber-200/30">
+                                                    {log.tags.map((t, idx) => (
+                                                        <span key={idx} className="text-[9px] px-2.5 py-1 bg-white/80 text-amber-700 rounded-full font-bold border border-amber-100 shadow-sm transition-transform hover:scale-105">
+                                                            {t.startsWith('#') ? t : `#${t}`}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -156,8 +185,8 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
             )}
         </div>
 
-        <button onClick={onBack} className="w-full max-w-xs px-6 py-3.5 bg-stone-800 text-white rounded-xl font-bold shadow-[0_4px_0_rgb(44,40,36)] active:translate-y-[4px] mt-4 mb-2 text-xs">
-            返回首頁
+        <button onClick={onBack} className="w-full max-w-xs px-6 py-4 bg-stone-800 text-white rounded-2xl font-bold shadow-[0_4px_0_rgb(44,40,36)] active:translate-y-[4px] mt-4 mb-2 text-sm tracking-widest uppercase">
+            離開長廊
         </button>
     </div>
   );

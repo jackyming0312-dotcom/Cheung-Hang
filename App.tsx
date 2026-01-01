@@ -9,43 +9,12 @@ import WhisperHole from './components/WhisperHole';
 import EnergyCard from './components/EnergyCard';
 import CommunityBoard from './components/CommunityBoard';
 
-import { generateFullSoulContent } from './services/geminiService';
+import { generateFullSoulContent, getRandomFallbackContent } from './services/geminiService';
 import { getNewLogRef, syncLogWithRef, updateLogOnCloud, subscribeToStation, checkCloudStatus, deleteLogsAfterDate, deleteLog } from './services/firebaseService';
 import { AppStep, GeminiAnalysisResult, EnergyCardData, CommunityLog, MascotOptions } from './types';
 
 const SOUL_TITLES = ["夜行的貓", "趕路的人", "夢想的園丁", "沉思的星", "微光的旅人", "溫柔的風", "尋光者", "安靜的樹", "海邊的貝殼"];
 const FIXED_STATION_ID = "CHEUNG_HANG"; 
-
-const DEFAULT_CARDS: EnergyCardData[] = [
-  {
-    quote: "無論今天如何，長亨大熊都會在這裡陪你。",
-    theme: "陪伴",
-    luckyItem: "溫暖的抱抱",
-    relaxationMethod: "閉上眼睛，感受心跳的節奏。",
-    category: "生活態度"
-  },
-  {
-    quote: "世界很吵，但你可以把心關靜音一下。",
-    theme: "寧靜",
-    luckyItem: "抗噪耳機",
-    relaxationMethod: "找一首純音樂，聽到結束為止。",
-    category: "放鬆練習"
-  },
-  {
-    quote: "所有的發生，都是為了把你帶到對的地方。",
-    theme: "信任",
-    luckyItem: "指南針",
-    relaxationMethod: "回想一件過去讓你覺得很幸運的小事。",
-    category: "生活態度"
-  },
-  {
-    quote: "情緒像天氣，來了會走，你只需要撐傘。",
-    theme: "接納",
-    luckyItem: "透明雨傘",
-    relaxationMethod: "想像煩惱隨著呼氣排出體外。",
-    category: "情緒共處"
-  }
-];
 
 const getDeviceType = () => {
     const ua = navigator.userAgent;
@@ -96,12 +65,9 @@ const App: React.FC = () => {
     const now = new Date().toISOString();
     const device = getDeviceType();
 
-    // 1. 先獲取雲端 Doc 參考
     const logRef = getNewLogRef(FIXED_STATION_ID);
     const docId = logRef ? logRef.id : `local-${Date.now()}`;
 
-    // 2. 立即構建初始 Log 並同步 (Optimistic Sync)
-    // 這樣其他裝置的心聲牆會立刻出現這則心聲，Hashtag 暫時顯示為「正在感應」
     const initialLog: CommunityLog = {
         id: docId,
         moodLevel: mood, 
@@ -116,20 +82,16 @@ const App: React.FC = () => {
     };
 
     if (logRef) {
-        // 不等待，直接異步上傳
         syncLogWithRef(logRef, initialLog);
     }
 
     try {
-        // 3. 背景執行 AI 生成
         const fullContent = await generateFullSoulContent(text, mood, zone);
         
-        // 4. 更新本地結果顯示
         setWhisperData({ text, analysis: fullContent.analysis });
         setCardData(fullContent.card); 
         setIsLoadingContent(false);
 
-        // 5. AI 完成後，更新雲端數據 (包含正確的 Hashtags)
         if (logRef) {
             await updateLogOnCloud(FIXED_STATION_ID, docId, {
                 theme: fullContent.card.theme,
@@ -138,13 +100,21 @@ const App: React.FC = () => {
                 replyMessage: fullContent.analysis.replyMessage
             });
         }
-        
-        setIsSyncing(false);
-
     } catch (e) {
-        const randomDefault = DEFAULT_CARDS[Math.floor(Math.random() * DEFAULT_CARDS.length)];
-        setCardData(randomDefault);
+        const fallback = getRandomFallbackContent();
+        setCardData(fallback.card);
+        setWhisperData({ text, analysis: fallback.analysis });
         setIsLoadingContent(false);
+
+        if (logRef) {
+            await updateLogOnCloud(FIXED_STATION_ID, docId, {
+                theme: fallback.card.theme,
+                tags: fallback.analysis.tags,
+                fullCard: fallback.card,
+                replyMessage: fallback.analysis.replyMessage
+            });
+        }
+    } finally {
         setIsSyncing(false);
     }
   };
@@ -157,9 +127,8 @@ const App: React.FC = () => {
 
     if (window.confirm("確定要永久清除今天的所有心聲紀錄嗎？")) {
         setIsSyncing(true);
-        const count = await deleteLogsAfterDate(FIXED_STATION_ID, isoStr);
+        await deleteLogsAfterDate(FIXED_STATION_ID, isoStr);
         setIsSyncing(false);
-        alert(`今日紀錄已歸零。`);
     }
   };
 
@@ -224,7 +193,7 @@ const App: React.FC = () => {
           {step === AppStep.WELCOME && (
             <div className="w-full flex flex-col h-full max-w-sm mx-auto animate-soft-in">
               <div className="bg-white/95 p-8 rounded-[1.5rem] border border-stone-100 shadow-md text-center paper-stack mt-4">
-                <p className="text-stone-600 leading-relaxed serif-font italic">"每一次紀錄都是與靈魂的重逢，<br/>大熊在這裡聽你說。"</p>
+                <p className="text-stone-600 leading-relaxed serif-font italic">"每一次紀錄都是與靈魂的重逢，<br/>亨仔在這裡聽你說。"</p>
               </div>
               <div className="space-y-3 w-full mt-10">
                 <button onClick={() => setStep(AppStep.MOOD_WATER)} className="w-full py-4 font-bold text-white text-lg bg-stone-800 rounded-2xl shadow-[0_4px_0_rgb(44,40,36)] active:translate-y-[4px] transition-all flex items-center justify-center group text-sm md:text-base">開始充電 <ArrowRight className="ml-2 group-hover:translate-x-2 transition-transform" /></button>
@@ -242,12 +211,12 @@ const App: React.FC = () => {
               {isLoadingContent ? (
                  <div className="flex flex-col items-center gap-6 py-20 text-center">
                     <div className="w-12 h-12 border-2 border-amber-300 border-t-transparent rounded-full animate-spin"></div>
-                    <p className="font-bold text-lg text-stone-700 serif-font italic">大熊正在讀懂你的心...</p>
+                    <p className="font-bold text-lg text-stone-700 serif-font italic">亨仔正在讀懂你的心...</p>
                  </div>
               ) : (
                 <div className="w-full flex flex-col items-center">
                   <EnergyCard 
-                    data={cardData || DEFAULT_CARDS[0]} 
+                    data={cardData!} 
                     analysis={whisperData.analysis} 
                     moodLevel={mood} 
                   />

@@ -9,7 +9,7 @@ interface EnergyCardProps {
   moodLevel: number;
 }
 
-const EnergyCard: React.FC<EnergyCardProps> = ({ data, analysis, moodLevel }) => {
+const EnergyCard: React.FC<EnergyCardProps> = ({ data, analysis }) => {
   if (!data) return null;
 
   const getThemeStyles = () => {
@@ -66,18 +66,14 @@ const EnergyCard: React.FC<EnergyCardProps> = ({ data, analysis, moodLevel }) =>
         p-8 md:p-10 rounded-[2.5rem] shadow-2xl border-2 ${styles.border}
         flex flex-col items-center text-center transition-all duration-700
       `}>
-        {/* 紙膠帶 */}
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-6 washi-tape opacity-60 z-20"></div>
 
-        {/* 分類標籤 */}
         <div className={`absolute top-6 right-6 px-4 py-1.5 ${styles.bgTag} backdrop-blur-md rounded-full border border-white/50 shadow-sm flex items-center gap-2 z-30`}>
             <span className={styles.accent}>{styles.icon}</span>
             <span className={`text-[10px] font-black ${styles.accent} tracking-widest uppercase`}>{data.category || 'RECOVERY'}</span>
         </div>
 
-        {/* 文字核心區 */}
         <div className="relative z-10 w-full space-y-8 mt-4">
-          
           <div className="flex flex-col items-center gap-4">
              <div className="p-6 bg-white rounded-full shadow-inner-lg">
                 {styles.illustration}
@@ -100,7 +96,7 @@ const EnergyCard: React.FC<EnergyCardProps> = ({ data, analysis, moodLevel }) =>
           <div className="space-y-4 pt-6 border-t border-dashed border-stone-200">
              <div className="flex flex-col items-center gap-2">
                 <span className="text-[10px] font-bold text-stone-400 tracking-widest uppercase flex items-center gap-2">
-                   <Coffee size={12} /> 大熊推薦：放鬆練習
+                   <Coffee size={12} /> 亨仔推薦：放鬆練習
                 </span>
                 <p className="text-sm text-stone-500 leading-relaxed max-w-[240px] italic">
                    {data.relaxationMethod}
@@ -117,14 +113,13 @@ const EnergyCard: React.FC<EnergyCardProps> = ({ data, analysis, moodLevel }) =>
         </div>
       </div>
       
-      {/* 悄悄話卡片 */}
       {analysis?.replyMessage && (
         <div className="mt-8 max-w-[320px] w-full relative bg-[#fffdf5] p-6 shadow-xl border-l-4 border-amber-300 transform -rotate-1 animate-soft-in">
            <div className="absolute -top-3 -right-3 w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center text-amber-500 shadow-sm">
               <Quote size={14} />
            </div>
            <p className="text-stone-600 font-handwriting leading-relaxed text-base">
-               <span className="font-bold text-stone-800 text-lg border-b-2 border-amber-200 mb-2 inline-block">大熊悄悄話：</span><br/>
+               <span className="font-bold text-stone-800 text-lg border-b-2 border-amber-200 mb-2 inline-block">亨仔悄悄話：</span><br/>
                {analysis.replyMessage}
            </p>
         </div>
