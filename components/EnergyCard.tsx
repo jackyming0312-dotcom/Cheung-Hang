@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Sparkle, Compass, Heart, Wind, Quote, Coffee, Flower, Sun } from 'lucide-react';
 import { EnergyCardData, GeminiAnalysisResult } from '../types';
 
@@ -9,8 +9,17 @@ interface EnergyCardProps {
   moodLevel: number;
 }
 
+const NOTE_COLORS = [
+  { bg: 'bg-[#fff9e6]', border: 'border-amber-200', text: 'text-amber-900', accent: 'bg-amber-400' }, // 黃
+  { bg: 'bg-[#f0fff4]', border: 'border-emerald-200', text: 'text-emerald-900', accent: 'bg-emerald-400' }, // 綠
+  { bg: 'bg-[#f5f3ff]', border: 'border-indigo-200', text: 'text-indigo-900', accent: 'bg-indigo-400' }, // 紫
+  { bg: 'bg-[#fff5f5]', border: 'border-rose-200', text: 'text-rose-900', accent: 'bg-rose-400' }, // 粉
+];
+
 const EnergyCard: React.FC<EnergyCardProps> = ({ data, analysis }) => {
   if (!data) return null;
+
+  const noteStyle = useMemo(() => NOTE_COLORS[Math.floor(Math.random() * NOTE_COLORS.length)], []);
 
   const getThemeStyles = () => {
     switch(data.category) {
@@ -114,14 +123,28 @@ const EnergyCard: React.FC<EnergyCardProps> = ({ data, analysis }) => {
       </div>
       
       {analysis?.replyMessage && (
-        <div className="mt-8 max-w-[320px] w-full relative bg-[#fffdf5] p-6 shadow-xl border-l-4 border-amber-300 transform -rotate-1 animate-soft-in">
-           <div className="absolute -top-3 -right-3 w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center text-amber-500 shadow-sm">
-              <Quote size={14} />
+        <div className={`
+          mt-10 max-w-[320px] w-full relative ${noteStyle.bg} p-7 shadow-2xl ${noteStyle.border} border-l-8 
+          transform -rotate-2 hover:rotate-0 transition-all duration-500 animate-soft-in
+          before:content-[''] before:absolute before:-top-4 before:left-1/2 before:-translate-x-1/2 before:w-16 before:h-6 before:bg-white/40 before:washi-tape
+        `}>
+           <div className={`absolute top-4 right-4 w-6 h-6 ${noteStyle.accent} rounded-full flex items-center justify-center text-white shadow-sm opacity-50`}>
+              <Sparkle size={10} />
            </div>
-           <p className="text-stone-600 font-handwriting leading-relaxed text-base">
-               <span className="font-bold text-stone-800 text-lg border-b-2 border-amber-200 mb-2 inline-block">亨仔悄悄話：</span><br/>
-               {analysis.replyMessage}
-           </p>
+           
+           <div className="flex flex-col gap-3">
+              <span className={`text-[11px] font-black ${noteStyle.text} opacity-40 uppercase tracking-[0.2em]`}>Bear's Whisper</span>
+              <p className={`text-lg leading-relaxed handwriting-font ${noteStyle.text} font-bold`}>
+                 {analysis.replyMessage}
+              </p>
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                 {analysis.tags?.map((t, idx) => (
+                    <span key={idx} className={`text-[9px] font-bold opacity-60 ${noteStyle.text}`}>
+                       {t.startsWith('#') ? t : `#${t}`}
+                    </span>
+                 ))}
+              </div>
+           </div>
         </div>
       )}
     </div>

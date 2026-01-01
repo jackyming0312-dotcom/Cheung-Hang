@@ -14,6 +14,13 @@ interface CommunityBoardProps {
   onGenerateSyncLink: () => void;
 }
 
+const NOTE_VARIANTS = [
+  { bg: 'bg-[#fff9e6]', border: 'border-amber-100', text: 'text-amber-900' },
+  { bg: 'bg-[#f0fff4]', border: 'border-emerald-100', text: 'text-emerald-900' },
+  { bg: 'bg-[#f5f3ff]', border: 'border-indigo-100', text: 'text-indigo-900' },
+  { bg: 'bg-[#fff5f5]', border: 'border-rose-100', text: 'text-rose-900' },
+];
+
 const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDay, onDeleteLog, onRefresh, isSyncing }) => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [activeCard, setActiveCard] = useState<CommunityLog | null>(null);
@@ -103,8 +110,9 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                 </div>
             ) : (
                 <div className="grid grid-cols-1 gap-6 pb-6 px-1">
-                    {displayLogs.map((log) => {
+                    {displayLogs.map((log, index) => {
                         const isAnalyzing = log.tags.includes("同步中") || log.theme === "感應中...";
+                        const variant = NOTE_VARIANTS[index % NOTE_VARIANTS.length];
                         return (
                             <div key={log.id} className="relative group animate-soft-in">
                                 <button 
@@ -146,30 +154,27 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                                         </p>
                                     </div>
 
-                                    <div className={`mt-2 p-5 rounded-[1.25rem] transition-all duration-1000 ${isAnalyzing ? 'bg-stone-50 animate-pulse' : 'bg-gradient-to-br from-[#fffdf5] to-[#fff8e1] border border-amber-100 shadow-sm'}`}>
+                                    <div className={`
+                                      mt-2 p-5 rounded-[1.25rem] transition-all duration-1000 relative
+                                      ${isAnalyzing ? 'bg-stone-50 animate-pulse' : `${variant.bg} border-l-4 ${variant.border} shadow-sm transform -rotate-1`}
+                                    `}>
                                         {isAnalyzing ? (
                                             <div className="flex items-center gap-3 text-stone-300">
                                                 <Loader2 size={14} className="animate-spin" />
                                                 <span className="text-[10px] font-bold italic">亨仔正在讀懂你的心聲...</span>
                                             </div>
                                         ) : (
-                                            <div className="flex flex-col gap-3">
-                                                <div className="flex items-start gap-3">
-                                                    <div className="shrink-0 mt-1 p-1 bg-amber-200 rounded-full">
-                                                        <Sparkles size={12} className="text-amber-700" />
-                                                    </div>
-                                                    <div className="flex flex-col gap-1">
-                                                       <span className="text-[9px] font-black text-amber-800/40 uppercase tracking-widest">Encouragement</span>
-                                                       <p className="text-xs text-stone-700 leading-relaxed font-medium">
-                                                          <span className="text-amber-700 font-black mr-1">🐻 亨仔：</span>
-                                                          {log.replyMessage || "很高興聽你分享，願這份勇氣陪伴你。"}
-                                                       </p>
-                                                    </div>
+                                            <div className="flex flex-col gap-2">
+                                                <div className="flex items-center gap-2">
+                                                   <span className={`text-[10px] font-black ${variant.text} opacity-30 uppercase tracking-widest`}>Bear's Message</span>
                                                 </div>
+                                                <p className={`text-sm handwriting-font font-bold leading-relaxed ${variant.text}`}>
+                                                   {log.replyMessage || "很高興聽你分享，願這份勇氣陪伴你。"}
+                                                </p>
                                                 
-                                                <div className="flex flex-wrap gap-2 mt-2 pt-3 border-t border-amber-200/30">
+                                                <div className="flex flex-wrap gap-2 mt-2">
                                                     {log.tags.map((t, idx) => (
-                                                        <span key={idx} className="text-[9px] px-2.5 py-1 bg-white/80 text-amber-700 rounded-full font-bold border border-amber-100 shadow-sm transition-transform hover:scale-105">
+                                                        <span key={idx} className={`text-[8px] font-bold opacity-50 ${variant.text}`}>
                                                             {t.startsWith('#') ? t : `#${t}`}
                                                         </span>
                                                     ))}

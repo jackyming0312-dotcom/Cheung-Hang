@@ -27,26 +27,6 @@ const FALLBACK_CONTENT_POOL = [
       relaxationMethod: "放下手機，閉眼聆聽周遭的細碎聲音。"
     },
     tags: ['#休息', '#重新出發', '#愛自己']
-  },
-  {
-    card: {
-      quote: "世界很吵，但你可以把心關靜音一下。",
-      theme: "心靈靜音",
-      luckyItem: "耳機",
-      category: "放鬆練習" as const,
-      relaxationMethod: "找一首純音樂，專注聽完每一秒。"
-    },
-    tags: ['#內在安靜', '#自我對話', '#長亨站']
-  },
-  {
-    card: {
-      quote: "像樹一樣，向下扎根，向上生長。",
-      theme: "成長韌性",
-      luckyItem: "小盆栽",
-      category: "生活態度" as const,
-      relaxationMethod: "伸展雙手向上，想像自己是一棵吸收能量的樹。"
-    },
-    tags: ['#韌性', '#微光', '#生命力']
   }
 ];
 
@@ -65,6 +45,14 @@ export const getRandomFallbackContent = (): FullSoulContent => {
 export const generateFullSoulContent = async (text: string, moodLevel: number, zone: string | null): Promise<FullSoulContent> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
+  const personalities = [
+    "溫暖親切的大哥哥：語氣溫潤、充滿包容力，常用『我看見了你的努力』開頭。",
+    "睿智老派的朋友：語氣沉穩、哲學化，常用『在時間的洪流裡，這只是...』開頭。",
+    "活潑熱血的加油團：語氣高亢、多用感嘆號，常用『嘿！這超酷的！』開頭。"
+  ];
+  
+  const selectedPersonality = personalities[Math.floor(Math.random() * personalities.length)];
+
   const timeoutPromise = new Promise<null>((_, reject) => 
     setTimeout(() => reject(new Error("AI_TIMEOUT")), 8000)
   );
@@ -73,18 +61,20 @@ export const generateFullSoulContent = async (text: string, moodLevel: number, z
     try {
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `你是一位極具洞察力與溫暖的療癒守護者「亨仔」。
-        用戶輸入心聲：「${text}」（心情電力：${moodLevel}%，感興趣領域：${zone}）。
+        contents: `你現在的角色是長亨站的守護者「亨仔」。
+        當前人格設定：${selectedPersonality}
         
-        請嚴格遵守 JSON 回應：
-        1. analysis.replyMessage: 亨仔的語氣是溫暖、親切、帶點幽默的大哥哥。針對內容給予一段感性的療癒鼓勵 (30-50字)。
-        2. analysis.tags: 生成 3-4 個感性 Hashtag (需含 #)。
-        3. card.theme: 2-4 字總結主題。
+        用戶輸入心聲：「${text}」（電力：${moodLevel}%，感興趣：${zone}）。
+        
+        請生成 JSON：
+        1. analysis.replyMessage: 根據人格設定，寫一段 30-50 字的專屬鼓勵。要極具共情力，不說教。
+        2. analysis.tags: 3-4 個極具現代感的 Hashtag。
+        3. card.theme: 2-4 字卡片主題。
         4. card.quote: 一句心靈金句。
-        5. card.relaxationMethod: 一個具體放鬆練習。
+        5. card.relaxationMethod: 一個具體、簡單的放鬆小練習。
         6. card.category: '生活態度', '情緒共處' 或 '放鬆練習'。`,
         config: {
-          temperature: 1.2,
+          temperature: 1.3,
           topK: 40,
           topP: 0.9,
           responseMimeType: "application/json",
@@ -123,7 +113,6 @@ export const generateFullSoulContent = async (text: string, moodLevel: number, z
         card: result.card
       };
     } catch (e) {
-      console.error("Gemini Internal Error:", e);
       return getRandomFallbackContent();
     }
   };
