@@ -1,8 +1,9 @@
 
 import React, { useState, useMemo } from 'react';
 import { CommunityLog, EnergyCardData, GeminiAnalysisResult } from '../types';
-import { ChevronLeft, ChevronRight, Calendar, Clock, Loader2, Trash2, Sparkles, X, Heart, RefreshCw, Eraser, Footprints, Moon, Sun, Star } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Clock, Loader2, Trash2, Sparkles, X, Heart, RefreshCw, Eraser, Footprints, Moon, Sun, Star, Stars, Cloud, Leaf, Palette } from 'lucide-react';
 import EnergyCard from './EnergyCard';
+import Mascot from './Mascot';
 
 interface CommunityBoardProps {
   logs: CommunityLog[];
@@ -14,13 +15,13 @@ interface CommunityBoardProps {
   onGenerateSyncLink: () => void;
 }
 
-const NOTE_THEMES = [
-  { bg: 'bg-[#fff9e6]', border: 'border-amber-200', text: 'text-amber-900', icon: <Star size={12} />, accent: 'text-amber-500' },
-  { bg: 'bg-[#f0fff4]', border: 'border-emerald-200', text: 'text-emerald-900', icon: <Footprints size={12} />, accent: 'text-emerald-500' },
-  { bg: 'bg-[#f5f3ff]', border: 'border-indigo-200', text: 'text-indigo-900', icon: <Moon size={12} />, accent: 'text-indigo-500' },
-  { bg: 'bg-[#fff5f5]', border: 'border-rose-200', text: 'text-rose-900', icon: <Heart size={12} />, accent: 'text-rose-500' },
-  { bg: 'bg-[#f0f9ff]', border: 'border-blue-200', text: 'text-blue-900', icon: <Sun size={12} />, accent: 'text-blue-500' },
-];
+const STYLE_THEMES = {
+  warm: { bg: 'bg-[#fff9e6]', border: 'border-amber-200', text: 'text-amber-900', icon: <Sun size={12} />, accent: 'text-amber-500' },
+  fresh: { bg: 'bg-[#f0fff4]', border: 'border-emerald-200', text: 'text-emerald-900', icon: <Leaf size={12} />, accent: 'text-emerald-500' },
+  calm: { bg: 'bg-[#f5f3ff]', border: 'border-indigo-200', text: 'text-indigo-900', icon: <Moon size={12} />, accent: 'text-indigo-500' },
+  energetic: { bg: 'bg-[#fff5f5]', border: 'border-rose-200', text: 'text-rose-900', icon: <Stars size={12} />, accent: 'text-rose-500' },
+  dreamy: { bg: 'bg-[#f0f9ff]', border: 'border-blue-200', text: 'text-blue-900', icon: <Sparkles size={12} />, accent: 'text-blue-500' },
+};
 
 const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDay, onDeleteLog, onRefresh, isSyncing }) => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -111,10 +112,12 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                 </div>
             ) : (
                 <div className="grid grid-cols-1 gap-6 pb-6 px-1">
-                    {displayLogs.map((log, index) => {
+                    {displayLogs.map((log) => {
                         const isAnalyzing = log.tags.includes("同步中") || log.theme === "感應中...";
-                        // 確保每個 Log 都有穩定的視覺樣式
-                        const theme = NOTE_THEMES[index % NOTE_THEMES.length];
+                        
+                        // 根據 AI 生成的 styleHint 或內容 Hash 決定風格
+                        const styleHint = log.fullCard?.styleHint || 'warm';
+                        const theme = STYLE_THEMES[styleHint as keyof typeof STYLE_THEMES] || STYLE_THEMES.warm;
                         
                         return (
                             <div key={log.id} className="relative group animate-soft-in">
@@ -158,23 +161,36 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                                     </div>
 
                                     <div className={`
-                                      mt-2 p-6 rounded-[1.5rem] transition-all duration-1000 relative shadow-inner-lg
-                                      ${isAnalyzing ? 'bg-stone-50 animate-pulse' : `${theme.bg} border border-dashed ${theme.border} transform rotate-[0.5deg]`}
+                                      mt-2 p-6 rounded-[1.5rem] transition-all duration-1000 relative shadow-inner-lg min-h-[120px] flex flex-col justify-center
+                                      ${isAnalyzing ? 'bg-stone-100/50 overflow-hidden' : `${theme.bg} border border-dashed ${theme.border} transform rotate-[0.5deg]`}
                                     `}>
                                         {isAnalyzing ? (
-                                            <div className="flex items-center gap-3 text-stone-300">
-                                                <Loader2 size={14} className="animate-spin" />
-                                                <span className="text-[10px] font-bold italic">亨仔正在為你提筆留言...</span>
+                                            <div className="flex flex-col items-center justify-center gap-4 relative">
+                                                {/* 繪圖中的小亨仔 */}
+                                                <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
+                                                   <Palette size={80} className="animate-pulse" />
+                                                </div>
+                                                <Mascot 
+                                                  expression="painting" 
+                                                  options={{role: 'youth', baseColor: log.authorColor || '#8d7b68'}} 
+                                                  className="w-16 h-16 z-10"
+                                                />
+                                                <div className="flex flex-col items-center gap-1 z-10">
+                                                   <span className="text-[10px] font-black text-stone-400 uppercase tracking-[0.2em] animate-pulse">亨仔正在繪製你的專屬能量...</span>
+                                                   <div className="w-24 h-1 bg-stone-200 rounded-full overflow-hidden">
+                                                      <div className="w-full h-full bg-amber-400/50 animate-[shimmer_2s_infinite_linear]"></div>
+                                                   </div>
+                                                </div>
                                             </div>
                                         ) : (
-                                            <div className="flex flex-col gap-3">
+                                            <div className="flex flex-col gap-3 animate-soft-in">
                                                 <div className="flex items-center justify-between">
                                                    <div className="flex items-center gap-2 opacity-40">
                                                       {theme.icon}
-                                                      <span className={`text-[9px] font-black ${theme.text} uppercase tracking-widest`}>Bear's Healing Art</span>
+                                                      <span className={`text-[9px] font-black ${theme.text} uppercase tracking-widest`}>Hand-painted Card</span>
                                                    </div>
-                                                   <div className="w-6 h-6 rounded-full border border-stone-200/50 flex items-center justify-center opacity-30 rotate-12">
-                                                      <Sparkles size={10} />
+                                                   <div className="px-2 py-0.5 border border-stone-900/10 rounded-md text-[8px] font-bold text-stone-400 uppercase tracking-tighter rotate-6">
+                                                      Approved by Bear
                                                    </div>
                                                 </div>
                                                 
@@ -186,17 +202,12 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                                                     {log.tags.map((t, idx) => (
                                                         <span key={idx} className={`
                                                             text-[9px] px-2 py-0.5 rounded-md font-bold tracking-tight
-                                                            ${theme.bg} border ${theme.border} ${theme.text} opacity-70
+                                                            ${theme.bg} border ${theme.border} ${theme.text} opacity-60
                                                             hover:opacity-100 transition-opacity
                                                         `}>
                                                             {t.startsWith('#') ? t : `#${t}`}
                                                         </span>
                                                     ))}
-                                                </div>
-
-                                                {/* 裝飾性的小細節 */}
-                                                <div className="absolute -bottom-2 -right-1 opacity-20 pointer-events-none">
-                                                    <Star className={theme.accent} size={24} fill="currentColor" />
                                                 </div>
                                             </div>
                                         )}
@@ -212,6 +223,15 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
         <button onClick={onBack} className="w-full max-w-xs px-6 py-4 bg-stone-800 text-white rounded-2xl font-bold shadow-[0_4px_0_rgb(44,40,36)] active:translate-y-[4px] mt-4 mb-2 text-sm tracking-widest uppercase">
             離開長廊
         </button>
+        
+        <style>
+          {`
+            @keyframes shimmer {
+              0% { transform: translateX(-100%); }
+              100% { transform: translateX(100%); }
+            }
+          `}
+        </style>
     </div>
   );
 };

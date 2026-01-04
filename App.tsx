@@ -210,8 +210,11 @@ const App: React.FC = () => {
             <div className="w-full animate-soft-in flex flex-col items-center py-2">
               {isLoadingContent ? (
                  <div className="flex flex-col items-center gap-6 py-20 text-center">
-                    <div className="w-12 h-12 border-2 border-amber-300 border-t-transparent rounded-full animate-spin"></div>
-                    <p className="font-bold text-lg text-stone-700 serif-font italic">亨仔正在讀懂你的心...</p>
+                    <div className="w-12 h-12 border-2 border-stone-800 border-t-transparent rounded-full animate-spin"></div>
+                    <div className="space-y-2">
+                       <p className="font-bold text-xl text-stone-700 serif-font italic">亨仔正在為你繪製能量...</p>
+                       <p className="text-[10px] text-stone-400 tracking-[0.2em] uppercase">解讀心聲中，請稍候片刻</p>
+                    </div>
                  </div>
               ) : (
                 <div className="w-full flex flex-col items-center">
@@ -221,7 +224,7 @@ const App: React.FC = () => {
                     moodLevel={mood} 
                   />
                   <div className="w-full max-w-[320px] grid grid-cols-2 gap-2 mt-8 pb-6">
-                    <button onClick={() => setStep(AppStep.COMMUNITY)} className="py-3 bg-white/50 border border-stone-100 rounded-xl text-xs font-bold">心聲牆</button>
+                    <button onClick={() => setStep(AppStep.COMMUNITY)} className="py-3 bg-white/50 border border-stone-100 rounded-xl text-xs font-bold">查看牆面</button>
                     <button onClick={handleRestart} className="py-3 bg-stone-800 text-white rounded-xl text-xs font-bold">回到首頁</button>
                   </div>
                 </div>

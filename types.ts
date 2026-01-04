@@ -1,4 +1,5 @@
 
+
 export enum AppStep {
   WELCOME = 'WELCOME',
   MOOD_WATER = 'MOOD_WATER',
@@ -41,9 +42,15 @@ export interface EnergyCardData {
   quote: string;
   theme: string;
   luckyItem: string;
-  relaxationMethod: string; // 新增：具體的放鬆建議
+  relaxationMethod: string; 
   imageUrl?: string; 
-  category?: '生活態度' | '情緒共處' | '放鬆練習'; 
+  category?: '生活態度' | '情緒共處' | '放鬆練習';
+  styleHint?: 'warm' | 'fresh' | 'calm' | 'energetic' | 'dreamy'; // 新增風格暗示
+}
+
+export interface FullSoulContent {
+  analysis: GeminiAnalysisResult;
+  card: EnergyCardData;
 }
 
 export interface CommunityLog {

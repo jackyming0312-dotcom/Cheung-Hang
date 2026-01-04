@@ -1,11 +1,9 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
-import { EnergyCardData, GeminiAnalysisResult } from "../types";
 
-export interface FullSoulContent {
-  analysis: GeminiAnalysisResult;
-  card: EnergyCardData;
-}
+import { GoogleGenAI, Type } from "@google/genai";
+import { EnergyCardData, GeminiAnalysisResult, FullSoulContent } from "../types";
+
+// Removed local FullSoulContent definition as it is now centrally managed in types.ts
 
 const FALLBACK_CONTENT_POOL = [
   {
@@ -14,7 +12,8 @@ const FALLBACK_CONTENT_POOL = [
       theme: "沉穩節奏",
       luckyItem: "溫暖的茶",
       category: "生活態度" as const,
-      relaxationMethod: "深呼吸三次，感受空氣進入肺部的清涼。"
+      relaxationMethod: "深呼吸三次，感受空氣進入肺部的清涼。",
+      styleHint: "calm" as const
     },
     tags: ['#慢活', '#深呼吸', '#自我陪伴']
   },
@@ -24,7 +23,8 @@ const FALLBACK_CONTENT_POOL = [
       theme: "自我照顧",
       luckyItem: "柔軟的抱枕",
       category: "放鬆練習" as const,
-      relaxationMethod: "放下手機，閉眼聆聽周遭的細碎聲音。"
+      relaxationMethod: "放下手機，閉眼聆聽周遭的細碎聲音。",
+      styleHint: "warm" as const
     },
     tags: ['#休息', '#重新出發', '#愛自己']
   }
@@ -42,7 +42,12 @@ export const getRandomFallbackContent = (): FullSoulContent => {
   };
 };
 
+/**
+ * Generates soul healing content using Gemini API.
+ * Uses gemini-3-flash-preview for high quality text and reasoning tasks.
+ */
 export const generateFullSoulContent = async (text: string, moodLevel: number, zone: string | null): Promise<FullSoulContent> => {
+  // Always initialize GoogleGenAI with a named parameter apiKey.
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const personalities = [
@@ -59,23 +64,27 @@ export const generateFullSoulContent = async (text: string, moodLevel: number, z
 
   const aiTask = async (): Promise<FullSoulContent> => {
     try {
+      // Call ai.models.generateContent directly with model name and configuration.
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `你現在是長亨站的守護者「亨仔」。
-        當前設定：${selectedPersonality}
+        contents: `你現在是長亨站的守護者「亨仔」。你擅長根據人們的秘密，繪製專屬的「能量卡片」。
+        當前人格：${selectedPersonality}
         
-        用戶心聲：「${text}」（電力：${moodLevel}%）。
+        用戶心聲內容：「${text}」
+        目前的電力狀態：${moodLevel}%
         
-        請生成 JSON：
-        1. analysis.replyMessage: 亨仔的專屬鼓勵與行動提醒 (40-60字)。結構為：[觀察到的情感] + [療癒的建議]。
-        2. analysis.tags: 3-4 個極具療癒感、現代感的 Hashtag (需含 #)。
-        3. card.theme: 2-4 字卡片主題。
-        4. card.quote: 一句心靈金句。
-        5. card.relaxationMethod: 一個簡單的、具體的放鬆小練習。
-        6. card.category: '生活態度', '情緒共處' 或 '放鬆練習'。`,
+        任務：請根據內容「繪製」並生成一個 JSON 對象。
+        要求：
+        1. 內容必須高度客製化，嚴禁使用罐頭回覆。
+        2. analysis.replyMessage: 針對心聲給予溫暖回覆，包含一個具體的行為建議 (40-60字)。
+        3. card.styleHint: 必須從 ['warm', 'fresh', 'calm', 'energetic', 'dreamy'] 中選擇一個最符合心聲意境的風格。
+        4. card.luckyItem: 生成一個與心聲具體相關且新穎的「療癒小物」（例如：若提到壓力，可是「一片會發光的葉子」或「隱形的消音耳機」）。
+        5. card.theme: 2-4 字的獨特主題名。
+        6. card.relaxationMethod: 一個與心聲內容呼應的 30 秒小練習。`,
         config: {
           temperature: 1.2,
           responseMimeType: "application/json",
+          // Use Type from @google/genai for responseSchema.
           responseSchema: {
             type: Type.OBJECT,
             properties: {
@@ -95,15 +104,17 @@ export const generateFullSoulContent = async (text: string, moodLevel: number, z
                   theme: { type: Type.STRING },
                   luckyItem: { type: Type.STRING },
                   relaxationMethod: { type: Type.STRING },
-                  category: { type: Type.STRING }
+                  category: { type: Type.STRING },
+                  styleHint: { type: Type.STRING }
                 },
-                required: ["quote", "theme", "luckyItem", "relaxationMethod", "category"]
+                required: ["quote", "theme", "luckyItem", "relaxationMethod", "category", "styleHint"]
               }
             }
           }
         }
       });
 
+      // Accessing response.text directly as a property.
       if (!response.text) throw new Error("EMPTY_RESPONSE");
       const result = JSON.parse(response.text);
       return {
@@ -111,6 +122,7 @@ export const generateFullSoulContent = async (text: string, moodLevel: number, z
         card: result.card
       };
     } catch (e) {
+      console.error("Gemini Error:", e);
       return getRandomFallbackContent();
     }
   };
