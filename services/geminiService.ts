@@ -36,7 +36,7 @@ export const getRandomFallbackContent = (): FullSoulContent => {
     analysis: {
       sentiment: 'neutral',
       tags: selection.tags,
-      replyMessage: "亨仔感應到你的心聲了。無論今天如何，你都值得被溫柔對待，長亨站永遠為你亮著燈。"
+      replyMessage: "亨仔看見了你的心聲。無論外面的世界多吵雜，這裡永遠有你的位子。"
     },
     card: selection.card
   };
@@ -46,37 +46,35 @@ export const generateFullSoulContent = async (text: string, moodLevel: number, z
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const personalities = [
-    "溫暖親切的大哥哥：語氣溫潤、充滿包容力，常用『我看見了你的努力』開頭。",
-    "睿智老派的朋友：語氣沉穩、哲學化，常用『在時間的洪流裡，這只是...』開頭。",
-    "活潑熱血的加油團：語氣高亢、多用感嘆號，常用『嘿！這超酷的！』開頭。"
+    "溫暖的大哥哥：語氣溫潤、充滿包容力，強調陪伴。",
+    "睿智的老朋友：語氣沉穩、哲學化，強調透視煩惱。",
+    "活潑的小太陽：語氣充滿能量，強調行動與改變。"
   ];
   
   const selectedPersonality = personalities[Math.floor(Math.random() * personalities.length)];
 
   const timeoutPromise = new Promise<null>((_, reject) => 
-    setTimeout(() => reject(new Error("AI_TIMEOUT")), 8000)
+    setTimeout(() => reject(new Error("AI_TIMEOUT")), 10000)
   );
 
   const aiTask = async (): Promise<FullSoulContent> => {
     try {
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `你現在的角色是長亨站的守護者「亨仔」。
-        當前人格設定：${selectedPersonality}
+        contents: `你現在是長亨站的守護者「亨仔」。
+        當前設定：${selectedPersonality}
         
-        用戶輸入心聲：「${text}」（電力：${moodLevel}%，感興趣：${zone}）。
+        用戶心聲：「${text}」（電力：${moodLevel}%）。
         
         請生成 JSON：
-        1. analysis.replyMessage: 根據人格設定，寫一段 30-50 字的專屬鼓勵。要極具共情力，不說教。
-        2. analysis.tags: 3-4 個極具現代感的 Hashtag。
+        1. analysis.replyMessage: 亨仔的專屬鼓勵與行動提醒 (40-60字)。結構為：[觀察到的情感] + [療癒的建議]。
+        2. analysis.tags: 3-4 個極具療癒感、現代感的 Hashtag (需含 #)。
         3. card.theme: 2-4 字卡片主題。
         4. card.quote: 一句心靈金句。
-        5. card.relaxationMethod: 一個具體、簡單的放鬆小練習。
+        5. card.relaxationMethod: 一個簡單的、具體的放鬆小練習。
         6. card.category: '生活態度', '情緒共處' 或 '放鬆練習'。`,
         config: {
-          temperature: 1.3,
-          topK: 40,
-          topP: 0.9,
+          temperature: 1.2,
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,

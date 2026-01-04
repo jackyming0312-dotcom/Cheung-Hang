@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { CommunityLog, EnergyCardData, GeminiAnalysisResult } from '../types';
-import { ChevronLeft, ChevronRight, Calendar, Clock, Loader2, Trash2, Sparkles, X, Heart, RefreshCw, Eraser } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Clock, Loader2, Trash2, Sparkles, X, Heart, RefreshCw, Eraser, Footprints, Moon, Sun, Star } from 'lucide-react';
 import EnergyCard from './EnergyCard';
 
 interface CommunityBoardProps {
@@ -14,11 +14,12 @@ interface CommunityBoardProps {
   onGenerateSyncLink: () => void;
 }
 
-const NOTE_VARIANTS = [
-  { bg: 'bg-[#fff9e6]', border: 'border-amber-100', text: 'text-amber-900' },
-  { bg: 'bg-[#f0fff4]', border: 'border-emerald-100', text: 'text-emerald-900' },
-  { bg: 'bg-[#f5f3ff]', border: 'border-indigo-100', text: 'text-indigo-900' },
-  { bg: 'bg-[#fff5f5]', border: 'border-rose-100', text: 'text-rose-900' },
+const NOTE_THEMES = [
+  { bg: 'bg-[#fff9e6]', border: 'border-amber-200', text: 'text-amber-900', icon: <Star size={12} />, accent: 'text-amber-500' },
+  { bg: 'bg-[#f0fff4]', border: 'border-emerald-200', text: 'text-emerald-900', icon: <Footprints size={12} />, accent: 'text-emerald-500' },
+  { bg: 'bg-[#f5f3ff]', border: 'border-indigo-200', text: 'text-indigo-900', icon: <Moon size={12} />, accent: 'text-indigo-500' },
+  { bg: 'bg-[#fff5f5]', border: 'border-rose-200', text: 'text-rose-900', icon: <Heart size={12} />, accent: 'text-rose-500' },
+  { bg: 'bg-[#f0f9ff]', border: 'border-blue-200', text: 'text-blue-900', icon: <Sun size={12} />, accent: 'text-blue-500' },
 ];
 
 const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDay, onDeleteLog, onRefresh, isSyncing }) => {
@@ -112,7 +113,9 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                 <div className="grid grid-cols-1 gap-6 pb-6 px-1">
                     {displayLogs.map((log, index) => {
                         const isAnalyzing = log.tags.includes("同步中") || log.theme === "感應中...";
-                        const variant = NOTE_VARIANTS[index % NOTE_VARIANTS.length];
+                        // 確保每個 Log 都有穩定的視覺樣式
+                        const theme = NOTE_THEMES[index % NOTE_THEMES.length];
+                        
                         return (
                             <div key={log.id} className="relative group animate-soft-in">
                                 <button 
@@ -125,7 +128,7 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                                 <div 
                                     onClick={() => !isAnalyzing && log.fullCard && setActiveCard(log)} 
                                     className={`
-                                        p-6 rounded-[1.5rem] border transition-all duration-500 flex flex-col gap-4 relative overflow-hidden
+                                        p-6 rounded-[1.8rem] border transition-all duration-500 flex flex-col gap-4 relative overflow-hidden
                                         ${isAnalyzing 
                                             ? 'bg-stone-50 border-stone-200 cursor-default' 
                                             : 'bg-white border-stone-100 hover:shadow-xl hover:-translate-y-1 cursor-pointer shadow-sm'}
@@ -148,36 +151,52 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                                         </div>
                                     </div>
 
-                                    <div className="relative pl-4 border-l-2 border-stone-100">
+                                    <div className="relative pl-5 border-l-2 border-stone-100 py-1">
                                         <p className={`text-base font-medium leading-relaxed serif-font italic ${isAnalyzing ? 'text-stone-300' : 'text-stone-700'}`}>
                                             {log.text}
                                         </p>
                                     </div>
 
                                     <div className={`
-                                      mt-2 p-5 rounded-[1.25rem] transition-all duration-1000 relative
-                                      ${isAnalyzing ? 'bg-stone-50 animate-pulse' : `${variant.bg} border-l-4 ${variant.border} shadow-sm transform -rotate-1`}
+                                      mt-2 p-6 rounded-[1.5rem] transition-all duration-1000 relative shadow-inner-lg
+                                      ${isAnalyzing ? 'bg-stone-50 animate-pulse' : `${theme.bg} border border-dashed ${theme.border} transform rotate-[0.5deg]`}
                                     `}>
                                         {isAnalyzing ? (
                                             <div className="flex items-center gap-3 text-stone-300">
                                                 <Loader2 size={14} className="animate-spin" />
-                                                <span className="text-[10px] font-bold italic">亨仔正在讀懂你的心聲...</span>
+                                                <span className="text-[10px] font-bold italic">亨仔正在為你提筆留言...</span>
                                             </div>
                                         ) : (
-                                            <div className="flex flex-col gap-2">
-                                                <div className="flex items-center gap-2">
-                                                   <span className={`text-[10px] font-black ${variant.text} opacity-30 uppercase tracking-widest`}>Bear's Message</span>
+                                            <div className="flex flex-col gap-3">
+                                                <div className="flex items-center justify-between">
+                                                   <div className="flex items-center gap-2 opacity-40">
+                                                      {theme.icon}
+                                                      <span className={`text-[9px] font-black ${theme.text} uppercase tracking-widest`}>Bear's Healing Art</span>
+                                                   </div>
+                                                   <div className="w-6 h-6 rounded-full border border-stone-200/50 flex items-center justify-center opacity-30 rotate-12">
+                                                      <Sparkles size={10} />
+                                                   </div>
                                                 </div>
-                                                <p className={`text-sm handwriting-font font-bold leading-relaxed ${variant.text}`}>
-                                                   {log.replyMessage || "很高興聽你分享，願這份勇氣陪伴你。"}
+                                                
+                                                <p className={`text-[15px] handwriting-font leading-relaxed font-bold ${theme.text}`}>
+                                                   {log.replyMessage || "亨仔聽到了，這份心情很珍貴。"}
                                                 </p>
                                                 
-                                                <div className="flex flex-wrap gap-2 mt-2">
+                                                <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-stone-900/5">
                                                     {log.tags.map((t, idx) => (
-                                                        <span key={idx} className={`text-[8px] font-bold opacity-50 ${variant.text}`}>
+                                                        <span key={idx} className={`
+                                                            text-[9px] px-2 py-0.5 rounded-md font-bold tracking-tight
+                                                            ${theme.bg} border ${theme.border} ${theme.text} opacity-70
+                                                            hover:opacity-100 transition-opacity
+                                                        `}>
                                                             {t.startsWith('#') ? t : `#${t}`}
                                                         </span>
                                                     ))}
+                                                </div>
+
+                                                {/* 裝飾性的小細節 */}
+                                                <div className="absolute -bottom-2 -right-1 opacity-20 pointer-events-none">
+                                                    <Star className={theme.accent} size={24} fill="currentColor" />
                                                 </div>
                                             </div>
                                         )}
