@@ -54,6 +54,22 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
 
   return (
     <div className="w-full flex flex-col items-center animate-soft-in h-full relative">
+        <style>
+          {`
+            @keyframes paint-wipe {
+              0% { clip-path: inset(0 100% 0 0); }
+              100% { clip-path: inset(0 0 0 0); }
+            }
+            .animate-paint-wipe {
+              animation: paint-wipe 1.5s ease-out forwards;
+            }
+            @keyframes shimmer {
+              0% { transform: translateX(-100%); }
+              100% { transform: translateX(100%); }
+            }
+          `}
+        </style>
+
         {activeCard && activeCard.fullCard && (
             <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm animate-soft-in">
                 <div className="relative w-full max-w-sm max-h-[90vh] overflow-y-auto custom-scrollbar">
@@ -114,8 +130,6 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                 <div className="grid grid-cols-1 gap-6 pb-6 px-1">
                     {displayLogs.map((log) => {
                         const isAnalyzing = log.tags.includes("同步中") || log.theme === "感應中...";
-                        
-                        // 根據 AI 生成的 styleHint 或內容 Hash 決定風格
                         const styleHint = log.fullCard?.styleHint || 'warm';
                         const theme = STYLE_THEMES[styleHint as keyof typeof STYLE_THEMES] || STYLE_THEMES.warm;
                         
@@ -161,49 +175,48 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                                     </div>
 
                                     <div className={`
-                                      mt-2 p-6 rounded-[1.5rem] transition-all duration-1000 relative shadow-inner-lg min-h-[120px] flex flex-col justify-center
-                                      ${isAnalyzing ? 'bg-stone-100/50 overflow-hidden' : `${theme.bg} border border-dashed ${theme.border} transform rotate-[0.5deg]`}
+                                      mt-2 p-6 rounded-[1.5rem] transition-all duration-700 relative shadow-inner-lg min-h-[140px] flex flex-col justify-center
+                                      ${isAnalyzing ? 'bg-stone-100/50' : `${theme.bg} border border-dashed ${theme.border} transform rotate-[0.5deg] animate-paint-wipe`}
                                     `}>
                                         {isAnalyzing ? (
-                                            <div className="flex flex-col items-center justify-center gap-4 relative">
-                                                {/* 繪圖中的小亨仔 */}
-                                                <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
-                                                   <Palette size={80} className="animate-pulse" />
+                                            <div className="flex flex-col items-center justify-center gap-4 relative py-4">
+                                                <div className="absolute inset-0 flex items-center justify-center opacity-10">
+                                                   <Palette size={100} className="animate-pulse" />
                                                 </div>
                                                 <Mascot 
                                                   expression="painting" 
                                                   options={{role: 'youth', baseColor: log.authorColor || '#8d7b68'}} 
-                                                  className="w-16 h-16 z-10"
+                                                  className="w-20 h-20 z-10"
                                                 />
                                                 <div className="flex flex-col items-center gap-1 z-10">
-                                                   <span className="text-[10px] font-black text-stone-400 uppercase tracking-[0.2em] animate-pulse">亨仔正在繪製你的專屬能量...</span>
-                                                   <div className="w-24 h-1 bg-stone-200 rounded-full overflow-hidden">
-                                                      <div className="w-full h-full bg-amber-400/50 animate-[shimmer_2s_infinite_linear]"></div>
+                                                   <span className="text-[10px] font-black text-stone-500 uppercase tracking-[0.25em] animate-pulse">亨仔正在提筆作畫...</span>
+                                                   <div className="w-32 h-1 bg-stone-200 rounded-full overflow-hidden mt-2">
+                                                      <div className="w-full h-full bg-gradient-to-r from-amber-400 to-rose-400 animate-[shimmer_1.5s_infinite_linear]"></div>
                                                    </div>
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div className="flex flex-col gap-3 animate-soft-in">
+                                            <div className="flex flex-col gap-3">
                                                 <div className="flex items-center justify-between">
                                                    <div className="flex items-center gap-2 opacity-40">
                                                       {theme.icon}
-                                                      <span className={`text-[9px] font-black ${theme.text} uppercase tracking-widest`}>Hand-painted Card</span>
+                                                      <span className={`text-[9px] font-black ${theme.text} uppercase tracking-widest`}>亨仔手繪作品</span>
                                                    </div>
-                                                   <div className="px-2 py-0.5 border border-stone-900/10 rounded-md text-[8px] font-bold text-stone-400 uppercase tracking-tighter rotate-6">
+                                                   <div className="px-2 py-0.5 bg-white/60 border border-stone-200 rounded-md text-[8px] font-bold text-stone-400 uppercase tracking-tighter rotate-6 shadow-sm">
                                                       Approved by Bear
                                                    </div>
                                                 </div>
                                                 
-                                                <p className={`text-[15px] handwriting-font leading-relaxed font-bold ${theme.text}`}>
-                                                   {log.replyMessage || "亨仔聽到了，這份心情很珍貴。"}
+                                                <p className={`text-[16px] handwriting-font leading-relaxed font-bold ${theme.text} animate-soft-in`}>
+                                                   {log.replyMessage || "我看見了你的心聲。無論外面的世界多吵雜，這裡永遠有你的位子。"}
                                                 </p>
                                                 
-                                                <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-stone-900/5">
+                                                <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-stone-900/5 animate-soft-in [animation-delay:0.3s]">
                                                     {log.tags.map((t, idx) => (
                                                         <span key={idx} className={`
-                                                            text-[9px] px-2 py-0.5 rounded-md font-bold tracking-tight
-                                                            ${theme.bg} border ${theme.border} ${theme.text} opacity-60
-                                                            hover:opacity-100 transition-opacity
+                                                            text-[9px] px-2.5 py-1 rounded-lg font-bold tracking-tight
+                                                            bg-white/40 border border-white/60 ${theme.text} shadow-sm
+                                                            hover:bg-white transition-all
                                                         `}>
                                                             {t.startsWith('#') ? t : `#${t}`}
                                                         </span>
@@ -223,15 +236,6 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
         <button onClick={onBack} className="w-full max-w-xs px-6 py-4 bg-stone-800 text-white rounded-2xl font-bold shadow-[0_4px_0_rgb(44,40,36)] active:translate-y-[4px] mt-4 mb-2 text-sm tracking-widest uppercase">
             離開長廊
         </button>
-        
-        <style>
-          {`
-            @keyframes shimmer {
-              0% { transform: translateX(-100%); }
-              100% { transform: translateX(100%); }
-            }
-          `}
-        </style>
     </div>
   );
 };

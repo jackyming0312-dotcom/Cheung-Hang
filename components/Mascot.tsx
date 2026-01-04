@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { MascotOptions } from '../types';
-import { Palette } from 'lucide-react';
+import { Palette, Sparkles } from 'lucide-react';
 
 interface MascotProps {
   expression: 'sleepy' | 'happy' | 'listening' | 'excited' | 'painting';
@@ -26,7 +26,7 @@ const Mascot: React.FC<MascotProps> = ({ expression, className = '', onClick }) 
   ];
 
   const handleMascotClick = () => {
-    if (expression === 'painting') return; // 繪圖中不觸發對話
+    if (expression === 'painting') return; 
     setBubbleText(mascotQuotes[Math.floor(Math.random() * mascotQuotes.length)]);
     setTimeout(() => setBubbleText(null), 3000);
     if (onClick) onClick();
@@ -35,17 +35,26 @@ const Mascot: React.FC<MascotProps> = ({ expression, className = '', onClick }) 
   return (
     <div 
       onClick={handleMascotClick}
-      className={`relative cursor-pointer select-none transition-transform duration-500 ${expression === 'painting' ? 'animate-bounce' : ''} ${className}`}
+      className={`relative cursor-pointer select-none transition-all duration-700 ${expression === 'painting' ? 'animate-painting-move' : 'hover:scale-105'} ${className}`}
     >
       <style>
         {`
+          @keyframes painting-move {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            25% { transform: translate(15px, -5px) rotate(5deg); }
+            50% { transform: translate(-10px, 10px) rotate(-5deg); }
+            75% { transform: translate(10px, 5px) rotate(3deg); }
+          }
           @keyframes brush-stroke {
-            0% { transform: rotate(-10deg) translateX(-5px); }
-            50% { transform: rotate(20deg) translateX(15px); }
-            100% { transform: rotate(-10deg) translateX(-5px); }
+            0% { transform: rotate(-20deg) scale(1); }
+            50% { transform: rotate(30deg) scale(1.2); }
+            100% { transform: rotate(-20deg) scale(1); }
+          }
+          .animate-painting-move {
+            animation: painting-move 2s ease-in-out infinite;
           }
           .animate-brush {
-            animation: brush-stroke 0.8s ease-in-out infinite;
+            animation: brush-stroke 0.6s ease-in-out infinite;
           }
         `}
       </style>
@@ -57,21 +66,27 @@ const Mascot: React.FC<MascotProps> = ({ expression, className = '', onClick }) 
         </div>
       )}
 
-      <div className={`relative w-full h-full flex items-center justify-center ${expression === 'painting' ? 'scale-90' : ''}`}>
+      <div className={`relative w-full h-full flex items-center justify-center`}>
+        {expression === 'painting' && (
+           <div className="absolute inset-0 flex items-center justify-center z-0">
+              <Sparkles className="text-amber-300/40 animate-pulse scale-150" />
+           </div>
+        )}
+        
         <img 
           src={CHEUNG_HANG_BEAR_PHOTO} 
           alt="亨仔"
-          className={`w-full h-full object-contain drop-shadow-md relative z-10 rounded-full border-4 border-white/50 ${expression === 'painting' ? 'brightness-110 contrast-110' : ''}`}
+          className={`w-full h-full object-contain drop-shadow-md relative z-10 rounded-full border-4 border-white/50 transition-all duration-500 ${expression === 'painting' ? 'brightness-110 contrast-125' : ''}`}
         />
         
         {expression === 'painting' && (
-          <div className="absolute -right-4 top-0 z-20 text-amber-500 animate-brush">
-             <Palette size={40} fill="currentColor" stroke="white" strokeWidth={1} />
+          <div className="absolute -right-6 top-0 z-20 text-amber-500 animate-brush">
+             <Palette size={44} fill="white" stroke="currentColor" strokeWidth={2} />
           </div>
         )}
       </div>
 
-      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-[50%] h-2 bg-stone-900/5 blur-md rounded-full"></div>
+      <div className={`absolute -bottom-1 left-1/2 -translate-x-1/2 w-[60%] h-2 bg-stone-900/5 blur-md rounded-full transition-opacity duration-500 ${expression === 'painting' ? 'opacity-0' : 'opacity-100'}`}></div>
     </div>
   );
 };
