@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { Sparkle, Compass, Heart, Wind, Quote, Coffee, Sun, PenTool, Stars, Cloud, Leaf } from 'lucide-react';
+import { Sparkle, Compass, Heart, Wind, Quote, Coffee, Sun, PenTool, Stars, Cloud, Leaf, Image as ImageIcon } from 'lucide-react';
 import { EnergyCardData, GeminiAnalysisResult } from '../types';
 
 interface EnergyCardProps {
@@ -42,6 +42,7 @@ const EnergyCard: React.FC<EnergyCardProps> = ({ data, analysis }) => {
         p-8 md:p-10 rounded-[2.5rem] shadow-2xl border-2 ${style.border}
         flex flex-col items-center text-center transition-all duration-700 overflow-hidden
       `}>
+        {/* Decorative elements */}
         <div className="absolute top-0 right-0 p-8 opacity-20 transform translate-x-4 -translate-y-4">
            {style.icon}
         </div>
@@ -54,9 +55,22 @@ const EnergyCard: React.FC<EnergyCardProps> = ({ data, analysis }) => {
 
         <div className="relative z-10 w-full space-y-8 mt-4">
           <div className="flex flex-col items-center gap-6">
-             <div className="p-8 bg-white/60 rounded-full shadow-inner-lg backdrop-blur-sm border border-white/40">
-                {style.icon}
-             </div>
+             {data.imageUrl ? (
+               <div className="w-full aspect-square rounded-[2rem] overflow-hidden shadow-xl border-4 border-white relative group">
+                  <img 
+                    src={data.imageUrl} 
+                    alt="Hung Jai's Drawing" 
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000"
+                  />
+                  <div className="absolute bottom-3 right-3 p-2 bg-white/70 backdrop-blur-md rounded-xl shadow-lg border border-white/50">
+                    <ImageIcon size={16} className="text-stone-400" />
+                  </div>
+               </div>
+             ) : (
+               <div className="p-8 bg-white/60 rounded-full shadow-inner-lg backdrop-blur-sm border border-white/40">
+                  {style.icon}
+               </div>
+             )}
              
              <div className="space-y-2">
                 <p className="text-[10px] font-black text-stone-300 tracking-[0.4em] uppercase">Healing Theme</p>

@@ -1,7 +1,7 @@
+
 import React, { useState, useMemo } from 'react';
 import { CommunityLog, EnergyCardData, GeminiAnalysisResult } from '../types';
-// Fixed: Added 'Leaf' to the imports from 'lucide-react'
-import { ChevronLeft, ChevronRight, Calendar, Clock, RefreshCw, Eraser, Footprints, Moon, Sun, Sparkles, X, Heart, Trash2, Palette, PenTool, Leaf } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Clock, Loader2, Trash2, Sparkles, X, Heart, RefreshCw, Eraser, Footprints, Moon, Sun, Star, Stars, Cloud, Leaf, Palette } from 'lucide-react';
 import EnergyCard from './EnergyCard';
 import Mascot from './Mascot';
 
@@ -19,7 +19,7 @@ const STYLE_THEMES = {
   warm: { bg: 'bg-[#fff9e6]', border: 'border-amber-200', text: 'text-amber-900', icon: <Sun size={12} />, accent: 'text-amber-500' },
   fresh: { bg: 'bg-[#f0fff4]', border: 'border-emerald-200', text: 'text-emerald-900', icon: <Leaf size={12} />, accent: 'text-emerald-500' },
   calm: { bg: 'bg-[#f5f3ff]', border: 'border-indigo-200', text: 'text-indigo-900', icon: <Moon size={12} />, accent: 'text-indigo-500' },
-  energetic: { bg: 'bg-[#fff5f5]', border: 'border-rose-200', text: 'text-rose-900', icon: <Sparkles size={12} />, accent: 'text-rose-500' },
+  energetic: { bg: 'bg-[#fff5f5]', border: 'border-rose-200', text: 'text-rose-900', icon: <Stars size={12} />, accent: 'text-rose-500' },
   dreamy: { bg: 'bg-[#f0f9ff]', border: 'border-blue-200', text: 'text-blue-900', icon: <Sparkles size={12} />, accent: 'text-blue-500' },
 };
 
@@ -56,6 +56,13 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
     <div className="w-full flex flex-col items-center animate-soft-in h-full relative">
         <style>
           {`
+            @keyframes paint-wipe {
+              0% { clip-path: inset(0 100% 0 0); }
+              100% { clip-path: inset(0 0 0 0); }
+            }
+            .animate-paint-wipe {
+              animation: paint-wipe 1.5s ease-out forwards;
+            }
             @keyframes shimmer {
               0% { transform: translateX(-100%); }
               100% { transform: translateX(100%); }
@@ -168,18 +175,21 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                                     </div>
 
                                     <div className={`
-                                      mt-2 p-6 rounded-[1.5rem] transition-all duration-700 relative shadow-inner-lg min-h-[100px] flex flex-col justify-center
-                                      ${isAnalyzing ? 'bg-stone-100/50' : `${theme.bg} border border-dashed ${theme.border} transform rotate-[0.5deg]`}
+                                      mt-2 p-6 rounded-[1.5rem] transition-all duration-700 relative shadow-inner-lg min-h-[140px] flex flex-col justify-center
+                                      ${isAnalyzing ? 'bg-stone-100/50' : `${theme.bg} border border-dashed ${theme.border} transform rotate-[0.5deg] animate-paint-wipe`}
                                     `}>
                                         {isAnalyzing ? (
                                             <div className="flex flex-col items-center justify-center gap-4 relative py-4">
+                                                <div className="absolute inset-0 flex items-center justify-center opacity-10">
+                                                   <Palette size={100} className="animate-pulse" />
+                                                </div>
                                                 <Mascot 
-                                                  expression="listening" 
+                                                  expression="painting" 
                                                   options={{role: 'youth', baseColor: log.authorColor || '#8d7b68'}} 
-                                                  className="w-16 h-16 z-10"
+                                                  className="w-20 h-20 z-10"
                                                 />
                                                 <div className="flex flex-col items-center gap-1 z-10">
-                                                   <span className="text-[10px] font-black text-stone-500 uppercase tracking-[0.25em] animate-pulse">亨仔正在感應中...</span>
+                                                   <span className="text-[10px] font-black text-stone-500 uppercase tracking-[0.25em] animate-pulse">亨仔正在提筆作畫...</span>
                                                    <div className="w-32 h-1 bg-stone-200 rounded-full overflow-hidden mt-2">
                                                       <div className="w-full h-full bg-gradient-to-r from-amber-400 to-rose-400 animate-[shimmer_1.5s_infinite_linear]"></div>
                                                    </div>
@@ -190,19 +200,23 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                                                 <div className="flex items-center justify-between">
                                                    <div className="flex items-center gap-2 opacity-40">
                                                       {theme.icon}
-                                                      <span className={`text-[9px] font-black ${theme.text} uppercase tracking-widest`}>亨仔療癒小語</span>
+                                                      <span className={`text-[9px] font-black ${theme.text} uppercase tracking-widest`}>亨仔手繪作品</span>
+                                                   </div>
+                                                   <div className="px-2 py-0.5 bg-white/60 border border-stone-200 rounded-md text-[8px] font-bold text-stone-400 uppercase tracking-tighter rotate-6 shadow-sm">
+                                                      Approved by Bear
                                                    </div>
                                                 </div>
                                                 
-                                                <p className={`text-[15px] leading-relaxed handwriting-font font-bold ${theme.text}`}>
+                                                <p className={`text-[16px] handwriting-font leading-relaxed font-bold ${theme.text} animate-soft-in`}>
                                                    {log.replyMessage || "我看見了你的心聲。無論外面的世界多吵雜，這裡永遠有你的位子。"}
                                                 </p>
                                                 
-                                                <div className="flex flex-wrap gap-2 mt-2 pt-3 border-t border-stone-900/5">
+                                                <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-stone-900/5 animate-soft-in [animation-delay:0.3s]">
                                                     {log.tags.map((t, idx) => (
                                                         <span key={idx} className={`
-                                                            text-[9px] px-2 py-0.5 rounded-lg font-bold tracking-tight
+                                                            text-[9px] px-2.5 py-1 rounded-lg font-bold tracking-tight
                                                             bg-white/40 border border-white/60 ${theme.text} shadow-sm
+                                                            hover:bg-white transition-all
                                                         `}>
                                                             {t.startsWith('#') ? t : `#${t}`}
                                                         </span>
