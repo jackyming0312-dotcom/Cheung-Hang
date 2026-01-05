@@ -1,9 +1,8 @@
 
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { EnergyCardData, GeminiAnalysisResult, FullSoulContent } from "../types";
 
-// Removed local FullSoulContent definition as it is now centrally managed in types.ts
+const STYLE_HINTS: ('warm' | 'fresh' | 'calm' | 'energetic' | 'dreamy')[] = ['warm', 'fresh', 'calm', 'energetic', 'dreamy'];
 
 const FALLBACK_CONTENT_POOL = [
   {
@@ -32,94 +31,117 @@ const FALLBACK_CONTENT_POOL = [
 
 export const getRandomFallbackContent = (): FullSoulContent => {
   const selection = FALLBACK_CONTENT_POOL[Math.floor(Math.random() * FALLBACK_CONTENT_POOL.length)];
+  const randomStyle = STYLE_HINTS[Math.floor(Math.random() * STYLE_HINTS.length)];
+  
   return {
     analysis: {
       sentiment: 'neutral',
       tags: selection.tags,
       replyMessage: "亨仔看見了你的心聲。無論外面的世界多吵雜，這裡永遠有你的位子。"
     },
-    card: selection.card
+    card: { ...selection.card, styleHint: randomStyle }
   };
 };
 
 /**
- * Generates soul healing content using Gemini API.
- * Uses gemini-3-flash-preview for high quality text and reasoning tasks.
+ * Generates soul healing content using Gemini API with Hung Jai persona and Image Generation.
  */
 export const generateFullSoulContent = async (text: string, moodLevel: number, zone: string | null): Promise<FullSoulContent> => {
-  // Always initialize GoogleGenAI with a named parameter apiKey.
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
-  const personalities = [
-    "溫暖的大哥哥：語氣溫潤、充滿包容力，強調陪伴。",
-    "睿智的老朋友：語氣沉穩、哲學化，強調透視煩惱。",
-    "活潑的小太陽：語氣充滿能量，強調行動與改變。"
-  ];
-  
-  const selectedPersonality = personalities[Math.floor(Math.random() * personalities.length)];
+  const forcedStyle = STYLE_HINTS[Math.floor(Math.random() * STYLE_HINTS.length)];
 
   const timeoutPromise = new Promise<null>((_, reject) => 
-    setTimeout(() => reject(new Error("AI_TIMEOUT")), 10000)
+    setTimeout(() => reject(new Error("AI_TIMEOUT")), 25000) // 延長超時以應付圖像生成
   );
 
   const aiTask = async (): Promise<FullSoulContent> => {
     try {
-      // Call ai.models.generateContent directly with model name and configuration.
-      const response = await ai.models.generateContent({
+      // 第一步：文字生成與繪圖指令構思
+      const textResponse = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `你現在是長亨站的守護者「亨仔」。你擅長根據人們的秘密，繪製專屬的「能量卡片」。
-        當前人格：${selectedPersonality}
+        contents: `你現在是一位名為「亨仔」的溫暖熊仔（Teddy Bear），也是一位治癒系插畫家。
+        你的任務是聆聽使用者的心聲，並將其轉化為溫暖的文字與手繪風格的「能量卡片」。
         
-        用戶心聲內容：「${text}」
-        目前的電力狀態：${moodLevel}%
-        
-        任務：請根據內容「繪製」並生成一個 JSON 對象。
-        要求：
-        1. 內容必須高度客製化，嚴禁使用罐頭回覆。
-        2. analysis.replyMessage: 針對心聲給予溫暖回覆，包含一個具體的行為建議 (40-60字)。
-        3. card.styleHint: 必須從 ['warm', 'fresh', 'calm', 'energetic', 'dreamy'] 中選擇一個最符合心聲意境的風格。
-        4. card.luckyItem: 生成一個與心聲具體相關且新穎的「療癒小物」（例如：若提到壓力，可是「一片會發光的葉子」或「隱形的消音耳機」）。
-        5. card.theme: 2-4 字的獨特主題名。
-        6. card.relaxationMethod: 一個與心聲內容呼應的 30 秒小練習。`,
+        使用者目前的心聲內容：「${text}」
+        電力狀態：${moodLevel}%
+        視覺風格：${forcedStyle}
+
+        任務流程：
+        1. 分析使用者情緒，用亨仔口吻給予簡短溫暖的鼓勵（replyMessage）。
+        2. 生成 3 個相關 Hashtag。
+        3. 構思一幅英文繪圖指令 (image_prompt)：
+           - 主體：可愛棕色熊仔（Hang Zai），拿著畫筆或粉筆。
+           - 場景：心事牆（牆壁或黑板），亨仔正在畫出象徵使用者心聲的療癒物。
+           - 風格：Hand-drawn, crayon texture, cozy, healing, soft lighting.
+
+        請以 JSON 格式回傳：
+        {
+          "reply_text": "中文回應",
+          "hashtags": ["#標籤1", "#標籤2", "#標籤3"],
+          "image_prompt": "English image generation prompt",
+          "card_theme": "2-4字主題",
+          "lucky_item": "療癒小物",
+          "relaxation": "一小段放鬆建議"
+        }`,
         config: {
-          temperature: 1.2,
+          temperature: 1.0,
           responseMimeType: "application/json",
-          // Use Type from @google/genai for responseSchema.
           responseSchema: {
             type: Type.OBJECT,
             properties: {
-              analysis: {
-                type: Type.OBJECT,
-                properties: {
-                  sentiment: { type: Type.STRING },
-                  tags: { type: Type.ARRAY, items: { type: Type.STRING } },
-                  replyMessage: { type: Type.STRING }
-                },
-                required: ["sentiment", "tags", "replyMessage"]
-              },
-              card: {
-                type: Type.OBJECT,
-                properties: {
-                  quote: { type: Type.STRING },
-                  theme: { type: Type.STRING },
-                  luckyItem: { type: Type.STRING },
-                  relaxationMethod: { type: Type.STRING },
-                  category: { type: Type.STRING },
-                  styleHint: { type: Type.STRING }
-                },
-                required: ["quote", "theme", "luckyItem", "relaxationMethod", "category", "styleHint"]
-              }
+              reply_text: { type: Type.STRING },
+              hashtags: { type: Type.ARRAY, items: { type: Type.STRING } },
+              image_prompt: { type: Type.STRING },
+              card_theme: { type: Type.STRING },
+              lucky_item: { type: Type.STRING },
+              relaxation: { type: Type.STRING }
             }
           }
         }
       });
 
-      // Accessing response.text directly as a property.
-      if (!response.text) throw new Error("EMPTY_RESPONSE");
-      const result = JSON.parse(response.text);
+      if (!textResponse.text) throw new Error("EMPTY_TEXT_RESPONSE");
+      const textResult = JSON.parse(textResponse.text);
+
+      // 第二步：呼叫繪圖模型
+      let generatedImageUrl = undefined;
+      try {
+        const imageResponse = await ai.models.generateContent({
+          model: 'gemini-2.5-flash-image',
+          contents: {
+            parts: [{ text: textResult.image_prompt }],
+          },
+          config: {
+            imageConfig: { aspectRatio: "1:1" }
+          },
+        });
+
+        for (const part of imageResponse.candidates[0].content.parts) {
+          if (part.inlineData) {
+            generatedImageUrl = `data:image/png;base64,${part.inlineData.data}`;
+            break;
+          }
+        }
+      } catch (imgError) {
+        console.error("Image Generation Failed:", imgError);
+        // 如果圖片生成失敗，我們仍然回傳文字內容
+      }
+
       return {
-        analysis: result.analysis,
-        card: result.card
+        analysis: {
+          sentiment: 'neutral',
+          tags: textResult.hashtags,
+          replyMessage: textResult.reply_text
+        },
+        card: {
+          quote: textResult.reply_text.substring(0, 30) + "...", 
+          theme: textResult.card_theme,
+          luckyItem: textResult.lucky_item,
+          relaxationMethod: textResult.relaxation,
+          category: '情緒共處',
+          styleHint: forcedStyle,
+          imageUrl: generatedImageUrl
+        }
       };
     } catch (e) {
       console.error("Gemini Error:", e);
