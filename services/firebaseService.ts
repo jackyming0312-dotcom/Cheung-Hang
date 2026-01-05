@@ -1,8 +1,7 @@
 
 import { initializeApp } from "firebase/app";
 import { 
-  initializeFirestore, 
-  persistentLocalCache, 
+  getFirestore,
   collection, 
   setDoc,
   onSnapshot, 
@@ -34,16 +33,13 @@ let db: any = null;
 if (isFirebaseConfigured) {
   try {
     const app = initializeApp(firebaseConfig);
-    db = initializeFirestore(app, {
-      cache: persistentLocalCache({}),
-      experimentalForceLongPolling: true 
-    });
+    // 移除 persistentLocalCache，確保所有裝置看到的都是最新的雲端即時數據
+    db = getFirestore(app);
   } catch (e) { 
     console.error("Firebase Init Error", e); 
   }
 }
 
-// 預先取得 Doc Reference，用於更穩定的同步
 export const getNewLogRef = (stationId: string) => {
     if (!db) return null;
     return doc(collection(db, "stations", stationId, "logs"));
@@ -60,13 +56,13 @@ const preparePayload = (log: Partial<CommunityLog>) => {
         deviceType: String(log.deviceType || ""),
         stationId: "CHEUNG_HANG",
         replyMessage: String(log.replyMessage || ""),
+        // createdAt 僅作為備份，排序應優先使用 serverTime
         createdAt: log.timestamp || new Date().toISOString()
     };
     
     if (log.fullCard) {
         p.quote = log.fullCard.quote || "";
         p.luckyItem = log.fullCard.luckyItem || "";
-        p.imageUrl = log.fullCard.imageUrl || "";
         p.category = log.fullCard.category || "";
         p.relaxationMethod = log.fullCard.relaxationMethod || "";
     }
@@ -78,23 +74,13 @@ export const syncLogWithRef = async (docRef: any, log: CommunityLog) => {
     try {
         await setDoc(docRef, { 
             ...preparePayload(log), 
+            // 強制使用伺服器時間，這是跨裝置同步成功的關鍵
             serverTime: serverTimestamp() 
         });
         return docRef.id;
     } catch (e) {
         return null;
     }
-};
-
-export const updateLogOnCloud = async (stationId: string, docId: string, updates: Partial<CommunityLog>) => {
-    if (!db || !docId) return;
-    try {
-        const docRef = doc(db, "stations", stationId, "logs", docId);
-        const payload = preparePayload(updates);
-        // 清理空值
-        Object.keys(payload).forEach(key => (payload[key] === "" || payload[key] === null) && delete payload[key]);
-        await updateDoc(docRef, payload);
-    } catch (e) { }
 };
 
 export const deleteLog = async (stationId: string, docId: string) => {
@@ -120,16 +106,26 @@ export const deleteLogsAfterDate = async (stationId: string, afterIsoStr: string
 export const subscribeToStation = (stationId: string, callback: (logs: CommunityLog[]) => void) => {
   if (!db) return () => {};
   const colRef = collection(db, "stations", stationId, "logs");
-  const q = query(colRef, orderBy("createdAt", "desc"), limit(60));
+  // 優先使用 serverTime 進行排序，解決裝置間時間不對稱問題
+  const q = query(colRef, orderBy("serverTime", "desc"), limit(60));
   
-  // 啟用 includeMetadataChanges: true 讓本地寫入立即觸發 UI 更新
-  return onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
+  return onSnapshot(q, (snapshot) => {
     const logs = snapshot.docs.map(doc => {
         const data = doc.data();
-        return { ...data, id: doc.id, timestamp: data.createdAt, 
+        // 如果 serverTime 尚未生成（還在傳輸中），回退到本地 createdAt
+        const finalTime = data.serverTime ? data.serverTime.toDate().toISOString() : data.createdAt;
+        
+        return { 
+            ...data, 
+            id: doc.id, 
+            timestamp: finalTime, 
             fullCard: data.quote ? {
-                quote: data.quote, theme: data.theme, luckyItem: data.luckyItem,
-                imageUrl: data.imageUrl, category: data.category, relaxationMethod: data.relaxationMethod
+                quote: data.quote, 
+                theme: data.theme, 
+                luckyItem: data.luckyItem,
+                imageUrl: data.imageUrl, 
+                category: data.category, 
+                relaxationMethod: data.relaxationMethod
             } : undefined
         } as CommunityLog;
     });

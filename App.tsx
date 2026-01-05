@@ -43,14 +43,13 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<CommunityLog[]>([]);
   const isCloudLive = checkCloudStatus();
 
-  // 確保即時訂閱在組件掛載時啟動，並正確處理連線銷毀
+  // 強化實時監聽：確保訂閱邏輯在雲端狀態變更時能正確重連
   useEffect(() => {
-    let unsubscribe = () => {};
-    if (isCloudLive) {
-        unsubscribe = subscribeToStation(FIXED_STATION_ID, (cloudLogs) => {
-          setLogs(cloudLogs);
-        });
-    }
+    if (!isCloudLive) return;
+    console.log("Establishing Real-time connection to Cheung Hang Station...");
+    const unsubscribe = subscribeToStation(FIXED_STATION_ID, (cloudLogs) => {
+      setLogs(cloudLogs);
+    });
     return () => unsubscribe();
   }, [isCloudLive]);
 
@@ -74,7 +73,6 @@ const App: React.FC = () => {
         setIsLoadingContent(false);
 
         const signature = `${SOUL_TITLES[Math.floor(Math.random() * SOUL_TITLES.length)]} #${Math.floor(1000 + Math.random() * 9000)}`;
-        const now = new Date().toISOString();
         const device = getDeviceType();
 
         const logRef = getNewLogRef(FIXED_STATION_ID);
@@ -83,7 +81,7 @@ const App: React.FC = () => {
                 id: logRef.id,
                 moodLevel: mood, 
                 text: text, 
-                timestamp: now,
+                timestamp: new Date().toISOString(), // client fallback
                 theme: textData.card.theme, 
                 tags: textData.analysis.tags, 
                 authorSignature: signature, 
@@ -93,6 +91,7 @@ const App: React.FC = () => {
                 fullCard: textData.card,
                 replyMessage: textData.analysis.replyMessage
             };
+            // 這一步會觸發 Firebase Server Timestamp，確保全球裝置同步排序
             await syncLogWithRef(logRef, finalLog);
         }
     } catch (e) {
@@ -149,7 +148,7 @@ const App: React.FC = () => {
                   <CloudOff size={14} className="text-rose-400" />
               )}
               <span className="text-[10px] font-bold text-stone-600 uppercase tracking-widest">
-                  {isSyncing ? '同步中' : '連線穩定'}
+                  {isSyncing ? '同步中' : '實時連線'}
               </span>
           </div>
 
