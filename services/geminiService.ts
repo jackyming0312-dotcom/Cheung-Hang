@@ -1,4 +1,5 @@
 
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { EnergyCardData, GeminiAnalysisResult, FullSoulContent } from "../types";
 
@@ -10,7 +11,9 @@ export const getRandomFallbackContent = (): FullSoulContent => {
     analysis: {
       sentiment: 'neutral',
       tags: ['#日常', '#放鬆', '#亨仔陪你'],
-      replyMessage: "亨仔看見了你的心聲。無論外面的世界多吵雜，這裡永遠有你的位子。"
+      replyMessage: "亨仔看見了你的心聲。無論外面的世界多吵雜，這裡永遠有你的位子。",
+      // mood_score added to GeminiAnalysisResult interface in types.ts
+      mood_score: 50
     },
     card: {
       quote: "慢一點沒關係，亨仔會陪你慢慢走。",
@@ -24,45 +27,50 @@ export const getRandomFallbackContent = (): FullSoulContent => {
 };
 
 /**
- * 生成純文字療癒內容
- * 每次調用時才實例化 GoogleGenAI 以確保使用最新 Key
+ * 根據輸入文字生成療癒內容與情緒電量
  */
-export const generateSoulText = async (text: string, moodLevel: number): Promise<{ 
+// Simplified return type as GeminiAnalysisResult now includes mood_score
+export const generateSoulText = async (text: string): Promise<{ 
   analysis: GeminiAnalysisResult, 
   card: EnergyCardData
 }> => {
-  // 核心：每次都重新創建實例以抓取最新 Key
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const forcedStyle = STYLE_HINTS[Math.floor(Math.random() * STYLE_HINTS.length)];
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
-      contents: `使用者心聲：「${text}」\n當前心情電力：${moodLevel}%`,
+      model: "gemini-3-flash-preview",
+      contents: `使用者心聲：「${text}」`,
       config: {
-        systemInstruction: `你現在是一位名為「亨仔」的溫暖熊仔（Teddy Bear），也是一位治癒系專家。
-        你的任務是聆聽使用者的心聲，並將其轉化為溫暖的文字與標籤。
+        systemInstruction: `你現在是一位名為「亨仔」的溫暖熊仔。
+        你的任務是：
+        1. 根據使用者的文字內容，判斷他的情緒電量 (mood_score, 0-100)。
+        2. 創作一個溫暖的回應 (reply_text)。
+        3. 根據內容生成 3 個相關標籤 (hashtags)。
+        4. 提供一個療癒主題、幸運物品及放鬆建議。
         
-        請嚴格按照以下 JSON 格式回傳，不要包含額外的 Markdown 標記：
+        請嚴格按照以下 JSON 格式回傳：
         {
-          "reply_text": "亨仔給使用者的溫暖回應（中文，50字以內，口吻要親切像好朋友）",
+          "mood_score": 0-100的數字,
+          "reply_text": "50字以內溫馨回應",
           "hashtags": ["#標籤1", "#標籤2", "#標籤3"],
           "card_theme": "2-4字主題",
-          "lucky_item": "療癒小物（具體且溫馨的物品）",
-          "relaxation": "一項簡單且具體的放鬆建議"
+          "lucky_item": "療癒小物",
+          "relaxation": "簡單放鬆建議"
         }`,
-        temperature: 1.0,
+        temperature: 0.8,
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
           properties: {
+            mood_score: { type: Type.NUMBER },
             reply_text: { type: Type.STRING },
             hashtags: { type: Type.ARRAY, items: { type: Type.STRING } },
             card_theme: { type: Type.STRING },
             lucky_item: { type: Type.STRING },
             relaxation: { type: Type.STRING }
           },
-          required: ["reply_text", "hashtags", "card_theme", "lucky_item", "relaxation"]
+          required: ["mood_score", "reply_text", "hashtags", "card_theme", "lucky_item", "relaxation"]
         }
       }
     });
@@ -71,9 +79,10 @@ export const generateSoulText = async (text: string, moodLevel: number): Promise
     
     return {
       analysis: {
-        sentiment: 'neutral',
+        sentiment: result.mood_score > 60 ? 'positive' : result.mood_score < 40 ? 'negative' : 'neutral',
         tags: result.hashtags,
-        replyMessage: result.reply_text
+        replyMessage: result.reply_text,
+        mood_score: result.mood_score
       },
       card: {
         quote: result.reply_text,
@@ -85,11 +94,12 @@ export const generateSoulText = async (text: string, moodLevel: number): Promise
       }
     };
   } catch (e: any) {
-    console.error("Text Generation Error:", e);
-    // 如果是 API Key 相關錯誤，拋出特定訊息讓 UI 處理
-    if (e.message?.includes("Requested entity was not found") || e.message?.includes("API key")) {
-        throw e;
-    }
-    return getRandomFallbackContent();
+    console.error("AI Generation Error:", e);
+    const fallback = getRandomFallbackContent();
+    return {
+      // Simplified returning analysis from fallback
+      analysis: fallback.analysis,
+      card: fallback.card
+    };
   }
 };
