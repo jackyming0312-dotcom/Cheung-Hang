@@ -43,10 +43,15 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<CommunityLog[]>([]);
   const isCloudLive = checkCloudStatus();
 
+  // 確保即時訂閱在組件掛載時啟動，並正確處理連線銷毀
   useEffect(() => {
+    let unsubscribe = () => {};
     if (isCloudLive) {
-        return subscribeToStation(FIXED_STATION_ID, (cloudLogs) => setLogs(cloudLogs));
+        unsubscribe = subscribeToStation(FIXED_STATION_ID, (cloudLogs) => {
+          setLogs(cloudLogs);
+        });
     }
+    return () => unsubscribe();
   }, [isCloudLive]);
 
   useEffect(() => {
@@ -62,14 +67,12 @@ const App: React.FC = () => {
     setIsSyncing(true);
 
     try {
-        // 先獲取 AI 文字回應（通常 1-2 秒）
         const textData = await generateSoulText(text, mood);
         
         setWhisperData({ text, analysis: textData.analysis });
         setCardData(textData.card);
         setIsLoadingContent(false);
 
-        // 獲取 AI 結果後，再一次性同步到 Firebase，避免牆面上出現「感應中」
         const signature = `${SOUL_TITLES[Math.floor(Math.random() * SOUL_TITLES.length)]} #${Math.floor(1000 + Math.random() * 9000)}`;
         const now = new Date().toISOString();
         const device = getDeviceType();

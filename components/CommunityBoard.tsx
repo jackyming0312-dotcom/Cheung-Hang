@@ -23,17 +23,34 @@ const STYLE_THEMES = {
   dreamy: { bg: 'bg-[#f0f9ff]', border: 'border-blue-200', text: 'text-blue-900', icon: <Sparkles size={12} />, accent: 'text-blue-500' },
 };
 
+/**
+ * 輔助函數：將 Date 轉換為統一的 YYYY-MM-DD 字串，不受地區影響
+ */
+const formatDateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDay, onDeleteLog, onRefresh, isSyncing }) => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [activeCard, setActiveCard] = useState<CommunityLog | null>(null);
   
-  const targetDateStr = selectedDate.toLocaleDateString();
+  // 統一比對用的 Key (例如: 2023-10-27)
+  const targetDateKey = useMemo(() => formatDateKey(selectedDate), [selectedDate]);
+  // 顯示用的文字
+  const displayDateStr = selectedDate.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' });
 
   const displayLogs = useMemo(() => {
     return logs
-      .filter(log => new Date(log.timestamp).toLocaleDateString() === targetDateStr)
+      .filter(log => {
+        if (!log.timestamp) return false;
+        const logDate = new Date(log.timestamp);
+        return formatDateKey(logDate) === targetDateKey;
+      })
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  }, [targetDateStr, logs]);
+  }, [targetDateKey, logs]);
 
   const collectiveMood = useMemo(() => {
       if (displayLogs.length === 0) return null;
@@ -50,7 +67,7 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
       setSelectedDate(newDate);
   };
 
-  const isToday = selectedDate.toLocaleDateString() === new Date().toLocaleDateString();
+  const isToday = targetDateKey === formatDateKey(new Date());
 
   return (
     <div className="w-full flex flex-col items-center animate-soft-in h-full relative">
@@ -96,9 +113,9 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
             <button onClick={() => changeDate(-1)} className="p-1 hover:bg-stone-200 rounded-full transition-colors text-stone-600">
                 <ChevronLeft size={18} />
             </button>
-            <div className="flex items-center gap-2 text-stone-700 font-medium w-32 justify-center">
+            <div className="flex items-center gap-2 text-stone-700 font-medium min-w-[140px] justify-center">
                 <Calendar size={14} className="text-stone-400" />
-                <span className="text-[11px] font-bold">{targetDateStr}</span>
+                <span className="text-[11px] font-bold">{displayDateStr}</span>
             </div>
             <button onClick={() => changeDate(1)} disabled={isToday} className={`p-1 rounded-full transition-colors ${isToday ? 'text-stone-300 cursor-not-allowed' : 'text-stone-600 hover:bg-stone-200'}`}>
                 <ChevronRight size={18} />
@@ -125,7 +142,6 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                         const styleHint = log.fullCard?.styleHint || 'warm';
                         const theme = STYLE_THEMES[styleHint as keyof typeof STYLE_THEMES] || STYLE_THEMES.warm;
                         
-                        // 電力標籤顏色與圖標邏輯
                         const energyConfig = log.moodLevel > 70 
                             ? { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-100', iconColor: 'text-amber-500' }
                             : log.moodLevel < 30 
@@ -156,7 +172,6 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                                             <div className="flex flex-col">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-[10px] font-bold text-stone-800">{log.authorSignature || "旅人"}</span>
-                                                    {/* 電力百分比展示 */}
                                                     <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border ${energyConfig.bg} ${energyConfig.border}`}>
                                                         <Zap size={8} className={`${energyConfig.iconColor} fill-current`} />
                                                         <span className={`text-[8px] font-black ${energyConfig.text}`}>{log.moodLevel}%</span>
