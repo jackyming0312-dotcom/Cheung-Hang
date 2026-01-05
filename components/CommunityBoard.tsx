@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { CommunityLog, EnergyCardData, GeminiAnalysisResult } from '../types';
-import { ChevronLeft, ChevronRight, Calendar, Clock, RefreshCw, Eraser, Footprints, Moon, Sun, Sparkles, X, Heart, Trash2, Palette, PenTool, Leaf, Stars } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Clock, RefreshCw, Eraser, Footprints, Moon, Sun, Sparkles, X, Heart, Trash2, Palette, PenTool, Leaf, Stars, Zap } from 'lucide-react';
 import EnergyCard from './EnergyCard';
 import Mascot from './Mascot';
 
@@ -125,6 +125,13 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                         const styleHint = log.fullCard?.styleHint || 'warm';
                         const theme = STYLE_THEMES[styleHint as keyof typeof STYLE_THEMES] || STYLE_THEMES.warm;
                         
+                        // 電力標籤顏色與圖標邏輯
+                        const energyConfig = log.moodLevel > 70 
+                            ? { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-100', iconColor: 'text-amber-500' }
+                            : log.moodLevel < 30 
+                                ? { bg: 'bg-rose-50', text: 'text-rose-600', border: 'border-rose-100', iconColor: 'text-rose-400' }
+                                : { bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-100', iconColor: 'text-emerald-500' };
+
                         return (
                             <div key={log.id} className="relative group animate-soft-in">
                                 <button 
@@ -147,7 +154,14 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                                                 {log.authorSignature?.substring(0, 1) || '旅'}
                                             </div>
                                             <div className="flex flex-col">
-                                                <span className="text-[10px] font-bold text-stone-800">{log.authorSignature || "旅人"}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] font-bold text-stone-800">{log.authorSignature || "旅人"}</span>
+                                                    {/* 電力百分比展示 */}
+                                                    <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border ${energyConfig.bg} ${energyConfig.border}`}>
+                                                        <Zap size={8} className={`${energyConfig.iconColor} fill-current`} />
+                                                        <span className={`text-[8px] font-black ${energyConfig.text}`}>{log.moodLevel}%</span>
+                                                    </div>
+                                                </div>
                                                 <span className="text-[8px] font-mono text-stone-300 flex items-center gap-1 uppercase tracking-tighter">
                                                     <Clock size={8} /> {new Date(log.timestamp).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'})} • {log.deviceType}
                                                 </span>
