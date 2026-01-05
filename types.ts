@@ -1,5 +1,4 @@
 
-
 export enum AppStep {
   WELCOME = 'WELCOME',
   MOOD_WATER = 'MOOD_WATER',
@@ -45,7 +44,7 @@ export interface EnergyCardData {
   relaxationMethod: string; 
   imageUrl?: string; 
   category?: '生活態度' | '情緒共處' | '放鬆練習';
-  styleHint?: 'warm' | 'fresh' | 'calm' | 'energetic' | 'dreamy'; // 新增風格暗示
+  styleHint?: 'warm' | 'fresh' | 'calm' | 'energetic' | 'dreamy'; 
 }
 
 export interface FullSoulContent {
@@ -58,6 +57,7 @@ export interface CommunityLog {
   moodLevel: number;
   text: string;
   timestamp: string;
+  localTimestamp: number; // 跨裝置同步的關鍵排序鍵
   theme: string;
   tags: string[];
   authorSignature?: string; 
