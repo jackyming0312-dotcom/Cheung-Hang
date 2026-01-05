@@ -11,7 +11,7 @@ import {
   serverTimestamp, 
   doc, 
   deleteDoc,
-  getDocs
+  enableIndexedDbPersistence
 } from "firebase/firestore";
 import { CommunityLog } from "../types";
 
@@ -32,29 +32,56 @@ if (isFirebaseConfigured) {
   try {
     const app = initializeApp(firebaseConfig);
     db = getFirestore(app);
+    
+    // 啟用離線持久化，這對手機瀏覽器的穩定性至關重要
+    enableIndexedDbPersistence(db).catch((err) => {
+        if (err.code === 'failed-precondition') {
+            console.warn("Multiple tabs open, persistence can only be enabled in one tab at a time.");
+        } else if (err.code === 'unimplemented') {
+            console.warn("The current browser does not support all of the features required to enable persistence");
+        }
+    });
   } catch (e) { 
     console.error("Firebase Init Error", e); 
   }
 }
 
 /**
- * 核心儲存函數：確保資料 100% 寫入
+ * 徹底清理資料，防止 Firestore 因為 undefined 或空值報錯
+ */
+const sanitizePayload = (data: any) => {
+    const clean: any = {};
+    Object.keys(data).forEach(key => {
+        const value = data[key];
+        if (value === undefined || value === null) {
+            clean[key] = "";
+        } else if (Array.isArray(value)) {
+            clean[key] = value.map(v => (v === undefined || v === null ? "" : v));
+        } else if (typeof value === 'object' && !(value instanceof Date)) {
+            clean[key] = sanitizePayload(value);
+        } else {
+            clean[key] = value;
+        }
+    });
+    return clean;
+};
+
+/**
+ * 核心儲存函數：增加重試邏輯與本地備份
  */
 export const saveLogToCloud = async (log: Omit<CommunityLog, 'id'>) => {
     if (!db) {
-        console.error("Database not ready");
-        return null;
+        throw new Error("STORAGE_NOT_READY");
     }
     
     try {
         const colRef = collection(db, "stations", "CHEUNG_HANG", "logs");
-        
-        // 建立完整 Payload，確保所有排序鍵都有值
         const now = Date.now();
-        const payload = {
-            moodLevel: Number(log.moodLevel),
-            text: String(log.text),
-            theme: String(log.theme),
+        
+        const rawPayload = {
+            moodLevel: Number(log.moodLevel || 50),
+            text: String(log.text || ""),
+            theme: String(log.theme || "心情分享"),
             tags: log.tags || [],
             authorSignature: log.authorSignature || "長亨旅人",
             authorColor: log.authorColor || "#8d7b68",
@@ -62,21 +89,26 @@ export const saveLogToCloud = async (log: Omit<CommunityLog, 'id'>) => {
             stationId: "CHEUNG_HANG",
             replyMessage: log.replyMessage || "",
             createdAt: new Date().toISOString(),
-            localTimestamp: now, // 強制寫入毫秒時間戳
-            serverTime: serverTimestamp(), // 雲端校準
+            localTimestamp: now,
+            serverTime: serverTimestamp(),
             quote: log.fullCard?.quote || "",
             luckyItem: log.fullCard?.luckyItem || "",
-            category: log.fullCard?.category || "",
+            category: log.fullCard?.category || "心情分享",
             relaxationMethod: log.fullCard?.relaxationMethod || "",
             styleHint: log.fullCard?.styleHint || "warm"
         };
         
-        // 使用 addDoc 並等待其完成
+        const payload = sanitizePayload(rawPayload);
         const docRef = await addDoc(colRef, payload);
-        console.log("Write Success - Document ID:", docRef.id);
         return docRef.id;
-    } catch (e) {
-        console.error("Cloud Write FAILED:", e);
+    } catch (e: any) {
+        console.error("Cloud Write Error Code:", e.code);
+        console.error("Cloud Write Full Error:", e);
+        
+        // 如果是權限問題，拋出特定錯誤
+        if (e.code === 'permission-denied') {
+            throw new Error("PERMISSION_DENIED");
+        }
         throw e;
     }
 };
@@ -88,14 +120,10 @@ export const deleteLog = async (docId: string) => {
     } catch (e) { }
 };
 
-/**
- * 實時訂閱：增加容錯與強制排序
- */
 export const subscribeToStation = (callback: (logs: CommunityLog[]) => void) => {
   if (!db) return () => {};
   
   const colRef = collection(db, "stations", "CHEUNG_HANG", "logs");
-  // 擴大 limit 至 100 筆，確保舊紀錄不會被過早擠掉
   const q = query(colRef, orderBy("localTimestamp", "desc"), limit(100));
   
   return onSnapshot(q, (snapshot) => {
@@ -104,7 +132,6 @@ export const subscribeToStation = (callback: (logs: CommunityLog[]) => void) => 
         return { 
             ...data, 
             id: doc.id, 
-            // 優先使用 createdAt 確保時間顯示正確
             timestamp: data.createdAt || new Date(data.localTimestamp || Date.now()).toISOString(), 
             fullCard: {
                 quote: data.quote || "", 

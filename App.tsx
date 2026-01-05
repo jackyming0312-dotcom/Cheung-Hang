@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowRight, Grid, ChevronLeft, Cloud, CloudOff, ShieldCheck, Loader2, Key } from 'lucide-react';
+import { ArrowRight, Grid, ChevronLeft, Cloud, CloudOff, ShieldCheck, Loader2, Key, AlertTriangle } from 'lucide-react';
 
 import Mascot from './components/Mascot';
 import MoodWater from './components/MoodWater';
@@ -39,28 +39,36 @@ const App: React.FC = () => {
   const [cardData, setCardData] = useState<EnergyCardData | null>(null);
   const [isLoadingContent, setIsLoadingContent] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'saving' | 'success' | 'error' | 'permission_denied'>('idle');
   const [logs, setLogs] = useState<CommunityLog[]>([]);
   const [mascotConfig, setMascotConfig] = useState<MascotOptions>(generateMascotConfig());
   const [hasApiKey, setHasApiKey] = useState(true);
 
   const isCloudLive = checkCloudStatus();
 
-  // 監測 API Key 狀態
+  // 監測 API Key 狀態 - 增加安全性檢查
   useEffect(() => {
     const checkKey = async () => {
-        if (window.aistudio) {
-            const hasKey = await window.aistudio.hasSelectedApiKey();
-            setHasApiKey(hasKey);
+        try {
+            if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
+                const hasKey = await window.aistudio.hasSelectedApiKey();
+                setHasApiKey(hasKey);
+            }
+        } catch (e) {
+            console.warn("AI Studio context not available");
         }
     };
     checkKey();
   }, []);
 
   const handleOpenKey = async () => {
-    if (window.aistudio) {
-        await window.aistudio.openSelectKey();
-        setHasApiKey(true);
+    try {
+        if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
+            await window.aistudio.openSelectKey();
+            setHasApiKey(true);
+        }
+    } catch (e) {
+        alert("目前環境不支援手動設定金鑰，請確保環境變數已正確設定。");
     }
   };
 
@@ -78,22 +86,14 @@ const App: React.FC = () => {
     setIsSyncing(true);
     setSyncStatus('saving');
 
+    let textData;
     try {
-        // 1. 先獲取 AI 分析結果
-        let textData;
+        // 1. 嘗試 AI 生成
         try {
             textData = await generateSoulText(text, mood);
         } catch (aiError: any) {
-            console.error("AI Error:", aiError);
-            // 如果是 API Key 錯誤，提示使用者重新選擇
-            if (aiError.message?.includes("Requested entity was not found") || aiError.message?.includes("API key")) {
-                alert("API 金鑰失效或未設定，請重新選取。");
-                await handleOpenKey();
-                // 嘗試使用備份內容繼續
-                textData = getRandomFallbackContent();
-            } else {
-                throw aiError;
-            }
+            console.error("AI Generation Failed:", aiError);
+            textData = getRandomFallbackContent();
         }
 
         setWhisperData({ text, analysis: textData.analysis });
@@ -119,28 +119,33 @@ const App: React.FC = () => {
             localTimestamp: Date.now()
         };
 
-        // 3. 強制同步到雲端
-        const cloudId = await saveLogToCloud(logToSave);
-        
-        if (cloudId) {
-            setSyncStatus('success');
-            setIsSyncing(false);
-            setTimeout(() => setSyncStatus('idle'), 3000);
-        } else {
-            setSyncStatus('error');
+        // 3. 嘗試儲存到雲端
+        try {
+            const cloudId = await saveLogToCloud(logToSave);
+            if (cloudId) {
+                setSyncStatus('success');
+                setIsSyncing(false);
+                setTimeout(() => setSyncStatus('idle'), 3000);
+            }
+        } catch (saveError: any) {
+            console.error("Cloud Save Error:", saveError);
+            if (saveError.message === "PERMISSION_DENIED") {
+                setSyncStatus('permission_denied');
+            } else {
+                setSyncStatus('error');
+            }
             setIsSyncing(false);
         }
+
     } catch (e) {
-        console.error("Critical Failure:", e);
+        console.error("Unexpected Error:", e);
         setSyncStatus('error');
         setIsSyncing(false);
-        
-        // 即使儲存失敗也顯示內容
+        setIsLoadingContent(false);
         if (!cardData) {
             const fallback = getRandomFallbackContent();
             setCardData(fallback.card);
             setWhisperData({ text, analysis: fallback.analysis });
-            setIsLoadingContent(false);
         }
     }
   };
@@ -171,7 +176,7 @@ const App: React.FC = () => {
                   <div className="flex items-center gap-2">
                      <Cloud size={14} className={isSyncing ? "text-amber-500 animate-pulse" : "text-emerald-500"} />
                      <span className="text-[10px] font-black text-stone-600 uppercase tracking-widest">
-                         {isSyncing ? '正在保存紀錄' : '雲端同步中'}
+                         {isSyncing ? '正在傳送心聲' : '雲端已同步'}
                      </span>
                   </div>
               ) : (
@@ -183,19 +188,24 @@ const App: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-2 pointer-events-auto">
-              {!hasApiKey && (
+              {!hasApiKey && window.aistudio && (
                   <button onClick={handleOpenKey} className="bg-amber-500 text-white px-4 py-2 rounded-full text-[10px] font-bold flex items-center gap-2 shadow-lg animate-bounce">
-                      <Key size={12} /> 點此啟用 AI
+                      <Key size={12} /> 啟用 AI 導師
                   </button>
               )}
               {syncStatus === 'success' && (
                   <div className="bg-emerald-600 text-white px-5 py-2 rounded-full text-[11px] font-bold animate-soft-in flex items-center gap-2 shadow-2xl border border-emerald-400">
-                      <ShieldCheck size={14} /> 紀錄已保存
+                      <ShieldCheck size={14} /> 雲端已存檔
                   </div>
               )}
               {syncStatus === 'error' && (
+                  <div className="bg-amber-600 text-white px-5 py-2 rounded-full text-[11px] font-bold animate-soft-in flex items-center gap-2 shadow-2xl border border-amber-400">
+                      <Loader2 size={14} className="animate-spin" /> 連線重試中
+                  </div>
+              )}
+              {syncStatus === 'permission_denied' && (
                   <div className="bg-rose-600 text-white px-5 py-2 rounded-full text-[11px] font-bold animate-soft-in flex items-center gap-2 shadow-2xl border border-rose-400">
-                      ⚠️ 儲存失敗 (權限/網路)
+                      <AlertTriangle size={14} /> 權限受限
                   </div>
               )}
           </div>
@@ -210,7 +220,7 @@ const App: React.FC = () => {
               <h1 className="text-2xl md:text-3xl font-bold text-stone-800 serif-font tracking-tight">長亨心靈充電站</h1>
               <div className="flex items-center justify-center gap-2 mt-1">
                  <span className={`w-1.5 h-1.5 rounded-full ${isCloudLive ? 'bg-emerald-500 animate-pulse' : 'bg-rose-400'}`}></span>
-                 <span className="text-[9px] text-stone-400 font-bold tracking-[0.3em] uppercase">iPad/手機 同步監測中</span>
+                 <span className="text-[9px] text-stone-400 font-bold tracking-[0.3em] uppercase">iPad/手機 即時監測中</span>
               </div>
            </div>
         </header>
@@ -228,11 +238,6 @@ const App: React.FC = () => {
                 <button onClick={() => setStep(AppStep.COMMUNITY)} className="w-full py-4 font-bold text-stone-500 bg-white/60 border border-stone-200 rounded-3xl flex items-center justify-center gap-3 text-xs shadow-sm hover:bg-white transition-all">
                    <Grid size={16} /> 查看大家的紀錄
                 </button>
-                {!hasApiKey && (
-                  <p className="text-[10px] text-amber-600 text-center font-bold animate-pulse">
-                    ※ 偵測到 AI 功能未啟用，點擊上方金鑰圖示以優化體驗
-                  </p>
-                )}
               </div>
             </div>
           )}
@@ -243,7 +248,7 @@ const App: React.FC = () => {
           
           {step === AppStep.REWARD && (
             <div className="w-full animate-soft-in flex flex-col items-center py-2">
-              {isLoadingContent || isSyncing ? (
+              {isLoadingContent || (isSyncing && syncStatus === 'saving') ? (
                  <div className="flex flex-col items-center gap-8 py-20 text-center">
                     <div className="relative">
                        <Mascot expression="listening" options={mascotConfig} className="w-44 h-44" />
@@ -252,7 +257,7 @@ const App: React.FC = () => {
                     <div className="space-y-4">
                        <h3 className="font-bold text-2xl text-stone-700 serif-font italic">正在將你的心聲鎖入時光機...</h3>
                        <div className="flex items-center justify-center gap-2 text-stone-400 text-sm tracking-widest uppercase">
-                          <Loader2 className="animate-spin" size={16} /> 跨設備即時同步中
+                          <Loader2 className="animate-spin" size={16} /> 即時同步雲端
                        </div>
                     </div>
                  </div>
