@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowRight, Grid, ChevronLeft, Cloud, CloudOff, ShieldCheck, Loader2, Key, AlertTriangle } from 'lucide-react';
+import { ArrowRight, Grid, ChevronLeft, Cloud, CloudOff, ShieldCheck, Loader2, Key, AlertTriangle, WifiOff } from 'lucide-react';
 
 import Mascot from './components/Mascot';
 import MoodWater from './components/MoodWater';
@@ -18,13 +18,11 @@ const FIXED_STATION_ID = "CHEUNG_HANG";
 
 const getDeviceType = () => {
     const ua = navigator.userAgent;
-    const platform = navigator.platform || '';
-    const isIPad = /iPad/.test(ua) || (platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    
+    const isIPad = /iPad/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     if (isIPad) return "iPad";
     if (/iPhone|iPod/.test(ua)) return "iPhone";
     if (/Android/.test(ua)) return "Android手機";
-    return "行動裝置";
+    return "電腦/平板";
 };
 
 const generateMascotConfig = (): MascotOptions => ({
@@ -46,31 +44,17 @@ const App: React.FC = () => {
 
   const isCloudLive = checkCloudStatus();
 
-  // 監測 API Key 狀態 - 增加安全性檢查
   useEffect(() => {
     const checkKey = async () => {
         try {
-            if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
+            if (window.aistudio?.hasSelectedApiKey) {
                 const hasKey = await window.aistudio.hasSelectedApiKey();
                 setHasApiKey(hasKey);
             }
-        } catch (e) {
-            console.warn("AI Studio context not available");
-        }
+        } catch (e) {}
     };
     checkKey();
   }, []);
-
-  const handleOpenKey = async () => {
-    try {
-        if (window.aistudio && typeof window.aistudio.openSelectKey === 'function') {
-            await window.aistudio.openSelectKey();
-            setHasApiKey(true);
-        }
-    } catch (e) {
-        alert("目前環境不支援手動設定金鑰，請確保環境變數已正確設定。");
-    }
-  };
 
   useEffect(() => {
     if (!isCloudLive) return;
@@ -88,11 +72,10 @@ const App: React.FC = () => {
 
     let textData;
     try {
-        // 1. 嘗試 AI 生成
+        // AI 分析
         try {
             textData = await generateSoulText(text, mood);
-        } catch (aiError: any) {
-            console.error("AI Generation Failed:", aiError);
+        } catch (aiError) {
             textData = getRandomFallbackContent();
         }
 
@@ -100,112 +83,77 @@ const App: React.FC = () => {
         setCardData(textData.card);
         setIsLoadingContent(false);
 
-        // 2. 準備紀錄資料
+        // 準備紀錄
         const signature = `${SOUL_TITLES[Math.floor(Math.random() * SOUL_TITLES.length)]} #${Math.floor(1000 + Math.random() * 9000)}`;
-        const device = getDeviceType();
-
         const logToSave = {
-            moodLevel: mood, 
-            text: text, 
-            theme: textData.card.theme, 
-            tags: textData.analysis.tags, 
-            authorSignature: signature, 
-            authorColor: mascotConfig.baseColor,
-            deviceType: device, 
-            stationId: FIXED_STATION_ID,
-            fullCard: textData.card,
-            replyMessage: textData.analysis.replyMessage,
-            timestamp: new Date().toISOString(),
-            localTimestamp: Date.now()
+            moodLevel: mood, text, theme: textData.card.theme, tags: textData.analysis.tags,
+            authorSignature: signature, authorColor: mascotConfig.baseColor,
+            deviceType: getDeviceType(), stationId: FIXED_STATION_ID,
+            fullCard: textData.card, replyMessage: textData.analysis.replyMessage,
+            timestamp: new Date().toISOString(), localTimestamp: Date.now()
         };
 
-        // 3. 嘗試儲存到雲端
+        // 雲端儲存與即時同步觸發
         try {
-            const cloudId = await saveLogToCloud(logToSave);
-            if (cloudId) {
-                setSyncStatus('success');
-                setIsSyncing(false);
-                setTimeout(() => setSyncStatus('idle'), 3000);
-            }
+            await saveLogToCloud(logToSave);
+            setSyncStatus('success');
+            setTimeout(() => setSyncStatus('idle'), 3000);
         } catch (saveError: any) {
-            console.error("Cloud Save Error:", saveError);
-            if (saveError.message === "PERMISSION_DENIED") {
-                setSyncStatus('permission_denied');
-            } else {
-                setSyncStatus('error');
-            }
+            console.error("Critical Sync Failure:", saveError);
+            setSyncStatus(saveError.code === 'permission-denied' ? 'permission_denied' : 'error');
+        } finally {
             setIsSyncing(false);
         }
-
     } catch (e) {
-        console.error("Unexpected Error:", e);
         setSyncStatus('error');
         setIsSyncing(false);
         setIsLoadingContent(false);
-        if (!cardData) {
-            const fallback = getRandomFallbackContent();
-            setCardData(fallback.card);
-            setWhisperData({ text, analysis: fallback.analysis });
-        }
     }
   };
 
   const handleDeleteLog = async (docId: string) => {
     if (!isCloudLive || !docId) return;
-    if (window.confirm("確定要刪除這筆紀錄嗎？")) {
-        setIsSyncing(true);
-        try {
-            await deleteLog(docId);
-        } finally {
-            setIsSyncing(false);
-        }
+    if (window.confirm("確定要移除這筆跨裝置紀錄嗎？")) {
+        try { await deleteLog(docId); } catch (e) {}
     }
   };
 
   return (
-    <div className="min-h-[100dvh] w-full relative flex flex-col items-center justify-center p-3">
-      {/* 頂部同步狀態 */}
+    <div className="min-h-[100dvh] w-full relative flex flex-col items-center justify-center p-3 overflow-hidden">
+      {/* 全域同步狀態 Bar */}
       <div className="fixed top-4 left-4 right-4 z-[100] flex items-center justify-between pointer-events-none">
-          <div className="flex items-center gap-2 bg-white/90 backdrop-blur-2xl px-4 py-2 rounded-full border border-white shadow-xl pointer-events-auto">
+          <div className="flex items-center gap-2 bg-white/95 backdrop-blur-3xl px-4 py-2 rounded-full border border-stone-100 shadow-2xl pointer-events-auto">
               {step !== AppStep.WELCOME && (
-                  <button onClick={() => setStep(AppStep.WELCOME)} className="mr-2 p-1 hover:bg-stone-100 rounded-full transition-colors">
+                  <button onClick={() => setStep(AppStep.WELCOME)} className="mr-2 p-1 hover:bg-stone-50 rounded-full">
                       <ChevronLeft size={16} className="text-stone-600" />
                   </button>
               )}
-              {isCloudLive ? (
-                  <div className="flex items-center gap-2">
-                     <Cloud size={14} className={isSyncing ? "text-amber-500 animate-pulse" : "text-emerald-500"} />
-                     <span className="text-[10px] font-black text-stone-600 uppercase tracking-widest">
-                         {isSyncing ? '正在傳送心聲' : '雲端已同步'}
-                     </span>
-                  </div>
-              ) : (
-                  <div className="flex items-center gap-2">
-                     <CloudOff size={14} className="text-rose-400" />
-                     <span className="text-[10px] font-black text-rose-400 uppercase tracking-widest">離線模式</span>
-                  </div>
-              )}
+              <div className="flex items-center gap-2">
+                 {isCloudLive ? (
+                     <>
+                        <div className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-amber-400 animate-ping' : 'bg-emerald-500'}`}></div>
+                        <span className="text-[10px] font-black text-stone-600 tracking-widest uppercase">
+                            {isSyncing ? '同步中' : '連線正常'}
+                        </span>
+                     </>
+                 ) : (
+                     <div className="flex items-center gap-1.5 text-rose-500">
+                        <WifiOff size={12} />
+                        <span className="text-[10px] font-black tracking-widest uppercase">離線模式</span>
+                     </div>
+                 )}
+              </div>
           </div>
           
           <div className="flex items-center gap-2 pointer-events-auto">
-              {!hasApiKey && window.aistudio && (
-                  <button onClick={handleOpenKey} className="bg-amber-500 text-white px-4 py-2 rounded-full text-[10px] font-bold flex items-center gap-2 shadow-lg animate-bounce">
-                      <Key size={12} /> 啟用 AI 導師
-                  </button>
-              )}
               {syncStatus === 'success' && (
-                  <div className="bg-emerald-600 text-white px-5 py-2 rounded-full text-[11px] font-bold animate-soft-in flex items-center gap-2 shadow-2xl border border-emerald-400">
-                      <ShieldCheck size={14} /> 雲端已存檔
+                  <div className="bg-emerald-600 text-white px-5 py-2 rounded-full text-[10px] font-black animate-soft-in shadow-xl flex items-center gap-2 border border-emerald-400">
+                      <ShieldCheck size={12} /> 跨裝置已同步
                   </div>
               )}
-              {syncStatus === 'error' && (
-                  <div className="bg-amber-600 text-white px-5 py-2 rounded-full text-[11px] font-bold animate-soft-in flex items-center gap-2 shadow-2xl border border-amber-400">
-                      <Loader2 size={14} className="animate-spin" /> 連線重試中
-                  </div>
-              )}
-              {syncStatus === 'permission_denied' && (
-                  <div className="bg-rose-600 text-white px-5 py-2 rounded-full text-[11px] font-bold animate-soft-in flex items-center gap-2 shadow-2xl border border-rose-400">
-                      <AlertTriangle size={14} /> 權限受限
+              {(syncStatus === 'error' || syncStatus === 'permission_denied') && (
+                  <div className="bg-rose-500 text-white px-5 py-2 rounded-full text-[10px] font-black animate-soft-in shadow-xl flex items-center gap-2 border border-rose-300">
+                      <AlertTriangle size={12} /> 同步失敗 (權限)
                   </div>
               )}
           </div>
@@ -219,8 +167,8 @@ const App: React.FC = () => {
            <div className="text-center">
               <h1 className="text-2xl md:text-3xl font-bold text-stone-800 serif-font tracking-tight">長亨心靈充電站</h1>
               <div className="flex items-center justify-center gap-2 mt-1">
-                 <span className={`w-1.5 h-1.5 rounded-full ${isCloudLive ? 'bg-emerald-500 animate-pulse' : 'bg-rose-400'}`}></span>
-                 <span className="text-[9px] text-stone-400 font-bold tracking-[0.3em] uppercase">iPad/手機 即時監測中</span>
+                 <span className={`w-1.5 h-1.5 rounded-full ${isCloudLive ? 'bg-emerald-500 animate-pulse' : 'bg-stone-300'}`}></span>
+                 <span className="text-[9px] text-stone-400 font-bold tracking-[0.3em] uppercase">手機 / 電腦 即時同步牆</span>
               </div>
            </div>
         </header>
@@ -229,14 +177,14 @@ const App: React.FC = () => {
           {step === AppStep.WELCOME && (
             <div className="w-full flex flex-col h-full max-w-sm mx-auto animate-soft-in">
               <div className="bg-white/95 p-8 rounded-[2rem] border border-stone-100 shadow-xl text-center paper-stack mt-4">
-                <p className="text-stone-600 leading-relaxed serif-font italic text-lg">"長亨的風會帶走煩惱，<br/>而亨仔會幫你記住那些閃光的瞬間。"</p>
+                <p className="text-stone-600 leading-relaxed serif-font italic text-lg">"在這裡寫下的每一句話，<br/>都會在所有螢幕上同步閃耀。"</p>
               </div>
               <div className="space-y-4 w-full mt-12">
                 <button onClick={() => setStep(AppStep.MOOD_WATER)} className="w-full py-5 font-bold text-white text-lg bg-stone-800 rounded-3xl shadow-[0_6px_0_rgb(44,40,36)] active:translate-y-[6px] transition-all flex items-center justify-center group tracking-widest">
                    開始充電 <ArrowRight className="ml-3 group-hover:translate-x-2 transition-transform" />
                 </button>
                 <button onClick={() => setStep(AppStep.COMMUNITY)} className="w-full py-4 font-bold text-stone-500 bg-white/60 border border-stone-200 rounded-3xl flex items-center justify-center gap-3 text-xs shadow-sm hover:bg-white transition-all">
-                   <Grid size={16} /> 查看大家的紀錄
+                   <Grid size={16} /> 查看實時心聲牆
                 </button>
               </div>
             </div>
@@ -255,22 +203,16 @@ const App: React.FC = () => {
                        <div className="absolute -inset-8 bg-amber-400/10 blur-3xl animate-pulse rounded-full z-0"></div>
                     </div>
                     <div className="space-y-4">
-                       <h3 className="font-bold text-2xl text-stone-700 serif-font italic">正在將你的心聲鎖入時光機...</h3>
-                       <div className="flex items-center justify-center gap-2 text-stone-400 text-sm tracking-widest uppercase">
-                          <Loader2 className="animate-spin" size={16} /> 即時同步雲端
-                       </div>
+                       <h3 className="font-bold text-2xl text-stone-700 serif-font italic">正在跨裝置同步你的心聲...</h3>
+                       <p className="text-stone-400 text-xs tracking-widest uppercase">手機與 iPad 將會同步看到喔！</p>
                     </div>
                  </div>
               ) : (
                 <div className="w-full flex flex-col items-center">
-                  <EnergyCard 
-                    data={cardData!} 
-                    analysis={whisperData.analysis} 
-                    moodLevel={mood} 
-                  />
+                  <EnergyCard data={cardData!} analysis={whisperData.analysis} moodLevel={mood} />
                   <div className="w-full max-w-[360px] grid grid-cols-2 gap-3 mt-10 pb-8 px-4">
                     <button onClick={() => setStep(AppStep.COMMUNITY)} className="py-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs font-black text-emerald-700 flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all">
-                       <Grid size={14} /> 前往心聲長廊
+                       <Grid size={14} /> 查看心聲長廊
                     </button>
                     <button onClick={() => { setStep(AppStep.WELCOME); setCardData(null); }} className="py-4 bg-stone-800 text-white rounded-2xl text-xs font-black shadow-lg active:scale-95 transition-all tracking-widest">
                        回到首頁
@@ -296,7 +238,7 @@ const App: React.FC = () => {
       </main>
       <footer className="mt-6 text-stone-400 text-[9px] font-bold tracking-[0.5em] uppercase opacity-50 flex items-center gap-3">
          <div className="w-12 h-[1px] bg-stone-300"></div>
-         CHEUNG HANG STATION • GLOBAL SYNC
+         REAL-TIME SYNC • CHEUNG HANG
          <div className="w-12 h-[1px] bg-stone-300"></div>
       </footer>
     </div>
