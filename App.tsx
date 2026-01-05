@@ -9,7 +9,7 @@ import WhisperHole from './components/WhisperHole';
 import EnergyCard from './components/EnergyCard';
 import CommunityBoard from './components/CommunityBoard';
 
-import { generateFullSoulContent, getRandomFallbackContent } from './services/geminiService';
+import { generateSoulText, generateSoulImage, getRandomFallbackContent } from './services/geminiService';
 import { getNewLogRef, syncLogWithRef, updateLogOnCloud, subscribeToStation, checkCloudStatus, deleteLogsAfterDate, deleteLog } from './services/firebaseService';
 import { AppStep, GeminiAnalysisResult, EnergyCardData, CommunityLog, MascotOptions } from './types';
 
@@ -86,18 +86,32 @@ const App: React.FC = () => {
     }
 
     try {
-        const fullContent = await generateFullSoulContent(text, mood, zone);
+        // Step 1: Generate Text (Fast)
+        const textData = await generateSoulText(text, mood);
         
-        setWhisperData({ text, analysis: fullContent.analysis });
-        setCardData(fullContent.card); 
+        setWhisperData({ text, analysis: textData.analysis });
+        setCardData({ ...textData.card, imageUrl: 'loading' }); // Mark image as loading
         setIsLoadingContent(false);
 
+        // Update Cloud with Text first
         if (logRef) {
             await updateLogOnCloud(FIXED_STATION_ID, docId, {
-                theme: fullContent.card.theme,
-                tags: fullContent.analysis.tags,
-                fullCard: fullContent.card,
-                replyMessage: fullContent.analysis.replyMessage
+                theme: textData.card.theme,
+                tags: textData.analysis.tags,
+                fullCard: textData.card,
+                replyMessage: textData.analysis.replyMessage
+            });
+        }
+
+        // Step 2: Generate Image (Slow, asynchronous)
+        const imageUrl = await generateSoulImage(textData.imagePrompt);
+        
+        setCardData(prev => prev ? { ...prev, imageUrl } : null);
+
+        // Update Cloud with Image URL when ready
+        if (logRef && imageUrl) {
+            await updateLogOnCloud(FIXED_STATION_ID, docId, {
+                fullCard: { ...textData.card, imageUrl }
             });
         }
     } catch (e) {
@@ -105,15 +119,6 @@ const App: React.FC = () => {
         setCardData(fallback.card);
         setWhisperData({ text, analysis: fallback.analysis });
         setIsLoadingContent(false);
-
-        if (logRef) {
-            await updateLogOnCloud(FIXED_STATION_ID, docId, {
-                theme: fallback.card.theme,
-                tags: fallback.analysis.tags,
-                fullCard: fallback.card,
-                replyMessage: fallback.analysis.replyMessage
-            });
-        }
     } finally {
         setIsSyncing(false);
     }
@@ -215,13 +220,12 @@ const App: React.FC = () => {
                        <div className="absolute -inset-4 bg-amber-400/10 blur-3xl animate-pulse rounded-full z-0"></div>
                     </div>
                     <div className="space-y-3 z-10">
-                       <p className="font-bold text-xl text-stone-700 serif-font italic">亨仔正在繪製你的專屬卡仔...</p>
+                       <p className="font-bold text-xl text-stone-700 serif-font italic">亨仔正在準備你的內容...</p>
                        <div className="flex justify-center gap-1">
                           <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
                           <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
                           <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce"></div>
                        </div>
-                       <p className="text-[10px] text-stone-400 tracking-[0.2em] uppercase">正在解讀心靈波動並提筆創作</p>
                     </div>
                  </div>
               ) : (

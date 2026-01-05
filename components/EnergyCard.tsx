@@ -1,7 +1,8 @@
 
 import React, { useMemo } from 'react';
-import { Sparkle, Compass, Heart, Wind, Quote, Coffee, Sun, PenTool, Stars, Cloud, Leaf, Image as ImageIcon } from 'lucide-react';
+import { Sparkle, Compass, Heart, Wind, Quote, Coffee, Sun, PenTool, Stars, Cloud, Leaf, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { EnergyCardData, GeminiAnalysisResult } from '../types';
+import Mascot from './Mascot';
 
 interface EnergyCardProps {
   data: EnergyCardData;
@@ -10,11 +11,11 @@ interface EnergyCardProps {
 }
 
 const STYLE_CONFIGS = {
-  warm: { bg: 'bg-[#fff9e6]', border: 'border-amber-200', text: 'text-amber-900', accent: 'bg-amber-400', icon: <Sun size={48} className="text-amber-200" /> },
-  fresh: { bg: 'bg-[#f0fff4]', border: 'border-emerald-200', text: 'text-emerald-900', accent: 'bg-emerald-400', icon: <Leaf size={48} className="text-emerald-200" /> },
-  calm: { bg: 'bg-[#f5f3ff]', border: 'border-indigo-200', text: 'text-indigo-900', accent: 'bg-indigo-400', icon: <Cloud size={48} className="text-indigo-200" /> },
-  energetic: { bg: 'bg-[#fff5f5]', border: 'border-rose-200', text: 'text-rose-900', accent: 'bg-rose-400', icon: <Stars size={48} className="text-rose-200" /> },
-  dreamy: { bg: 'bg-[#f0f9ff]', border: 'border-blue-200', text: 'text-blue-900', accent: 'bg-blue-400', icon: <Sparkle size={48} className="text-blue-200" /> },
+  warm: { bg: 'bg-[#fff9e6]', border: 'border-amber-200', text: 'text-amber-900', accent: 'bg-amber-400', icon: <Sun size={64} className="text-amber-200/60" /> },
+  fresh: { bg: 'bg-[#f0fff4]', border: 'border-emerald-200', text: 'text-emerald-900', accent: 'bg-emerald-400', icon: <Leaf size={64} className="text-emerald-200/60" /> },
+  calm: { bg: 'bg-[#f5f3ff]', border: 'border-indigo-200', text: 'text-indigo-900', accent: 'bg-indigo-400', icon: <Cloud size={64} className="text-indigo-200/60" /> },
+  energetic: { bg: 'bg-[#fff5f5]', border: 'border-rose-200', text: 'text-rose-900', accent: 'bg-rose-400', icon: <Stars size={64} className="text-rose-200/60" /> },
+  dreamy: { bg: 'bg-[#f0f9ff]', border: 'border-blue-200', text: 'text-blue-900', accent: 'bg-blue-400', icon: <Sparkle size={64} className="text-blue-200/60" /> },
 };
 
 const EnergyCard: React.FC<EnergyCardProps> = ({ data, analysis }) => {
@@ -34,65 +35,81 @@ const EnergyCard: React.FC<EnergyCardProps> = ({ data, analysis }) => {
   };
 
   const cat = getCategoryStyles();
+  const isImageLoading = data.imageUrl === 'loading';
 
   return (
     <div className="flex flex-col items-center w-full max-w-sm mx-auto animate-soft-in">
       <div className={`
         relative w-full ${style.bg} 
-        p-6 md:p-8 rounded-[2.5rem] shadow-2xl border-2 ${style.border}
-        flex flex-col items-center text-center transition-all duration-700
+        p-8 md:p-10 rounded-[2.5rem] shadow-2xl border-2 ${style.border}
+        flex flex-col items-center text-center transition-all duration-700 overflow-hidden
       `}>
+        <div className="absolute top-0 right-0 p-8 opacity-20 transform translate-x-4 -translate-y-4">
+           {style.icon}
+        </div>
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-6 washi-tape opacity-60 z-20"></div>
 
-        <div className={`absolute top-4 right-4 px-3 py-1 ${cat.bgTag} backdrop-blur-md rounded-full border border-white/50 shadow-sm flex items-center gap-2 z-30`}>
+        <div className={`absolute top-6 right-6 px-3 py-1 ${cat.bgTag} backdrop-blur-md rounded-full border border-white/50 shadow-sm flex items-center gap-2 z-30`}>
             <span className={cat.color}>{cat.icon}</span>
             <span className={`text-[9px] font-black ${cat.color} tracking-widest uppercase`}>{data.category || 'RECOVERY'}</span>
         </div>
 
-        <div className="relative z-10 w-full space-y-6 mt-4">
-          <div className="flex flex-col items-center gap-4">
-             {data.imageUrl ? (
-               <div className="w-full aspect-square rounded-[2rem] overflow-hidden shadow-lg border-4 border-white relative group">
-                  <img src={data.imageUrl} alt="Hung Jai Illustration" className="w-full h-full object-cover" />
-                  <div className="absolute bottom-2 right-2 bg-white/80 backdrop-blur-md p-1.5 rounded-lg">
-                    <ImageIcon size={14} className="text-stone-400" />
+        <div className="relative z-10 w-full space-y-8 mt-4">
+          <div className="flex flex-col items-center gap-6">
+             {isImageLoading ? (
+               <div className="w-full aspect-square rounded-[2rem] bg-white/40 flex flex-col items-center justify-center border-4 border-dashed border-white/80 shadow-inner-lg animate-pulse overflow-hidden">
+                  <Mascot expression="painting" options={{role: 'youth', baseColor: '#C4A484'}} className="w-32 h-32 opacity-50" />
+                  <div className="flex items-center gap-2 mt-2">
+                    <Loader2 size={12} className="animate-spin text-stone-400" />
+                    <span className="text-[10px] font-bold text-stone-400 tracking-widest uppercase">亨仔正在提筆...</span>
+                  </div>
+               </div>
+             ) : data.imageUrl ? (
+               <div className="w-full aspect-square rounded-[2rem] overflow-hidden shadow-xl border-4 border-white relative group">
+                  <img 
+                    src={data.imageUrl} 
+                    alt="Hung Jai's Drawing" 
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000"
+                  />
+                  <div className="absolute bottom-3 right-3 p-2 bg-white/70 backdrop-blur-md rounded-xl shadow-lg border border-white/50">
+                    <ImageIcon size={16} className="text-stone-400" />
                   </div>
                </div>
              ) : (
-               <div className="p-6 bg-white/80 rounded-full shadow-inner-lg">
+               <div className="p-8 bg-white/60 rounded-full shadow-inner-lg backdrop-blur-sm border border-white/40">
                   {style.icon}
                </div>
              )}
              
-             <div className="space-y-1">
-                <p className="text-[9px] font-black text-stone-300 tracking-[0.4em] uppercase">Healing Theme</p>
-                <h1 className={`text-2xl md:text-3xl font-bold ${style.text} serif-font tracking-tight`}>
+             <div className="space-y-2">
+                <p className="text-[10px] font-black text-stone-300 tracking-[0.4em] uppercase">Healing Theme</p>
+                <h1 className={`text-3xl md:text-4xl font-bold ${style.text} serif-font tracking-tight`}>
                   {data.theme}
                 </h1>
              </div>
           </div>
           
-          <div className="min-h-[4rem] flex flex-col items-center justify-center relative px-2">
-            <Quote className="absolute -top-2 -left-2 text-stone-100/50" size={32} />
-            <p className="text-stone-700 serif-font text-lg md:text-xl leading-relaxed italic relative z-10">
+          <div className="min-h-[5rem] flex flex-col items-center justify-center relative px-4">
+            <Quote className="absolute -top-4 -left-2 text-stone-200/40" size={40} />
+            <p className="text-stone-700 serif-font text-xl md:text-2xl leading-relaxed italic relative z-10">
               {data.quote}
             </p>
           </div>
 
-          <div className="space-y-4 pt-4 border-t border-dashed border-stone-200">
-             <div className="flex flex-col items-center gap-1.5">
-                <span className="text-[9px] font-bold text-stone-400 tracking-widest uppercase flex items-center gap-1.5">
-                   <Coffee size={10} /> 亨仔推薦練習
+          <div className="space-y-5 pt-8 border-t border-dashed border-stone-200">
+             <div className="flex flex-col items-center gap-2">
+                <span className="text-[10px] font-bold text-stone-400 tracking-widest uppercase flex items-center gap-2">
+                   <Coffee size={12} /> 亨仔推薦練習
                 </span>
-                <p className="text-xs text-stone-500 leading-relaxed max-w-[260px] italic">
+                <p className="text-sm text-stone-500 leading-relaxed max-w-[280px] italic">
                    {data.relaxationMethod}
                 </p>
              </div>
 
-             <div className="flex flex-col items-center gap-1.5">
-                <span className="text-[9px] font-bold text-stone-400 tracking-widest uppercase">今日療癒守護者</span>
-                <div className={`px-5 py-2 ${cat.bgTag} rounded-full text-stone-800 font-bold text-xs border-2 border-white shadow-sm flex items-center gap-2`}>
-                    <span className="animate-bounce">✨</span> {data.luckyItem}
+             <div className="flex flex-col items-center gap-2">
+                <span className="text-[10px] font-bold text-stone-400 tracking-widest uppercase">今日療癒守護者</span>
+                <div className={`px-6 py-2.5 ${cat.bgTag} rounded-full text-stone-800 font-bold text-xs border-2 border-white shadow-md flex items-center gap-3`}>
+                    <span className="animate-bounce text-base">✨</span> {data.luckyItem}
                 </div>
              </div>
           </div>
@@ -101,23 +118,23 @@ const EnergyCard: React.FC<EnergyCardProps> = ({ data, analysis }) => {
       
       {analysis?.replyMessage && (
         <div className={`
-          mt-8 max-w-[320px] w-full relative ${style.bg} p-6 shadow-2xl ${style.border} border-l-8 
+          mt-10 max-w-[340px] w-full relative ${style.bg} p-8 shadow-2xl ${style.border} border-l-8 
           transform -rotate-1 hover:rotate-0 transition-all duration-500 animate-soft-in
           before:content-[''] before:absolute before:-top-4 before:left-1/2 before:-translate-x-1/2 before:w-16 before:h-6 before:bg-white/40 before:washi-tape
         `}>
-           <div className={`absolute -top-3 -right-3 w-8 h-8 bg-white rounded-full flex items-center justify-center ${style.text} shadow-lg border border-stone-100`}>
-              <PenTool size={14} />
+           <div className={`absolute -top-4 -right-4 w-10 h-10 bg-white rounded-full shadow-xl border border-stone-100 flex items-center justify-center ${style.text}`}>
+              <PenTool size={18} />
            </div>
            
-           <div className="flex flex-col gap-2">
-              <span className={`text-[9px] font-black ${style.text} opacity-30 uppercase tracking-[0.3em]`}>Bear's Healing Note</span>
-              <p className={`text-[1rem] leading-relaxed handwriting-font ${style.text} font-bold`}>
+           <div className="flex flex-col gap-3">
+              <span className={`text-[10px] font-black ${style.text} opacity-30 uppercase tracking-[0.4em]`}>Bear's Healing Note</span>
+              <p className={`text-[1.1rem] leading-relaxed handwriting-font ${style.text} font-bold`}>
                  {analysis.replyMessage}
               </p>
               
-              <div className="flex flex-wrap gap-1.5 mt-1 pt-3 border-t border-stone-900/5">
+              <div className="flex flex-wrap gap-2 mt-2 pt-4 border-t border-stone-900/5">
                  {analysis.tags?.map((t, idx) => (
-                    <span key={idx} className={`text-[9px] font-bold opacity-60 ${style.text} bg-white/50 px-1.5 py-0.5 rounded`}>
+                    <span key={idx} className={`text-[10px] font-bold opacity-60 ${style.text} bg-white/60 px-2 py-1 rounded-lg border border-white/40 shadow-sm`}>
                        {t.startsWith('#') ? t : `#${t}`}
                     </span>
                  ))}
