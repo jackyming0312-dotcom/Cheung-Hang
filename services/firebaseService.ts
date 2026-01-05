@@ -10,10 +10,8 @@ import {
   limit, 
   serverTimestamp, 
   doc, 
-  deleteDoc, 
-  initializeFirestore,
-  persistentLocalCache,
-  persistentMultipleTabManager
+  deleteDoc,
+  getDocs
 } from "firebase/firestore";
 import { CommunityLog } from "../types";
 
@@ -33,47 +31,52 @@ let db: any = null;
 if (isFirebaseConfigured) {
   try {
     const app = initializeApp(firebaseConfig);
-    // 使用更先進的持久化緩存設置，對 iOS Safari 尤其重要
-    db = initializeFirestore(app, {
-      localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager()
-      })
-    });
+    db = getFirestore(app);
   } catch (e) { 
     console.error("Firebase Init Error", e); 
   }
 }
 
 /**
- * 強力保存：確保資料成功發送到雲端
+ * 核心儲存函數：確保資料 100% 寫入
  */
 export const saveLogToCloud = async (log: Omit<CommunityLog, 'id'>) => {
-    if (!db) return null;
+    if (!db) {
+        console.error("Database not ready");
+        return null;
+    }
+    
     try {
         const colRef = collection(db, "stations", "CHEUNG_HANG", "logs");
+        
+        // 建立完整 Payload，確保所有排序鍵都有值
+        const now = Date.now();
         const payload = {
             moodLevel: Number(log.moodLevel),
             text: String(log.text),
             theme: String(log.theme),
             tags: log.tags || [],
-            authorSignature: log.authorSignature || "旅人",
+            authorSignature: log.authorSignature || "長亨旅人",
             authorColor: log.authorColor || "#8d7b68",
             deviceType: log.deviceType || "行動裝置",
             stationId: "CHEUNG_HANG",
             replyMessage: log.replyMessage || "",
             createdAt: new Date().toISOString(),
-            localTimestamp: Date.now(), // 這是解決同步排序的核心
-            serverTime: serverTimestamp(),
+            localTimestamp: now, // 強制寫入毫秒時間戳
+            serverTime: serverTimestamp(), // 雲端校準
             quote: log.fullCard?.quote || "",
             luckyItem: log.fullCard?.luckyItem || "",
             category: log.fullCard?.category || "",
             relaxationMethod: log.fullCard?.relaxationMethod || "",
             styleHint: log.fullCard?.styleHint || "warm"
         };
+        
+        // 使用 addDoc 並等待其完成
         const docRef = await addDoc(colRef, payload);
+        console.log("Write Success - Document ID:", docRef.id);
         return docRef.id;
     } catch (e) {
-        console.error("Firebase Write Error:", e);
+        console.error("Cloud Write FAILED:", e);
         throw e;
     }
 };
@@ -86,35 +89,36 @@ export const deleteLog = async (docId: string) => {
 };
 
 /**
- * 實時監聽：不論在哪台設備，只要有更新就立刻觸發 callback
+ * 實時訂閱：增加容錯與強制排序
  */
 export const subscribeToStation = (callback: (logs: CommunityLog[]) => void) => {
   if (!db) return () => {};
   
   const colRef = collection(db, "stations", "CHEUNG_HANG", "logs");
-  // 獲取最新的 50 筆紀錄，完全根據時間戳排序
-  const q = query(colRef, orderBy("localTimestamp", "desc"), limit(50));
+  // 擴大 limit 至 100 筆，確保舊紀錄不會被過早擠掉
+  const q = query(colRef, orderBy("localTimestamp", "desc"), limit(100));
   
-  return onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
+  return onSnapshot(q, (snapshot) => {
     const logs = snapshot.docs.map(doc => {
         const data = doc.data();
         return { 
             ...data, 
             id: doc.id, 
-            timestamp: data.createdAt || new Date(data.localTimestamp).toISOString(), 
+            // 優先使用 createdAt 確保時間顯示正確
+            timestamp: data.createdAt || new Date(data.localTimestamp || Date.now()).toISOString(), 
             fullCard: {
-                quote: data.quote, 
-                theme: data.theme, 
-                luckyItem: data.luckyItem,
-                category: data.category, 
-                relaxationMethod: data.relaxationMethod,
+                quote: data.quote || "", 
+                theme: data.theme || "", 
+                luckyItem: data.luckyItem || "",
+                category: data.category || "心情分享", 
+                relaxationMethod: data.relaxationMethod || "",
                 styleHint: data.styleHint || 'warm'
             }
         } as CommunityLog;
     });
     callback(logs);
-  }, (err) => {
-    console.error("Subscription failed:", err);
+  }, (error) => {
+    console.error("Real-time Subscription Error:", error);
   });
 };
 
