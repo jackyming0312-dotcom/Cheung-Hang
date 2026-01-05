@@ -35,7 +35,7 @@ let db: any = null;
 if (isFirebaseConfigured) {
   try {
     const app = initializeApp(firebaseConfig);
-    // 使用 memoryLocalCache 並確保不保存到磁碟，這能解決手機看到舊資料的問題
+    // 強制使用內存快取並優化連線模式
     db = initializeFirestore(app, {
       localCache: memoryLocalCache()
     });
@@ -57,11 +57,12 @@ const preparePayload = (log: Partial<CommunityLog>) => {
         tags: Array.isArray(log.tags) ? log.tags : [],
         authorSignature: String(log.authorSignature || ""),
         authorColor: String(log.authorColor || ""),
-        deviceType: String(log.deviceType || ""),
+        deviceType: String(log.deviceType || "未知設備"),
         stationId: "CHEUNG_HANG",
         replyMessage: String(log.replyMessage || ""),
-        createdAt: new Date().toISOString(), // 備用本地時間
-        // 內嵌卡片數據，攤平以利於查詢（如果未來需要）
+        createdAt: new Date().toISOString(),
+        // 關鍵：localTimestamp 提供即時排序能力
+        localTimestamp: Date.now(), 
         quote: log.fullCard?.quote || "",
         luckyItem: log.fullCard?.luckyItem || "",
         category: log.fullCard?.category || "",
@@ -75,7 +76,7 @@ export const syncLogWithRef = async (docRef: any, log: CommunityLog) => {
     try {
         const payload = {
             ...preparePayload(log),
-            serverTime: serverTimestamp() // 重要：這是跨裝置同步的唯一真實基準
+            serverTime: serverTimestamp() 
         };
         await setDoc(docRef, payload);
         return docRef.id;
@@ -108,17 +109,14 @@ export const subscribeToStation = (stationId: string, callback: (logs: Community
   if (!db) return () => {};
   
   const colRef = collection(db, "stations", stationId, "logs");
-  // 依據 serverTime 排序。如果沒有 serverTime，Firestore 預設會放在最前面或最後面
-  const q = query(colRef, orderBy("serverTime", "desc"), limit(50));
+  // 使用 localTimestamp 排序，這在跨設備發送的一瞬間就能保證新資料在頂部
+  const q = query(colRef, orderBy("localTimestamp", "desc"), limit(50));
   
-  // { includeMetadataChanges: true } 確保本地修改能立即反映到 UI
   return onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
     const logs = snapshot.docs.map(doc => {
-        // 使用 { serverTimestamps: 'estimate' }。
-        // 當 serverTime 還是 null 時（剛發送尚未抵達雲端），這會返回一個估計的時間，
-        // 這樣就能保證 log.timestamp 永遠有值，不會在 CommunityBoard 被過濾掉。
         const data = doc.data({ serverTimestamps: 'estimate' });
         
+        // 這裡確保 timestamp 欄位永遠有值，不管是 serverTime 還是 localTimestamp
         const finalTime = data.serverTime 
             ? data.serverTime.toDate().toISOString() 
             : data.createdAt;

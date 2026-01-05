@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { CommunityLog, EnergyCardData, GeminiAnalysisResult } from '../types';
-import { ChevronLeft, ChevronRight, Calendar, Clock, RefreshCw, Eraser, Footprints, Moon, Sun, Sparkles, X, Heart, Trash2, Palette, PenTool, Leaf, Stars, Zap, Monitor, Smartphone, Tablet } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Clock, RefreshCw, Eraser, Footprints, Moon, Sun, Sparkles, X, Heart, Trash2, Palette, PenTool, Leaf, Stars, Zap, Monitor, Smartphone, Tablet, Radio } from 'lucide-react';
 import EnergyCard from './EnergyCard';
 
 interface CommunityBoardProps {
@@ -30,23 +30,24 @@ const formatDateKey = (date: Date) => {
 };
 
 const getDeviceIcon = (device?: string) => {
-    if (device?.includes('iPhone') || device?.includes('Android')) return <Smartphone size={10} />;
-    if (device?.includes('iPad')) return <Tablet size={10} />;
+    if (!device) return <Monitor size={10} />;
+    if (device.includes('iPhone')) return <Smartphone size={10} />;
+    if (device.includes('iPad')) return <Tablet size={10} />;
+    if (device.includes('Android')) return <Smartphone size={10} />;
     return <Monitor size={10} />;
 };
 
 const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDay, onDeleteLog, onRefresh, isSyncing }) => {
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null); // null 表示「實時流動」模式
   const [activeCard, setActiveCard] = useState<CommunityLog | null>(null);
   
-  const targetDateKey = useMemo(() => formatDateKey(selectedDate), [selectedDate]);
-  const isToday = targetDateKey === formatDateKey(new Date());
-  const displayDateStr = selectedDate.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' });
+  const targetDateKey = selectedDate ? formatDateKey(selectedDate) : null;
+  const displayDateStr = selectedDate ? selectedDate.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' }) : "最新實時動態";
 
-  // 關鍵改動：如果是查看「今天」，則顯示所有最近收到的資料，不論日期比對是否毫秒一致
+  // 關鍵同步改動：預設不進行日期過濾，直接顯示雲端推送的最新的資料
   const displayLogs = useMemo(() => {
     let filtered = logs;
-    if (!isToday) {
+    if (targetDateKey) {
       filtered = logs.filter(log => {
         if (!log.timestamp) return false;
         try {
@@ -58,10 +59,13 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
       });
     }
     
-    return filtered.sort((a, b) => {
-      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    // 二次排序保險：優先使用本地毫秒，次之使用伺服器時間
+    return [...filtered].sort((a, b) => {
+      const timeA = (a as any).localTimestamp || new Date(a.timestamp).getTime();
+      const timeB = (b as any).localTimestamp || new Date(b.timestamp).getTime();
+      return timeB - timeA;
     });
-  }, [targetDateKey, isToday, logs]);
+  }, [targetDateKey, logs]);
 
   const collectiveMood = useMemo(() => {
       if (displayLogs.length === 0) return null;
@@ -94,9 +98,13 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
             <h2 className="text-2xl font-bold text-stone-800 serif-font tracking-tight">靈魂燈火：心聲長廊</h2>
             <div className="flex items-center justify-center gap-2 mt-1">
                  <div className="flex items-center gap-1.5 px-3 py-0.5 bg-white/60 rounded-full border border-stone-100 shadow-sm">
-                    <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
-                        {isToday ? '即時串流中' : '歷史回憶'}
-                    </span>
+                    {selectedDate === null ? (
+                        <span className="flex items-center gap-1 text-[10px] font-black text-rose-500 uppercase tracking-widest animate-pulse">
+                            <Radio size={10} /> Live 串流中
+                        </span>
+                    ) : (
+                        <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">歷史紀錄</span>
+                    )}
                     {collectiveMood && (
                         <span className="text-[10px] font-bold text-amber-600 flex items-center gap-1">
                             <Heart size={10} className="fill-current" /> {collectiveMood}
@@ -107,17 +115,34 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
         </div>
 
         <div className="flex items-center gap-2 mb-6 bg-white/50 px-3 py-2 rounded-full border border-stone-200 shadow-sm">
-            <button onClick={() => setSelectedDate(d => { const nd = new Date(d); nd.setDate(nd.getDate()-1); return nd; })} className="p-1 hover:bg-stone-200 rounded-full transition-colors text-stone-600">
+            <button 
+                onClick={() => {
+                    const d = selectedDate || new Date();
+                    const nd = new Date(d);
+                    nd.setDate(nd.getDate() - 1);
+                    setSelectedDate(nd);
+                }} 
+                className="p-1 hover:bg-stone-200 rounded-full transition-colors text-stone-600"
+            >
                 <ChevronLeft size={18} />
             </button>
-            <div className="flex items-center gap-2 text-stone-700 font-medium min-w-[140px] justify-center">
-                <Calendar size={14} className="text-stone-400" />
-                <span className="text-[11px] font-bold">{isToday ? '今日心聲' : displayDateStr}</span>
-            </div>
             <button 
-              onClick={() => setSelectedDate(d => { const nd = new Date(d); nd.setDate(nd.getDate()+1); return nd; })} 
-              disabled={isToday} 
-              className={`p-1 rounded-full transition-colors ${isToday ? 'text-stone-300 cursor-not-allowed' : 'text-stone-600 hover:bg-stone-200'}`}
+                onClick={() => setSelectedDate(null)}
+                className={`flex items-center gap-2 font-medium min-w-[140px] justify-center transition-colors ${selectedDate === null ? 'text-amber-600' : 'text-stone-700'}`}
+            >
+                <Calendar size={14} className={selectedDate === null ? 'text-amber-500' : 'text-stone-400'} />
+                <span className="text-[11px] font-bold">{displayDateStr}</span>
+            </button>
+            <button 
+              onClick={() => {
+                if (!selectedDate) return;
+                const nd = new Date(selectedDate);
+                nd.setDate(nd.getDate() + 1);
+                if (nd >= new Date()) setSelectedDate(null);
+                else setSelectedDate(nd);
+              }} 
+              disabled={selectedDate === null} 
+              className={`p-1 rounded-full transition-colors ${selectedDate === null ? 'text-stone-300 cursor-not-allowed' : 'text-stone-600 hover:bg-stone-200'}`}
             >
                 <ChevronRight size={18} />
             </button>
@@ -158,15 +183,15 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                                                 {log.authorSignature?.substring(0, 1) || '旅'}
                                             </div>
                                             <div className="flex flex-col">
-                                                <div className="flex items-center gap-1.5">
+                                                <div className="flex items-center gap-2">
                                                     <span className="text-[10px] font-bold text-stone-800">{log.authorSignature}</span>
-                                                    <div className="flex items-center gap-0.5 px-1 py-0.5 bg-stone-50 rounded text-stone-400">
+                                                    <div className="flex items-center gap-1 px-1.5 py-0.5 bg-stone-100 rounded-md text-stone-500 shadow-inner">
                                                         {getDeviceIcon(log.deviceType)}
-                                                        <span className="text-[8px] font-bold uppercase tracking-tighter">{log.deviceType}</span>
+                                                        <span className="text-[8px] font-black uppercase tracking-tighter leading-none">{log.deviceType}</span>
                                                     </div>
                                                 </div>
                                                 <span className="text-[8px] font-mono text-stone-300 flex items-center gap-1 uppercase">
-                                                    <Clock size={8} /> {new Date(log.timestamp).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'})}
+                                                    <Clock size={8} /> {new Date(log.timestamp).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit', second: '2-digit'})}
                                                 </span>
                                             </div>
                                         </div>

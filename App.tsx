@@ -18,11 +18,17 @@ const FIXED_STATION_ID = "CHEUNG_HANG";
 
 const getDeviceType = () => {
     const ua = navigator.userAgent;
-    // 處理現代 iPad (會回傳 Macintosh)
-    const isIPad = /iPad/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const platform = navigator.platform || '';
+    
+    // 精準 iPad 偵測 (包含 iPadOS 13+ 偽裝成 Mac 的情況)
+    const isIPad = /iPad/.test(ua) || (platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     if (isIPad) return "iPad";
+    
     if (/iPhone|iPod/.test(ua)) return "iPhone";
     if (/Android/.test(ua)) return "Android手機";
+    if (/Macintosh|MacIntel|MacPPC|Mac68K/.test(ua)) return "Mac電腦";
+    if (/Win32|Win64|Windows|Wince/.test(ua)) return "Windows電腦";
+    
     return "電腦端";
 };
 
