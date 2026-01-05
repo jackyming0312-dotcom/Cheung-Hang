@@ -18,7 +18,9 @@ const FIXED_STATION_ID = "CHEUNG_HANG";
 
 const getDeviceType = () => {
     const ua = navigator.userAgent;
-    if (/iPad/.test(ua)) return "iPad";
+    // 處理現代 iPad (會回傳 Macintosh)
+    const isIPad = /iPad/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isIPad) return "iPad";
     if (/iPhone|iPod/.test(ua)) return "iPhone";
     if (/Android/.test(ua)) return "Android手機";
     return "電腦端";
@@ -43,10 +45,9 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<CommunityLog[]>([]);
   const isCloudLive = checkCloudStatus();
 
-  // 強化實時監聽：確保訂閱邏輯在雲端狀態變更時能正確重連
+  // 實時監聽：確保訂閱邏輯穩定
   useEffect(() => {
     if (!isCloudLive) return;
-    console.log("Establishing Real-time connection to Cheung Hang Station...");
     const unsubscribe = subscribeToStation(FIXED_STATION_ID, (cloudLogs) => {
       setLogs(cloudLogs);
     });
@@ -81,7 +82,7 @@ const App: React.FC = () => {
                 id: logRef.id,
                 moodLevel: mood, 
                 text: text, 
-                timestamp: new Date().toISOString(), // client fallback
+                timestamp: new Date().toISOString(), 
                 theme: textData.card.theme, 
                 tags: textData.analysis.tags, 
                 authorSignature: signature, 
@@ -91,7 +92,6 @@ const App: React.FC = () => {
                 fullCard: textData.card,
                 replyMessage: textData.analysis.replyMessage
             };
-            // 這一步會觸發 Firebase Server Timestamp，確保全球裝置同步排序
             await syncLogWithRef(logRef, finalLog);
         }
     } catch (e) {
@@ -148,7 +148,7 @@ const App: React.FC = () => {
                   <CloudOff size={14} className="text-rose-400" />
               )}
               <span className="text-[10px] font-bold text-stone-600 uppercase tracking-widest">
-                  {isSyncing ? '同步中' : '實時連線'}
+                  {isSyncing ? '同步中' : '實時連線中'}
               </span>
           </div>
 
@@ -171,7 +171,7 @@ const App: React.FC = () => {
            </div>
            <div className="text-center">
               <h1 className="text-xl md:text-2xl font-bold text-stone-800 serif-font">長亨心靈充電站</h1>
-              <span className="text-[8px] text-stone-400 font-bold tracking-[0.3em] uppercase">Deep Healing Mode</span>
+              <span className="text-[8px] text-stone-400 font-bold tracking-[0.3em] uppercase tracking-widest">Live Healing Stream</span>
            </div>
         </header>
 
@@ -183,7 +183,7 @@ const App: React.FC = () => {
               </div>
               <div className="space-y-3 w-full mt-10">
                 <button onClick={() => setStep(AppStep.MOOD_WATER)} className="w-full py-4 font-bold text-white text-lg bg-stone-800 rounded-2xl shadow-[0_4px_0_rgb(44,40,36)] active:translate-y-[4px] transition-all flex items-center justify-center group text-sm md:text-base">開始充電 <ArrowRight className="ml-2 group-hover:translate-x-2 transition-transform" /></button>
-                <button onClick={() => setStep(AppStep.COMMUNITY)} className="w-full py-3 font-bold text-stone-400 bg-white/40 border border-stone-100 rounded-2xl flex items-center justify-center gap-2 text-[10px] md:text-xs hover:bg-white/60 transition-all"><Grid size={14} /> 進入心聲長廊</button>
+                <button onClick={() => setStep(AppStep.COMMUNITY)} className="w-full py-3 font-bold text-stone-500 bg-white/40 border border-stone-100 rounded-2xl flex items-center justify-center gap-2 text-[10px] md:text-xs hover:bg-white/60 transition-all"><Grid size={14} /> 心聲長廊 (即時同步中)</button>
               </div>
             </div>
           )}
@@ -238,7 +238,7 @@ const App: React.FC = () => {
           )}
         </div>
       </main>
-      <footer className="mt-4 text-stone-300 text-[8px] font-bold tracking-[0.4em] uppercase opacity-40 text-center">CHEUNG HANG STATION</footer>
+      <footer className="mt-4 text-stone-300 text-[8px] font-bold tracking-[0.4em] uppercase opacity-40 text-center">CHEUNG HANG STATION • REALTIME ACTIVE</footer>
     </div>
   );
 };

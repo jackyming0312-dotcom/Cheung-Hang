@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { CommunityLog, EnergyCardData, GeminiAnalysisResult } from '../types';
-import { ChevronLeft, ChevronRight, Calendar, Clock, RefreshCw, Eraser, Footprints, Moon, Sun, Sparkles, X, Heart, Trash2, Palette, PenTool, Leaf, Stars, Zap } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Clock, RefreshCw, Eraser, Footprints, Moon, Sun, Sparkles, X, Heart, Trash2, Palette, PenTool, Leaf, Stars, Zap, Monitor, Smartphone, Tablet } from 'lucide-react';
 import EnergyCard from './EnergyCard';
 
 interface CommunityBoardProps {
@@ -29,42 +29,47 @@ const formatDateKey = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
+const getDeviceIcon = (device?: string) => {
+    if (device?.includes('iPhone') || device?.includes('Android')) return <Smartphone size={10} />;
+    if (device?.includes('iPad')) return <Tablet size={10} />;
+    return <Monitor size={10} />;
+};
+
 const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDay, onDeleteLog, onRefresh, isSyncing }) => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [activeCard, setActiveCard] = useState<CommunityLog | null>(null);
   
   const targetDateKey = useMemo(() => formatDateKey(selectedDate), [selectedDate]);
+  const isToday = targetDateKey === formatDateKey(new Date());
   const displayDateStr = selectedDate.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' });
 
-  // 核心修復：確保過濾邏輯非常強健
+  // 關鍵改動：如果是查看「今天」，則顯示所有最近收到的資料，不論日期比對是否毫秒一致
   const displayLogs = useMemo(() => {
-    return logs
-      .filter(log => {
+    let filtered = logs;
+    if (!isToday) {
+      filtered = logs.filter(log => {
         if (!log.timestamp) return false;
         try {
           const logDate = new Date(log.timestamp);
-          // 容錯處理：如果 logDate 無效，回退到今日
-          if (isNaN(logDate.getTime())) return targetDateKey === formatDateKey(new Date());
           return formatDateKey(logDate) === targetDateKey;
         } catch (e) {
           return false;
         }
-      })
-      .sort((a, b) => {
-        // 使用 timestamp 進行嚴格排序
-        return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
       });
-  }, [targetDateKey, logs]);
+    }
+    
+    return filtered.sort((a, b) => {
+      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    });
+  }, [targetDateKey, isToday, logs]);
 
   const collectiveMood = useMemo(() => {
       if (displayLogs.length === 0) return null;
       const avg = displayLogs.reduce((acc, log) => acc + log.moodLevel, 0) / displayLogs.length;
-      if (avg > 70) return "暖心療癒";
-      if (avg > 40) return "寧靜安穩";
-      return "需要溫柔";
+      if (avg > 70) return "充滿暖心";
+      if (avg > 40) return "平靜祥和";
+      return "需要溫暖";
   }, [displayLogs]);
-
-  const isToday = targetDateKey === formatDateKey(new Date());
 
   return (
     <div className="w-full flex flex-col items-center animate-soft-in h-full relative">
@@ -88,12 +93,16 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
         <div className="text-center mb-4">
             <h2 className="text-2xl font-bold text-stone-800 serif-font tracking-tight">靈魂燈火：心聲長廊</h2>
             <div className="flex items-center justify-center gap-2 mt-1">
-                 {collectiveMood && (
-                    <div className="flex items-center gap-1.5 px-3 py-0.5 bg-white/60 rounded-full border border-stone-100 shadow-sm">
-                        <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">今日場域</span>
-                        <span className="text-[10px] font-bold text-amber-600 flex items-center gap-1"><Heart size={10}/> {collectiveMood}</span>
-                    </div>
-                 )}
+                 <div className="flex items-center gap-1.5 px-3 py-0.5 bg-white/60 rounded-full border border-stone-100 shadow-sm">
+                    <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
+                        {isToday ? '即時串流中' : '歷史回憶'}
+                    </span>
+                    {collectiveMood && (
+                        <span className="text-[10px] font-bold text-amber-600 flex items-center gap-1">
+                            <Heart size={10} className="fill-current" /> {collectiveMood}
+                        </span>
+                    )}
+                 </div>
             </div>
         </div>
 
@@ -103,7 +112,7 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
             </button>
             <div className="flex items-center gap-2 text-stone-700 font-medium min-w-[140px] justify-center">
                 <Calendar size={14} className="text-stone-400" />
-                <span className="text-[11px] font-bold">{displayDateStr}</span>
+                <span className="text-[11px] font-bold">{isToday ? '今日心聲' : displayDateStr}</span>
             </div>
             <button 
               onClick={() => setSelectedDate(d => { const nd = new Date(d); nd.setDate(nd.getDate()+1); return nd; })} 
@@ -122,7 +131,7 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
             {displayLogs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-stone-400 py-10 bg-white/30 rounded-[2rem] border border-dashed border-stone-200 mx-4">
                     <p className="font-medium text-stone-400 text-sm italic">此處目前靜悄悄的...</p>
-                    <p className="text-[10px] text-stone-300 mt-2">發送心聲後，所有裝置都會立即同步。</p>
+                    <p className="text-[10px] text-stone-300 mt-2">嘗試從其他設備發送心聲，會立刻出現在這裡。</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 gap-6 pb-6 px-1">
@@ -149,16 +158,19 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                                                 {log.authorSignature?.substring(0, 1) || '旅'}
                                             </div>
                                             <div className="flex flex-col">
-                                                <div className="flex items-center gap-1">
+                                                <div className="flex items-center gap-1.5">
                                                     <span className="text-[10px] font-bold text-stone-800">{log.authorSignature}</span>
-                                                    <Zap size={8} className="text-amber-500 fill-current" />
+                                                    <div className="flex items-center gap-0.5 px-1 py-0.5 bg-stone-50 rounded text-stone-400">
+                                                        {getDeviceIcon(log.deviceType)}
+                                                        <span className="text-[8px] font-bold uppercase tracking-tighter">{log.deviceType}</span>
+                                                    </div>
                                                 </div>
                                                 <span className="text-[8px] font-mono text-stone-300 flex items-center gap-1 uppercase">
-                                                    <Clock size={8} /> {new Date(log.timestamp).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'})} • {log.deviceType}
+                                                    <Clock size={8} /> {new Date(log.timestamp).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'})}
                                                 </span>
                                             </div>
                                         </div>
-                                        <div className="px-3 py-1 rounded-full text-[9px] font-black tracking-widest uppercase border bg-stone-50 text-stone-400">
+                                        <div className="px-3 py-1 rounded-full text-[9px] font-black tracking-widest uppercase border bg-amber-50/50 text-amber-600 border-amber-100/50">
                                             {log.theme}
                                         </div>
                                     </div>
