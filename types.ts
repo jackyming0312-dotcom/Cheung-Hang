@@ -1,5 +1,4 @@
 
-
 export enum AppStep {
   WELCOME = 'WELCOME',
   MOOD_WATER = 'MOOD_WATER',
@@ -36,8 +35,6 @@ export interface GeminiAnalysisResult {
   sentiment: 'positive' | 'neutral' | 'negative';
   tags: string[];
   replyMessage: string;
-  // Added mood_score to represent AI-determined energy level
-  mood_score: number;
 }
 
 export interface EnergyCardData {

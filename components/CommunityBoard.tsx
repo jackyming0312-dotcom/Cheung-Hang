@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { CommunityLog, GeminiAnalysisResult } from '../types';
-import { Clock, RefreshCw, X, Trash2, Smartphone, Tablet, Monitor, Radio, CheckCircle, MapPin, Calendar as CalendarIcon, Zap } from 'lucide-react';
+import { Clock, RefreshCw, X, Trash2, Smartphone, Tablet, Monitor, Radio, CheckCircle, MapPin } from 'lucide-react';
 import EnergyCard from './EnergyCard';
 
 interface CommunityBoardProps {
@@ -26,20 +26,14 @@ const getDeviceIcon = (device?: string) => {
 const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onDeleteLog, onRefresh, isSyncing }) => {
   const [activeCard, setActiveCard] = useState<CommunityLog | null>(null);
 
-  const groupedLogs = useMemo(() => {
-    const sorted = [...logs].sort((a, b) => {
+  // 排序優化：確保新訊息絕對置頂
+  const sortedLogs = useMemo(() => {
+    return [...logs].sort((a, b) => {
+      // 優先使用寫入時生成的毫秒時間戳
       const tA = a.localTimestamp || (a.timestamp ? new Date(a.timestamp).getTime() : 0);
       const tB = b.localTimestamp || (b.timestamp ? new Date(b.timestamp).getTime() : 0);
       return tB - tA;
     });
-
-    const groups: { [key: string]: CommunityLog[] } = {};
-    sorted.forEach(log => {
-        const date = new Date(log.timestamp || log.localTimestamp).toLocaleDateString('zh-TW', { month: 'long', day: 'numeric', weekday: 'short' });
-        if (!groups[date]) groups[date] = [];
-        groups[date].push(log);
-    });
-    return groups;
   }, [logs]);
 
   return (
@@ -62,11 +56,11 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onDeleteL
         )}
 
         <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-stone-800 serif-font tracking-tight italic">心靈日曆牆</h2>
+            <h2 className="text-3xl font-bold text-stone-800 serif-font tracking-tight italic">靈魂燈火：即時串流牆</h2>
             <div className="flex items-center justify-center gap-3 mt-3">
-                 <div className="flex items-center gap-2 px-4 py-1.5 bg-emerald-50 rounded-full border border-emerald-100 shadow-sm">
-                    <Radio size={12} className="text-emerald-500 fill-emerald-500 animate-pulse" />
-                    <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">跨裝置即時串流</span>
+                 <div className="flex items-center gap-2 px-4 py-1.5 bg-rose-50 rounded-full border border-rose-100 shadow-sm">
+                    <Radio size={12} className="text-rose-500 fill-rose-500 animate-pulse" />
+                    <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">iPad/手機 同步監測中</span>
                  </div>
                  <button onClick={onRefresh} className={`p-2 rounded-full hover:bg-stone-100 transition-colors ${isSyncing ? 'animate-spin text-amber-500' : 'text-stone-400'}`}>
                     <RefreshCw size={16} />
@@ -75,83 +69,71 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onDeleteL
         </div>
 
         <div className="w-full flex-1 overflow-y-auto pr-1 custom-scrollbar min-h-[420px] pb-10">
-            {Object.keys(groupedLogs).length === 0 ? (
+            {sortedLogs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-stone-400 py-16 bg-stone-50/40 rounded-[3rem] border-2 border-dashed border-stone-200 mx-4">
-                    <MapPin size={32} className="text-stone-200 mb-4" />
-                    <p className="font-bold italic text-stone-500">尚無跨裝置紀錄</p>
-                    <p className="text-[10px] mt-2 text-stone-400 text-center px-10 leading-relaxed uppercase tracking-widest">在 iPad 或手機輸入心聲，<br/>將會在此日曆即時同步。</p>
+                    <div className="p-5 bg-white rounded-full shadow-inner mb-4">
+                        <MapPin size={32} className="text-stone-200" />
+                    </div>
+                    <p className="font-bold italic text-stone-500">心聲正在飛向這裡...</p>
+                    <p className="text-[10px] mt-2 text-stone-400 text-center px-10 leading-relaxed uppercase tracking-widest">在手機或 iPad 留下訊息後，<br/>這裡會立刻跨裝置自動同步顯示。</p>
                 </div>
             ) : (
-                <div className="flex flex-col gap-10 pb-6 px-1">
-                    {Object.entries(groupedLogs).map(([date, items]) => (
-                        <div key={date} className="flex flex-col gap-4">
-                            <div className="flex items-center gap-3 sticky top-0 z-30 bg-stone-50/80 backdrop-blur-md py-2 border-b border-stone-100">
-                                <CalendarIcon size={14} className="text-stone-400" />
-                                <span className="text-xs font-black text-stone-500 uppercase tracking-widest">{date}</span>
-                                <span className="text-[9px] font-bold text-stone-300 ml-auto">{items.length} 則心聲</span>
-                            </div>
+                <div className="grid grid-cols-1 gap-6 pb-6 px-1">
+                    {sortedLogs.map((log) => (
+                        <div key={log.id} className="relative group animate-soft-in">
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); onDeleteLog(log.id); }}
+                                className="absolute -top-2 -right-2 p-2 bg-white rounded-full shadow-lg text-stone-200 hover:text-rose-500 z-20 transition-all opacity-0 group-hover:opacity-100 border border-stone-100 hover:scale-110"
+                            >
+                                <Trash2 size={12} />
+                            </button>
                             
-                            <div className="grid grid-cols-1 gap-4">
-                                {items.map((log) => (
-                                    <div 
-                                        key={log.id} 
-                                        onClick={() => log.fullCard && setActiveCard(log)}
-                                        className="p-5 rounded-[2rem] border border-stone-100 bg-white shadow-sm hover:shadow-xl transition-all cursor-pointer relative group overflow-hidden"
-                                    >
-                                        <div className="flex justify-between items-start mb-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-[10px] font-bold shadow-sm" style={{ backgroundColor: log.authorColor || '#8d7b68' }}>
-                                                    {log.authorSignature?.substring(0, 1) || '旅'}
-                                                </div>
-                                                <div className="flex flex-col">
-                                                    <span className="text-[11px] font-black text-stone-800">{log.authorSignature}</span>
-                                                    <div className="flex items-center gap-1.5 mt-0.5">
-                                                        <div className="flex items-center gap-1 px-1 bg-stone-50 rounded text-stone-400 border border-stone-100">
-                                                            {getDeviceIcon(log.deviceType)}
-                                                            <span className="text-[7px] font-black uppercase tracking-tighter">{log.deviceType || '未知'}</span>
-                                                        </div>
-                                                        <span className="text-[8px] font-mono text-stone-300">
-                                                            {new Date(log.timestamp || log.localTimestamp).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'})}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
-                                            {/* 心情電量條顯示 */}
-                                            <div className="flex flex-col items-end gap-1">
-                                                <div className="flex items-center gap-1.5 text-stone-400">
-                                                    <Zap size={10} className={log.moodLevel > 70 ? "text-amber-400 fill-amber-400" : ""} />
-                                                    <span className="text-[10px] font-black font-mono">{log.moodLevel}%</span>
-                                                </div>
-                                                <div className="w-16 h-1.5 bg-stone-100 rounded-full overflow-hidden border border-stone-200/50">
-                                                    <div 
-                                                        className={`h-full transition-all duration-1000 ${log.moodLevel > 60 ? 'bg-emerald-400' : log.moodLevel > 30 ? 'bg-amber-400' : 'bg-rose-400'}`}
-                                                        style={{ width: `${log.moodLevel}%` }}
-                                                    ></div>
-                                                </div>
-                                            </div>
+                            <div 
+                                onClick={() => log.fullCard && setActiveCard(log)} 
+                                className="p-6 rounded-[2.2rem] border border-stone-100 transition-all duration-500 flex flex-col gap-4 relative overflow-hidden bg-white shadow-sm hover:shadow-2xl hover:-translate-y-1 cursor-pointer"
+                            >
+                                <div className="flex justify-between items-center">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-white text-[12px] font-bold shadow-lg transform -rotate-3 group-hover:rotate-0 transition-transform" style={{ backgroundColor: log.authorColor || '#8d7b68' }}>
+                                            {log.authorSignature?.substring(0, 1) || '旅'}
                                         </div>
-
-                                        <p className="text-sm font-medium leading-relaxed serif-font italic text-stone-700 pl-3 border-l-2 border-stone-200">
-                                            {log.text}
-                                        </p>
-
-                                        <div className="flex flex-wrap gap-1.5 mt-4">
-                                            {log.tags?.map((tag, i) => (
-                                                <span key={i} className="text-[9px] font-bold text-stone-500 bg-stone-50 px-2 py-0.5 rounded-lg border border-stone-100">
-                                                    {tag}
+                                        <div className="flex flex-col">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-black text-stone-800 tracking-tight">{log.authorSignature}</span>
+                                                {/* Fix: Lucide icons do not accept 'title' as a direct prop for tooltips. Wrapping in a span. */}
+                                                <span title="已成功儲存至雲端">
+                                                    <CheckCircle size={10} className="text-emerald-500 fill-emerald-50" />
                                                 </span>
-                                            ))}
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-1 px-1.5 py-0.5 bg-stone-100 rounded text-stone-500 border border-stone-200 shadow-inner">
+                                                    {getDeviceIcon(log.deviceType)}
+                                                    <span className="text-[8px] font-black uppercase tracking-tighter leading-none">{log.deviceType || '未知設備'}</span>
+                                                </div>
+                                                <span className="text-[9px] font-mono text-stone-300 flex items-center gap-1">
+                                                    <Clock size={9} /> {new Date(log.timestamp).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'})}
+                                                </span>
+                                            </div>
                                         </div>
-
-                                        <button 
-                                            onClick={(e) => { e.stopPropagation(); onDeleteLog(log.id); }}
-                                            className="absolute bottom-4 right-4 p-2 text-stone-200 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        >
-                                            <Trash2 size={12} />
-                                        </button>
                                     </div>
-                                ))}
+                                    <div className="px-3 py-1 rounded-full text-[9px] font-black tracking-[0.2em] uppercase border bg-stone-50 text-stone-400 border-stone-100">
+                                        {log.theme}
+                                    </div>
+                                </div>
+
+                                <div className="relative pl-5 border-l-2 border-stone-100 py-1">
+                                    <p className="text-base font-medium leading-relaxed serif-font italic text-stone-700 group-hover:text-stone-900 transition-colors">
+                                        {log.text}
+                                    </p>
+                                </div>
+
+                                {log.replyMessage && (
+                                    <div className="mt-2 p-4 bg-stone-50 rounded-2xl border border-dashed border-stone-200 transform rotate-[0.5deg] group-hover:rotate-0 transition-all duration-500">
+                                        <p className="text-[13px] leading-relaxed handwriting-font font-bold text-stone-500">
+                                            {log.replyMessage}
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ))}
@@ -159,8 +141,8 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onDeleteL
             )}
         </div>
 
-        <button onClick={onBack} className="w-full max-w-xs px-8 py-5 bg-stone-800 text-white rounded-[2rem] font-black shadow-[0_6px_0_rgb(44,40,36)] active:translate-y-[6px] transition-all mt-4 mb-2 text-xs tracking-[0.3em] uppercase">
-            返回
+        <button onClick={onBack} className="w-full max-w-xs px-8 py-5 bg-stone-800 text-white rounded-3xl font-black shadow-[0_6px_0_rgb(44,40,36)] active:translate-y-[6px] transition-all mt-4 mb-2 text-xs tracking-[0.3em] uppercase">
+            離開長廊
         </button>
     </div>
   );
