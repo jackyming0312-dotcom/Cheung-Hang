@@ -24,34 +24,37 @@ export const getRandomFallbackContent = (): FullSoulContent => {
 };
 
 /**
- * 生成純文字療癒內容
- * 每次調用時才實例化 GoogleGenAI 以確保使用最新 Key
+ * 根據使用者輸入的文字生成療癒內容與 Hashtags
  */
 export const generateSoulText = async (text: string, moodLevel: number): Promise<{ 
   analysis: GeminiAnalysisResult, 
   card: EnergyCardData
 }> => {
-  // 核心：每次都重新創建實例以抓取最新 Key
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const forcedStyle = STYLE_HINTS[Math.floor(Math.random() * STYLE_HINTS.length)];
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
-      contents: `使用者心聲：「${text}」\n當前心情電力：${moodLevel}%`,
+      model: "gemini-3-flash-preview",
+      contents: `使用者心聲：「${text}」\n使用者選擇的心情電力：${moodLevel}%`,
       config: {
-        systemInstruction: `你現在是一位名為「亨仔」的溫暖熊仔（Teddy Bear），也是一位治癒系專家。
-        你的任務是聆聽使用者的心聲，並將其轉化為溫暖的文字與標籤。
+        systemInstruction: `你現在是一位名為「亨仔」的溫暖熊仔。
+        你的任務是聆聽使用者的心聲，並生成：
+        1. hashtags: 3個根據內容生成的標籤。
+        2. reply_text: 一段溫暖的回應（50字內）。
+        3. card_theme: 2-4字的主題。
+        4. lucky_item: 療癒小物。
+        5. relaxation: 一項建議。
         
-        請嚴格按照以下 JSON 格式回傳，不要包含額外的 Markdown 標記：
+        請嚴格按照以下 JSON 格式回傳：
         {
-          "reply_text": "亨仔給使用者的溫暖回應（中文，50字以內，口吻要親切像好朋友）",
+          "reply_text": "回應內容",
           "hashtags": ["#標籤1", "#標籤2", "#標籤3"],
-          "card_theme": "2-4字主題",
-          "lucky_item": "療癒小物（具體且溫馨的物品）",
-          "relaxation": "一項簡單且具體的放鬆建議"
+          "card_theme": "主題",
+          "lucky_item": "小物",
+          "relaxation": "建議"
         }`,
-        temperature: 1.0,
+        temperature: 0.8,
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -71,7 +74,7 @@ export const generateSoulText = async (text: string, moodLevel: number): Promise
     
     return {
       analysis: {
-        sentiment: 'neutral',
+        sentiment: moodLevel > 60 ? 'positive' : moodLevel < 40 ? 'negative' : 'neutral',
         tags: result.hashtags,
         replyMessage: result.reply_text
       },
@@ -85,11 +88,7 @@ export const generateSoulText = async (text: string, moodLevel: number): Promise
       }
     };
   } catch (e: any) {
-    console.error("Text Generation Error:", e);
-    // 如果是 API Key 相關錯誤，拋出特定訊息讓 UI 處理
-    if (e.message?.includes("Requested entity was not found") || e.message?.includes("API key")) {
-        throw e;
-    }
+    console.error("AI Generation Error:", e);
     return getRandomFallbackContent();
   }
 };

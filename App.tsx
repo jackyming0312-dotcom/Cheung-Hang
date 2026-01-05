@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowRight, Grid, ChevronLeft, Cloud, CloudOff, ShieldCheck, Loader2, Key, AlertTriangle, WifiOff } from 'lucide-react';
+import { ArrowRight, Grid, ChevronLeft, Cloud, CloudOff, ShieldCheck, Loader2, Key, AlertTriangle, WifiOff, Calendar as CalendarIcon } from 'lucide-react';
 
 import Mascot from './components/Mascot';
 import MoodWater from './components/MoodWater';
@@ -72,7 +72,7 @@ const App: React.FC = () => {
 
     let textData;
     try {
-        // AI 分析
+        // AI 根據文字內容分析情緒與 Hashtags
         try {
             textData = await generateSoulText(text, mood);
         } catch (aiError) {
@@ -83,23 +83,30 @@ const App: React.FC = () => {
         setCardData(textData.card);
         setIsLoadingContent(false);
 
-        // 準備紀錄
+        // 準備紀錄：包含手動輸入的心情能量
         const signature = `${SOUL_TITLES[Math.floor(Math.random() * SOUL_TITLES.length)]} #${Math.floor(1000 + Math.random() * 9000)}`;
         const logToSave = {
-            moodLevel: mood, text, theme: textData.card.theme, tags: textData.analysis.tags,
-            authorSignature: signature, authorColor: mascotConfig.baseColor,
-            deviceType: getDeviceType(), stationId: FIXED_STATION_ID,
-            fullCard: textData.card, replyMessage: textData.analysis.replyMessage,
-            timestamp: new Date().toISOString(), localTimestamp: Date.now()
+            moodLevel: mood, // 這裡保留了使用者在 MoodWater 手動輸入的能量
+            text, 
+            theme: textData.card.theme, 
+            tags: textData.analysis.tags, // 這是根據文字動態生成的
+            authorSignature: signature, 
+            authorColor: mascotConfig.baseColor,
+            deviceType: getDeviceType(), 
+            stationId: FIXED_STATION_ID,
+            fullCard: textData.card, 
+            replyMessage: textData.analysis.replyMessage,
+            timestamp: new Date().toISOString(), 
+            localTimestamp: Date.now()
         };
 
-        // 雲端儲存與即時同步觸發
+        // 雲端儲存與同步
         try {
             await saveLogToCloud(logToSave);
             setSyncStatus('success');
             setTimeout(() => setSyncStatus('idle'), 3000);
         } catch (saveError: any) {
-            console.error("Critical Sync Failure:", saveError);
+            console.error("Sync Failure:", saveError);
             setSyncStatus(saveError.code === 'permission-denied' ? 'permission_denied' : 'error');
         } finally {
             setIsSyncing(false);
@@ -113,7 +120,7 @@ const App: React.FC = () => {
 
   const handleDeleteLog = async (docId: string) => {
     if (!isCloudLive || !docId) return;
-    if (window.confirm("確定要移除這筆跨裝置紀錄嗎？")) {
+    if (window.confirm("確定要從日曆牆中移除這則心聲嗎？")) {
         try { await deleteLog(docId); } catch (e) {}
     }
   };
@@ -124,7 +131,7 @@ const App: React.FC = () => {
       <div className="fixed top-4 left-4 right-4 z-[100] flex items-center justify-between pointer-events-none">
           <div className="flex items-center gap-2 bg-white/95 backdrop-blur-3xl px-4 py-2 rounded-full border border-stone-100 shadow-2xl pointer-events-auto">
               {step !== AppStep.WELCOME && (
-                  <button onClick={() => setStep(AppStep.WELCOME)} className="mr-2 p-1 hover:bg-stone-50 rounded-full">
+                  <button onClick={() => setStep(AppStep.WELCOME)} className="mr-2 p-1 hover:bg-stone-50 rounded-full transition-all active:scale-90">
                       <ChevronLeft size={16} className="text-stone-600" />
                   </button>
               )}
@@ -148,12 +155,7 @@ const App: React.FC = () => {
           <div className="flex items-center gap-2 pointer-events-auto">
               {syncStatus === 'success' && (
                   <div className="bg-emerald-600 text-white px-5 py-2 rounded-full text-[10px] font-black animate-soft-in shadow-xl flex items-center gap-2 border border-emerald-400">
-                      <ShieldCheck size={12} /> 跨裝置已同步
-                  </div>
-              )}
-              {(syncStatus === 'error' || syncStatus === 'permission_denied') && (
-                  <div className="bg-rose-500 text-white px-5 py-2 rounded-full text-[10px] font-black animate-soft-in shadow-xl flex items-center gap-2 border border-rose-300">
-                      <AlertTriangle size={12} /> 同步失敗 (權限)
+                      <ShieldCheck size={12} /> 已同步至日曆牆
                   </div>
               )}
           </div>
@@ -168,7 +170,7 @@ const App: React.FC = () => {
               <h1 className="text-2xl md:text-3xl font-bold text-stone-800 serif-font tracking-tight">長亨心靈充電站</h1>
               <div className="flex items-center justify-center gap-2 mt-1">
                  <span className={`w-1.5 h-1.5 rounded-full ${isCloudLive ? 'bg-emerald-500 animate-pulse' : 'bg-stone-300'}`}></span>
-                 <span className="text-[9px] text-stone-400 font-bold tracking-[0.3em] uppercase">手機 / 電腦 即時同步牆</span>
+                 <span className="text-[9px] text-stone-400 font-bold tracking-[0.3em] uppercase italic">手機 / 電腦 / iPad 即時同步牆</span>
               </div>
            </div>
         </header>
@@ -177,20 +179,28 @@ const App: React.FC = () => {
           {step === AppStep.WELCOME && (
             <div className="w-full flex flex-col h-full max-w-sm mx-auto animate-soft-in">
               <div className="bg-white/95 p-8 rounded-[2rem] border border-stone-100 shadow-xl text-center paper-stack mt-4">
-                <p className="text-stone-600 leading-relaxed serif-font italic text-lg">"在這裡寫下的每一句話，<br/>都會在所有螢幕上同步閃耀。"</p>
+                <p className="text-stone-600 leading-relaxed serif-font italic text-lg">"寫下的每一句心聲，<br/>都會與所有人同步分享。"</p>
               </div>
               <div className="space-y-4 w-full mt-12">
-                <button onClick={() => setStep(AppStep.MOOD_WATER)} className="w-full py-5 font-bold text-white text-lg bg-stone-800 rounded-3xl shadow-[0_6px_0_rgb(44,40,36)] active:translate-y-[6px] transition-all flex items-center justify-center group tracking-widest">
-                   開始充電 <ArrowRight className="ml-3 group-hover:translate-x-2 transition-transform" />
+                <button onClick={() => setStep(AppStep.MOOD_WATER)} className="w-full py-5 font-bold text-white text-lg bg-stone-800 rounded-3xl shadow-[0_6px_0_rgb(44,40,36)] active:translate-y-[6px] transition-all flex items-center justify-center group tracking-widest uppercase">
+                   開始充電體驗 <ArrowRight className="ml-3 group-hover:translate-x-2 transition-transform" />
                 </button>
                 <button onClick={() => setStep(AppStep.COMMUNITY)} className="w-full py-4 font-bold text-stone-500 bg-white/60 border border-stone-200 rounded-3xl flex items-center justify-center gap-3 text-xs shadow-sm hover:bg-white transition-all">
-                   <Grid size={16} /> 查看實時心聲牆
+                   <CalendarIcon size={16} /> 查看日曆心聲牆
                 </button>
               </div>
             </div>
           )}
 
-          {step === AppStep.MOOD_WATER && <div className="w-full flex flex-col items-center animate-soft-in"><MoodWater value={mood} onChange={setMood} /><button onClick={() => setStep(AppStep.VIBE_MAP)} className="w-full max-w-xs py-4 bg-stone-800 text-white rounded-2xl font-bold mt-8 shadow-[0_4px_0_rgb(44,40,36)] active:translate-y-[4px] transition-all">下一步</button></div>}
+          {step === AppStep.MOOD_WATER && (
+            <div className="w-full flex flex-col items-center animate-soft-in">
+                <MoodWater value={mood} onChange={setMood} />
+                <button onClick={() => setStep(AppStep.VIBE_MAP)} className="w-full max-w-xs py-5 bg-stone-800 text-white rounded-3xl font-bold mt-10 shadow-[0_6px_0_rgb(44,40,36)] active:translate-y-[6px] transition-all tracking-widest uppercase">
+                    下一步
+                </button>
+            </div>
+          )}
+          
           {step === AppStep.VIBE_MAP && <VibeMap onZoneSelect={() => setStep(AppStep.WHISPER_HOLE)} />}
           {step === AppStep.WHISPER_HOLE && <WhisperHole onComplete={handleWhisperComplete} />}
           
@@ -203,8 +213,8 @@ const App: React.FC = () => {
                        <div className="absolute -inset-8 bg-amber-400/10 blur-3xl animate-pulse rounded-full z-0"></div>
                     </div>
                     <div className="space-y-4">
-                       <h3 className="font-bold text-2xl text-stone-700 serif-font italic">正在跨裝置同步你的心聲...</h3>
-                       <p className="text-stone-400 text-xs tracking-widest uppercase">手機與 iPad 將會同步看到喔！</p>
+                       <h3 className="font-bold text-2xl text-stone-700 serif-font italic">正在同步你的療癒能量...</h3>
+                       <p className="text-stone-400 text-[10px] tracking-widest uppercase font-black">AI 正在生成您的專屬 Hashtags</p>
                     </div>
                  </div>
               ) : (
@@ -212,7 +222,7 @@ const App: React.FC = () => {
                   <EnergyCard data={cardData!} analysis={whisperData.analysis} moodLevel={mood} />
                   <div className="w-full max-w-[360px] grid grid-cols-2 gap-3 mt-10 pb-8 px-4">
                     <button onClick={() => setStep(AppStep.COMMUNITY)} className="py-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs font-black text-emerald-700 flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all">
-                       <Grid size={14} /> 查看心聲長廊
+                       <CalendarIcon size={14} /> 前往心聲日曆
                     </button>
                     <button onClick={() => { setStep(AppStep.WELCOME); setCardData(null); }} className="py-4 bg-stone-800 text-white rounded-2xl text-xs font-black shadow-lg active:scale-95 transition-all tracking-widest">
                        回到首頁
@@ -238,7 +248,7 @@ const App: React.FC = () => {
       </main>
       <footer className="mt-6 text-stone-400 text-[9px] font-bold tracking-[0.5em] uppercase opacity-50 flex items-center gap-3">
          <div className="w-12 h-[1px] bg-stone-300"></div>
-         REAL-TIME SYNC • CHEUNG HANG
+         REAL-TIME SYNC • CHEUNG HANG STATION
          <div className="w-12 h-[1px] bg-stone-300"></div>
       </footer>
     </div>

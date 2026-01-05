@@ -1,12 +1,13 @@
 
 import React, { useMemo } from 'react';
-import { Sparkle, Compass, Heart, Wind, Quote, Coffee, Sun, PenTool, Stars, Cloud, Leaf } from 'lucide-react';
+import { Sparkle, Compass, Heart, Wind, Quote, Coffee, Sun, PenTool, Stars, Cloud, Leaf, Zap } from 'lucide-react';
 import { EnergyCardData, GeminiAnalysisResult } from '../types';
 
 interface EnergyCardProps {
   data: EnergyCardData;
   analysis: GeminiAnalysisResult | null;
   moodLevel: number;
+  moodLevelDisplay?: number; // 用於顯示手動輸入的數值
 }
 
 const STYLE_CONFIGS = {
@@ -17,7 +18,7 @@ const STYLE_CONFIGS = {
   dreamy: { bg: 'bg-[#f0f9ff]', border: 'border-blue-200', text: 'text-blue-900', accent: 'bg-blue-400', icon: <Sparkle size={64} className="text-blue-200/60" /> },
 };
 
-const EnergyCard: React.FC<EnergyCardProps> = ({ data, analysis }) => {
+const EnergyCard: React.FC<EnergyCardProps> = ({ data, analysis, moodLevel, moodLevelDisplay }) => {
   if (!data) return null;
 
   const style = useMemo(() => {
@@ -34,6 +35,7 @@ const EnergyCard: React.FC<EnergyCardProps> = ({ data, analysis }) => {
   };
 
   const cat = getCategoryStyles();
+  const currentMood = moodLevelDisplay !== undefined ? moodLevelDisplay : moodLevel;
 
   return (
     <div className="flex flex-col items-center w-full max-w-sm mx-auto animate-soft-in">
@@ -52,7 +54,13 @@ const EnergyCard: React.FC<EnergyCardProps> = ({ data, analysis }) => {
             <span className={`text-[9px] font-black ${cat.color} tracking-widest uppercase`}>{data.category || 'RECOVERY'}</span>
         </div>
 
-        <div className="relative z-10 w-full space-y-8 mt-4">
+        {/* 電力顯示組件 */}
+        <div className="absolute top-6 left-6 flex items-center gap-1.5 px-3 py-1 bg-white/60 backdrop-blur-md rounded-full border border-white/50 shadow-sm z-30">
+            <Zap size={12} className="text-amber-500 fill-amber-500" />
+            <span className="text-[10px] font-black text-stone-700 font-mono">{currentMood}%</span>
+        </div>
+
+        <div className="relative z-10 w-full space-y-8 mt-10">
           <div className="flex flex-col items-center gap-6">
              <div className="p-8 bg-white/60 rounded-full shadow-inner-lg backdrop-blur-sm border border-white/40">
                 {style.icon}
