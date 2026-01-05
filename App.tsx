@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowRight, Grid, ChevronLeft, Cloud, CloudOff, ShieldCheck, Loader2 } from 'lucide-react';
+import { ArrowRight, Grid, ChevronLeft, Cloud, CloudOff, ShieldCheck, Loader2, Key } from 'lucide-react';
 
 import Mascot from './components/Mascot';
 import MoodWater from './components/MoodWater';
@@ -42,9 +42,28 @@ const App: React.FC = () => {
   const [syncStatus, setSyncStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [logs, setLogs] = useState<CommunityLog[]>([]);
   const [mascotConfig, setMascotConfig] = useState<MascotOptions>(generateMascotConfig());
+  const [hasApiKey, setHasApiKey] = useState(true);
+
   const isCloudLive = checkCloudStatus();
 
-  // 核心：保持實時訂閱
+  // 監測 API Key 狀態
+  useEffect(() => {
+    const checkKey = async () => {
+        if (window.aistudio) {
+            const hasKey = await window.aistudio.hasSelectedApiKey();
+            setHasApiKey(hasKey);
+        }
+    };
+    checkKey();
+  }, []);
+
+  const handleOpenKey = async () => {
+    if (window.aistudio) {
+        await window.aistudio.openSelectKey();
+        setHasApiKey(true);
+    }
+  };
+
   useEffect(() => {
     if (!isCloudLive) return;
     const unsubscribe = subscribeToStation((cloudLogs) => {
@@ -61,7 +80,22 @@ const App: React.FC = () => {
 
     try {
         // 1. 先獲取 AI 分析結果
-        const textData = await generateSoulText(text, mood);
+        let textData;
+        try {
+            textData = await generateSoulText(text, mood);
+        } catch (aiError: any) {
+            console.error("AI Error:", aiError);
+            // 如果是 API Key 錯誤，提示使用者重新選擇
+            if (aiError.message?.includes("Requested entity was not found") || aiError.message?.includes("API key")) {
+                alert("API 金鑰失效或未設定，請重新選取。");
+                await handleOpenKey();
+                // 嘗試使用備份內容繼續
+                textData = getRandomFallbackContent();
+            } else {
+                throw aiError;
+            }
+        }
+
         setWhisperData({ text, analysis: textData.analysis });
         setCardData(textData.card);
         setIsLoadingContent(false);
@@ -85,8 +119,7 @@ const App: React.FC = () => {
             localTimestamp: Date.now()
         };
 
-        // 3. 強制同步到雲端並等待
-        console.log("Starting cloud save for:", signature);
+        // 3. 強制同步到雲端
         const cloudId = await saveLogToCloud(logToSave);
         
         if (cloudId) {
@@ -94,14 +127,15 @@ const App: React.FC = () => {
             setIsSyncing(false);
             setTimeout(() => setSyncStatus('idle'), 3000);
         } else {
-            throw new Error("No Cloud ID returned");
+            setSyncStatus('error');
+            setIsSyncing(false);
         }
     } catch (e) {
-        console.error("Critical Sync Failure:", e);
+        console.error("Critical Failure:", e);
         setSyncStatus('error');
         setIsSyncing(false);
         
-        // 即使失敗也顯示結果，但讓使用者知道紀錄沒上去
+        // 即使儲存失敗也顯示內容
         if (!cardData) {
             const fallback = getRandomFallbackContent();
             setCardData(fallback.card);
@@ -137,7 +171,7 @@ const App: React.FC = () => {
                   <div className="flex items-center gap-2">
                      <Cloud size={14} className={isSyncing ? "text-amber-500 animate-pulse" : "text-emerald-500"} />
                      <span className="text-[10px] font-black text-stone-600 uppercase tracking-widest">
-                         {isSyncing ? '正在保存紀錄' : '雲端同步正常'}
+                         {isSyncing ? '正在保存紀錄' : '雲端同步中'}
                      </span>
                   </div>
               ) : (
@@ -148,16 +182,23 @@ const App: React.FC = () => {
               )}
           </div>
           
-          {syncStatus === 'success' && (
-              <div className="bg-emerald-600 text-white px-5 py-2 rounded-full text-[11px] font-bold animate-soft-in flex items-center gap-2 shadow-2xl border border-emerald-400">
-                  <ShieldCheck size={14} /> 紀錄已保存
-              </div>
-          )}
-          {syncStatus === 'error' && (
-              <div className="bg-rose-600 text-white px-5 py-2 rounded-full text-[11px] font-bold animate-soft-in flex items-center gap-2 shadow-2xl border border-rose-400">
-                  ⚠️ 儲存失敗
-              </div>
-          )}
+          <div className="flex items-center gap-2 pointer-events-auto">
+              {!hasApiKey && (
+                  <button onClick={handleOpenKey} className="bg-amber-500 text-white px-4 py-2 rounded-full text-[10px] font-bold flex items-center gap-2 shadow-lg animate-bounce">
+                      <Key size={12} /> 點此啟用 AI
+                  </button>
+              )}
+              {syncStatus === 'success' && (
+                  <div className="bg-emerald-600 text-white px-5 py-2 rounded-full text-[11px] font-bold animate-soft-in flex items-center gap-2 shadow-2xl border border-emerald-400">
+                      <ShieldCheck size={14} /> 紀錄已保存
+                  </div>
+              )}
+              {syncStatus === 'error' && (
+                  <div className="bg-rose-600 text-white px-5 py-2 rounded-full text-[11px] font-bold animate-soft-in flex items-center gap-2 shadow-2xl border border-rose-400">
+                      ⚠️ 儲存失敗 (權限/網路)
+                  </div>
+              )}
+          </div>
       </div>
 
       <main className="w-full max-w-2xl min-h-[min(720px,90dvh)] glass-panel rounded-[2.5rem] p-6 md:p-12 shadow-2xl flex flex-col relative animate-soft-in overflow-hidden z-10 border-2 border-white/50">
@@ -187,6 +228,11 @@ const App: React.FC = () => {
                 <button onClick={() => setStep(AppStep.COMMUNITY)} className="w-full py-4 font-bold text-stone-500 bg-white/60 border border-stone-200 rounded-3xl flex items-center justify-center gap-3 text-xs shadow-sm hover:bg-white transition-all">
                    <Grid size={16} /> 查看大家的紀錄
                 </button>
+                {!hasApiKey && (
+                  <p className="text-[10px] text-amber-600 text-center font-bold animate-pulse">
+                    ※ 偵測到 AI 功能未啟用，點擊上方金鑰圖示以優化體驗
+                  </p>
+                )}
               </div>
             </div>
           )}

@@ -25,11 +25,13 @@ export const getRandomFallbackContent = (): FullSoulContent => {
 
 /**
  * 生成純文字療癒內容
+ * 每次調用時才實例化 GoogleGenAI 以確保使用最新 Key
  */
 export const generateSoulText = async (text: string, moodLevel: number): Promise<{ 
   analysis: GeminiAnalysisResult, 
   card: EnergyCardData
 }> => {
+  // 核心：每次都重新創建實例以抓取最新 Key
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const forcedStyle = STYLE_HINTS[Math.floor(Math.random() * STYLE_HINTS.length)];
 
@@ -82,12 +84,12 @@ export const generateSoulText = async (text: string, moodLevel: number): Promise
         styleHint: forcedStyle
       }
     };
-  } catch (e) {
+  } catch (e: any) {
     console.error("Text Generation Error:", e);
+    // 如果是 API Key 相關錯誤，拋出特定訊息讓 UI 處理
+    if (e.message?.includes("Requested entity was not found") || e.message?.includes("API key")) {
+        throw e;
+    }
     return getRandomFallbackContent();
   }
-};
-
-export const generateFullSoulContent = async (text: string, moodLevel: number, zone: string | null): Promise<FullSoulContent> => {
-  return await generateSoulText(text, moodLevel);
 };

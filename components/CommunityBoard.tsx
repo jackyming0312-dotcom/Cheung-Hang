@@ -100,7 +100,10 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onDeleteL
                                         <div className="flex flex-col">
                                             <div className="flex items-center gap-2">
                                                 <span className="text-xs font-black text-stone-800 tracking-tight">{log.authorSignature}</span>
-                                                <CheckCircle size={10} className="text-emerald-500 fill-emerald-50" title="已成功儲存至雲端" />
+                                                {/* Fix: Lucide icons do not accept 'title' as a direct prop for tooltips. Wrapping in a span. */}
+                                                <span title="已成功儲存至雲端">
+                                                    <CheckCircle size={10} className="text-emerald-500 fill-emerald-50" />
+                                                </span>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <div className="flex items-center gap-1 px-1.5 py-0.5 bg-stone-100 rounded text-stone-500 border border-stone-200 shadow-inner">
