@@ -9,8 +9,8 @@ import WhisperHole from './components/WhisperHole';
 import EnergyCard from './components/EnergyCard';
 import CommunityBoard from './components/CommunityBoard';
 
-import { generateFullSoulContent, getRandomFallbackContent } from './services/geminiService';
-import { getNewLogRef, syncLogWithRef, updateLogOnCloud, subscribeToStation, checkCloudStatus, deleteLogsAfterDate, deleteLog } from './services/firebaseService';
+import { generateSoulText, getRandomFallbackContent } from './services/geminiService';
+import { getNewLogRef, syncLogWithRef, subscribeToStation, checkCloudStatus, deleteLogsAfterDate, deleteLog } from './services/firebaseService';
 import { AppStep, GeminiAnalysisResult, EnergyCardData, CommunityLog, MascotOptions } from './types';
 
 const SOUL_TITLES = ["夜行的貓", "趕路的人", "夢想的園丁", "沉思的星", "微光的旅人", "溫柔的風", "尋光者", "安靜的樹", "海邊的貝殼"];
@@ -61,59 +61,43 @@ const App: React.FC = () => {
     setIsLoadingContent(true);
     setIsSyncing(true);
 
-    const signature = `${SOUL_TITLES[Math.floor(Math.random() * SOUL_TITLES.length)]} #${Math.floor(1000 + Math.random() * 9000)}`;
-    const now = new Date().toISOString();
-    const device = getDeviceType();
-
-    const logRef = getNewLogRef(FIXED_STATION_ID);
-    const docId = logRef ? logRef.id : `local-${Date.now()}`;
-
-    const initialLog: CommunityLog = {
-        id: docId,
-        moodLevel: mood, 
-        text: text, 
-        timestamp: now,
-        theme: "感應中...", 
-        tags: ["#新心聲", "#同步中"], 
-        authorSignature: signature, 
-        authorColor: mascotConfig.baseColor,
-        deviceType: device, 
-        stationId: FIXED_STATION_ID
-    };
-
-    if (logRef) {
-        syncLogWithRef(logRef, initialLog);
-    }
-
     try {
-        const fullContent = await generateFullSoulContent(text, mood, zone);
+        // 先獲取 AI 文字回應（通常 1-2 秒）
+        const textData = await generateSoulText(text, mood);
         
-        setWhisperData({ text, analysis: fullContent.analysis });
-        setCardData(fullContent.card); 
+        setWhisperData({ text, analysis: textData.analysis });
+        setCardData(textData.card);
         setIsLoadingContent(false);
 
+        // 獲取 AI 結果後，再一次性同步到 Firebase，避免牆面上出現「感應中」
+        const signature = `${SOUL_TITLES[Math.floor(Math.random() * SOUL_TITLES.length)]} #${Math.floor(1000 + Math.random() * 9000)}`;
+        const now = new Date().toISOString();
+        const device = getDeviceType();
+
+        const logRef = getNewLogRef(FIXED_STATION_ID);
         if (logRef) {
-            await updateLogOnCloud(FIXED_STATION_ID, docId, {
-                theme: fullContent.card.theme,
-                tags: fullContent.analysis.tags,
-                fullCard: fullContent.card,
-                replyMessage: fullContent.analysis.replyMessage
-            });
+            const finalLog: CommunityLog = {
+                id: logRef.id,
+                moodLevel: mood, 
+                text: text, 
+                timestamp: now,
+                theme: textData.card.theme, 
+                tags: textData.analysis.tags, 
+                authorSignature: signature, 
+                authorColor: mascotConfig.baseColor,
+                deviceType: device, 
+                stationId: FIXED_STATION_ID,
+                fullCard: textData.card,
+                replyMessage: textData.analysis.replyMessage
+            };
+            await syncLogWithRef(logRef, finalLog);
         }
     } catch (e) {
+        console.error("Whisper sequence failed:", e);
         const fallback = getRandomFallbackContent();
         setCardData(fallback.card);
         setWhisperData({ text, analysis: fallback.analysis });
         setIsLoadingContent(false);
-
-        if (logRef) {
-            await updateLogOnCloud(FIXED_STATION_ID, docId, {
-                theme: fallback.card.theme,
-                tags: fallback.analysis.tags,
-                fullCard: fallback.card,
-                replyMessage: fallback.analysis.replyMessage
-            });
-        }
     } finally {
         setIsSyncing(false);
     }
@@ -181,7 +165,7 @@ const App: React.FC = () => {
       <main className="w-full max-w-2xl min-h-[min(680px,85dvh)] glass-panel rounded-[2rem] p-5 md:p-12 shadow-2xl flex flex-col relative animate-soft-in overflow-hidden z-10">
         <header className="w-full flex flex-col items-center mb-6 pt-2">
            <div className="mb-2">
-                <Mascot expression={(isLoadingContent || isSyncing) && step !== AppStep.COMMUNITY ? "painting" : "sleepy"} options={mascotConfig} className="w-24 h-24 md:w-32 md:h-32" />
+                <Mascot expression={(isLoadingContent || isSyncing) && step !== AppStep.COMMUNITY ? "listening" : "sleepy"} options={mascotConfig} className="w-24 h-24 md:w-32 md:h-32" />
            </div>
            <div className="text-center">
               <h1 className="text-xl md:text-2xl font-bold text-stone-800 serif-font">長亨心靈充電站</h1>
@@ -211,17 +195,16 @@ const App: React.FC = () => {
               {isLoadingContent ? (
                  <div className="flex flex-col items-center gap-6 py-20 text-center">
                     <div className="relative">
-                       <Mascot expression="painting" options={mascotConfig} className="w-40 h-40" />
+                       <Mascot expression="listening" options={mascotConfig} className="w-40 h-40" />
                        <div className="absolute -inset-4 bg-amber-400/10 blur-3xl animate-pulse rounded-full z-0"></div>
                     </div>
                     <div className="space-y-3 z-10">
-                       <p className="font-bold text-xl text-stone-700 serif-font italic">亨仔正在繪製你的專屬卡仔...</p>
+                       <p className="font-bold text-xl text-stone-700 serif-font italic">亨仔正在細細聆聽你的心聲...</p>
                        <div className="flex justify-center gap-1">
                           <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
                           <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
                           <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce"></div>
                        </div>
-                       <p className="text-[10px] text-stone-400 tracking-[0.2em] uppercase">正在解讀心靈波動並提筆創作</p>
                     </div>
                  </div>
               ) : (
