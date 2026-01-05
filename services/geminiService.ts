@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { EnergyCardData, GeminiAnalysisResult, FullSoulContent } from "../types";
 
@@ -24,35 +23,33 @@ export const getRandomFallbackContent = (): FullSoulContent => {
 };
 
 /**
- * Phase 1: Generate Text Content and Image Prompt
+ * Generate Healing Text Content
  */
 export const generateSoulText = async (text: string, moodLevel: number): Promise<{ 
   analysis: GeminiAnalysisResult, 
-  card: EnergyCardData,
-  imagePrompt: string 
+  card: EnergyCardData
 }> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const forcedStyle = STYLE_HINTS[Math.floor(Math.random() * STYLE_HINTS.length)];
 
   try {
+    // Fixed: Using gemini-3-pro-preview for complex emotional reasoning task.
+    // Fixed: Moved character-defining instructions to config.systemInstruction.
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: `你現在是一位名為「亨仔」的溫暖熊仔（Teddy Bear），也是一位治癒系插畫家。
-      你的任務是聆聽使用者的心聲，並將其轉化為溫暖的文字與繪圖指令。
-
-      使用者心聲：「${text}」
-      心情電力：${moodLevel}%
-
-      請嚴格按照以下 JSON 格式回傳：
-      {
-        "reply_text": "亨仔給使用者的溫暖回應（中文，50字以內）",
-        "hashtags": ["#標籤1", "#標籤2", "#標籤3"],
-        "image_prompt": "A cute brown teddy bear named Hang Zai drawing on a wall in hand-drawn crayon style. [Specific scenario: if user is sad, draw an umbrella; if happy, draw stars]. Warm atmosphere, healing vibes, high quality.",
-        "card_theme": "2-4字主題",
-        "lucky_item": "療癒小物",
-        "relaxation": "一項簡單的放鬆建議"
-      }`,
+      model: "gemini-3-pro-preview",
+      contents: `使用者心聲：「${text}」\n當前心情電力：${moodLevel}%`,
       config: {
+        systemInstruction: `你現在是一位名為「亨仔」的溫暖熊仔（Teddy Bear），也是一位治癒系專家。
+        你的任務是聆聽使用者的心聲，並將其轉化為溫暖的文字。
+        請根據使用者的心聲和心情電力，提供療癒的回應。
+        請嚴格按照以下 JSON 格式回傳，不要包含額外的 Markdown 標記：
+        {
+          "reply_text": "亨仔給使用者的溫暖回應（中文，50字以內）",
+          "hashtags": ["#標籤1", "#標籤2", "#標籤3"],
+          "card_theme": "2-4字主題",
+          "lucky_item": "療癒小物",
+          "relaxation": "一項簡單的放鬆建議"
+        }`,
         temperature: 1.0,
         responseMimeType: "application/json",
         responseSchema: {
@@ -60,12 +57,11 @@ export const generateSoulText = async (text: string, moodLevel: number): Promise
           properties: {
             reply_text: { type: Type.STRING },
             hashtags: { type: Type.ARRAY, items: { type: Type.STRING } },
-            image_prompt: { type: Type.STRING },
             card_theme: { type: Type.STRING },
             lucky_item: { type: Type.STRING },
             relaxation: { type: Type.STRING }
           },
-          required: ["reply_text", "hashtags", "image_prompt", "card_theme", "lucky_item", "relaxation"]
+          required: ["reply_text", "hashtags", "card_theme", "lucky_item", "relaxation"]
         }
       }
     });
@@ -85,47 +81,14 @@ export const generateSoulText = async (text: string, moodLevel: number): Promise
         relaxationMethod: result.relaxation,
         category: '情緒共處',
         styleHint: forcedStyle
-      },
-      imagePrompt: result.image_prompt
+      }
     };
   } catch (e) {
     console.error("Text Generation Error:", e);
-    const fallback = getRandomFallbackContent();
-    return { ...fallback, imagePrompt: "" };
+    return getRandomFallbackContent();
   }
 };
 
-/**
- * Phase 2: Generate Image from Prompt
- */
-export const generateSoulImage = async (prompt: string): Promise<string | undefined> => {
-  if (!prompt) return undefined;
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: { parts: [{ text: prompt }] },
-      config: { imageConfig: { aspectRatio: "1:1" } },
-    });
-
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        return `data:image/png;base64,${part.inlineData.data}`;
-      }
-    }
-  } catch (e) {
-    console.error("Image Generation Error:", e);
-  }
-  return undefined;
-};
-
-// Keep old function for compatibility but mark as deprecated or just wrap the new ones
 export const generateFullSoulContent = async (text: string, moodLevel: number, zone: string | null): Promise<FullSoulContent> => {
-  const textData = await generateSoulText(text, moodLevel);
-  const imageUrl = await generateSoulImage(textData.imagePrompt);
-  return {
-    analysis: textData.analysis,
-    card: { ...textData.card, imageUrl }
-  };
+  return await generateSoulText(text, moodLevel);
 };
