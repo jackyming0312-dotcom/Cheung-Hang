@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { CommunityLog, EnergyCardData, GeminiAnalysisResult } from '../types';
-import { ChevronLeft, ChevronRight, Calendar, Clock, RefreshCw, Eraser, Footprints, Moon, Sun, Sparkles, X, Heart, Trash2, Palette, PenTool, Leaf, Stars, Zap, Monitor, Smartphone, Tablet, Radio } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Clock, RefreshCw, X, Heart, Trash2, Sun, Moon, Sparkles, Leaf, Stars, Monitor, Smartphone, Tablet, Radio } from 'lucide-react';
 import EnergyCard from './EnergyCard';
 
 interface CommunityBoardProps {
@@ -15,11 +15,11 @@ interface CommunityBoardProps {
 }
 
 const STYLE_THEMES = {
-  warm: { bg: 'bg-[#fff9e6]', border: 'border-amber-200', text: 'text-amber-900', icon: <Sun size={12} />, accent: 'text-amber-500' },
-  fresh: { bg: 'bg-[#f0fff4]', border: 'border-emerald-200', text: 'text-emerald-900', icon: <Leaf size={12} />, accent: 'text-emerald-500' },
-  calm: { bg: 'bg-[#f5f3ff]', border: 'border-indigo-200', text: 'text-indigo-900', icon: <Moon size={12} />, accent: 'text-indigo-500' },
-  energetic: { bg: 'bg-[#fff5f5]', border: 'border-rose-200', text: 'text-rose-900', icon: <Stars size={12} />, accent: 'text-rose-500' },
-  dreamy: { bg: 'bg-[#f0f9ff]', border: 'border-blue-200', text: 'text-blue-900', icon: <Sparkles size={12} />, accent: 'text-blue-500' },
+  warm: { bg: 'bg-[#fff9e6]', border: 'border-amber-200', text: 'text-amber-900', accent: 'text-amber-500' },
+  fresh: { bg: 'bg-[#f0fff4]', border: 'border-emerald-200', text: 'text-emerald-900', accent: 'text-emerald-500' },
+  calm: { bg: 'bg-[#f5f3ff]', border: 'border-indigo-200', text: 'text-indigo-900', accent: 'text-indigo-500' },
+  energetic: { bg: 'bg-[#fff5f5]', border: 'border-rose-200', text: 'text-rose-900', accent: 'text-rose-500' },
+  dreamy: { bg: 'bg-[#f0f9ff]', border: 'border-blue-200', text: 'text-blue-900', accent: 'text-blue-500' },
 };
 
 const formatDateKey = (date: Date) => {
@@ -31,24 +31,25 @@ const formatDateKey = (date: Date) => {
 
 const getDeviceIcon = (device?: string) => {
     if (!device) return <Monitor size={10} />;
-    if (device.includes('iPhone')) return <Smartphone size={10} />;
-    if (device.includes('iPad')) return <Tablet size={10} />;
-    if (device.includes('Android')) return <Smartphone size={10} />;
+    const d = device.toLowerCase();
+    if (d.includes('iphone')) return <Smartphone size={10} />;
+    if (d.includes('ipad')) return <Tablet size={10} />;
+    if (d.includes('android')) return <Smartphone size={10} />;
     return <Monitor size={10} />;
 };
 
-const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDay, onDeleteLog, onRefresh, isSyncing }) => {
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null); // null 表示「實時流動」模式
+const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onDeleteLog, onRefresh, isSyncing }) => {
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null); // null 代表 LIVE 實時串流
   const [activeCard, setActiveCard] = useState<CommunityLog | null>(null);
   
   const targetDateKey = selectedDate ? formatDateKey(selectedDate) : null;
-  const displayDateStr = selectedDate ? selectedDate.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' }) : "最新實時動態";
 
-  // 關鍵同步改動：預設不進行日期過濾，直接顯示雲端推送的最新的資料
+  // 核心改動：LIVE 模式下完全不進行日期過濾，只進行即時排序
   const displayLogs = useMemo(() => {
-    let filtered = logs;
+    let result = [...logs];
+    
     if (targetDateKey) {
-      filtered = logs.filter(log => {
+      result = result.filter(log => {
         if (!log.timestamp) return false;
         try {
           const logDate = new Date(log.timestamp);
@@ -58,37 +59,31 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
         }
       });
     }
-    
-    // 二次排序保險：優先使用本地毫秒，次之使用伺服器時間
-    return [...filtered].sort((a, b) => {
-      const timeA = (a as any).localTimestamp || new Date(a.timestamp).getTime();
-      const timeB = (b as any).localTimestamp || new Date(b.timestamp).getTime();
-      return timeB - timeA;
-    });
-  }, [targetDateKey, logs]);
 
-  const collectiveMood = useMemo(() => {
-      if (displayLogs.length === 0) return null;
-      const avg = displayLogs.reduce((acc, log) => acc + log.moodLevel, 0) / displayLogs.length;
-      if (avg > 70) return "充滿暖心";
-      if (avg > 40) return "平靜祥和";
-      return "需要溫暖";
-  }, [displayLogs]);
+    // 毫秒級排序，確保剛發出的內容永遠在最上方
+    return result.sort((a, b) => {
+      const tA = (a as any).localTimestamp || new Date(a.timestamp).getTime();
+      const tB = (b as any).localTimestamp || new Date(b.timestamp).getTime();
+      return tB - tA;
+    });
+  }, [logs, targetDateKey]);
 
   return (
     <div className="w-full flex flex-col items-center animate-soft-in h-full relative">
-        {activeCard && activeCard.fullCard && (
+        {activeCard && (
             <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm animate-soft-in">
                 <div className="relative w-full max-w-sm max-h-[90vh] overflow-y-auto custom-scrollbar">
                     <button onClick={() => setActiveCard(null)} className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-lg z-[1001] text-stone-400">
                         <X size={20} />
                     </button>
                     <div className="py-8">
-                        <EnergyCard 
-                            data={activeCard.fullCard} 
-                            moodLevel={activeCard.moodLevel}
-                            analysis={activeCard.replyMessage ? { replyMessage: activeCard.replyMessage, tags: activeCard.tags } as GeminiAnalysisResult : null}
-                        />
+                        {activeCard.fullCard && (
+                            <EnergyCard 
+                                data={activeCard.fullCard} 
+                                moodLevel={activeCard.moodLevel}
+                                analysis={activeCard.replyMessage ? { replyMessage: activeCard.replyMessage, tags: activeCard.tags } as GeminiAnalysisResult : null}
+                            />
+                        )}
                     </div>
                 </div>
             </div>
@@ -100,15 +95,10 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                  <div className="flex items-center gap-1.5 px-3 py-0.5 bg-white/60 rounded-full border border-stone-100 shadow-sm">
                     {selectedDate === null ? (
                         <span className="flex items-center gap-1 text-[10px] font-black text-rose-500 uppercase tracking-widest animate-pulse">
-                            <Radio size={10} /> Live 串流中
+                            <Radio size={10} className="fill-current" /> Live 串流中
                         </span>
                     ) : (
-                        <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">歷史紀錄</span>
-                    )}
-                    {collectiveMood && (
-                        <span className="text-[10px] font-bold text-amber-600 flex items-center gap-1">
-                            <Heart size={10} className="fill-current" /> {collectiveMood}
-                        </span>
+                        <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">歷史檔案</span>
                     )}
                  </div>
             </div>
@@ -128,10 +118,12 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
             </button>
             <button 
                 onClick={() => setSelectedDate(null)}
-                className={`flex items-center gap-2 font-medium min-w-[140px] justify-center transition-colors ${selectedDate === null ? 'text-amber-600' : 'text-stone-700'}`}
+                className={`flex items-center gap-2 font-medium min-w-[140px] justify-center transition-all ${selectedDate === null ? 'text-amber-600 scale-105' : 'text-stone-700'}`}
             >
                 <Calendar size={14} className={selectedDate === null ? 'text-amber-500' : 'text-stone-400'} />
-                <span className="text-[11px] font-bold">{displayDateStr}</span>
+                <span className="text-[11px] font-bold">
+                    {selectedDate ? selectedDate.toLocaleDateString('zh-TW', { month: 'long', day: 'numeric' }) : "最新實時動態"}
+                </span>
             </button>
             <button 
               onClick={() => {
@@ -156,7 +148,7 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
             {displayLogs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-stone-400 py-10 bg-white/30 rounded-[2rem] border border-dashed border-stone-200 mx-4">
                     <p className="font-medium text-stone-400 text-sm italic">此處目前靜悄悄的...</p>
-                    <p className="text-[10px] text-stone-300 mt-2">嘗試從其他設備發送心聲，會立刻出現在這裡。</p>
+                    <p className="text-[10px] text-stone-300 mt-2 text-center px-6">在手機或 iPad 輸入後，<br/>心聲會跨裝置即時出現在這裡。</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 gap-6 pb-6 px-1">

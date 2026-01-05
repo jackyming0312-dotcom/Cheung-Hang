@@ -35,7 +35,6 @@ let db: any = null;
 if (isFirebaseConfigured) {
   try {
     const app = initializeApp(firebaseConfig);
-    // 強制使用內存快取並優化連線模式
     db = initializeFirestore(app, {
       localCache: memoryLocalCache()
     });
@@ -53,16 +52,15 @@ const preparePayload = (log: Partial<CommunityLog>) => {
     return {
         moodLevel: Number(log.moodLevel || 50),
         text: String(log.text || ""),
-        theme: String(log.theme || ""),
+        theme: String(log.theme || "心情筆記"),
         tags: Array.isArray(log.tags) ? log.tags : [],
-        authorSignature: String(log.authorSignature || ""),
-        authorColor: String(log.authorColor || ""),
+        authorSignature: String(log.authorSignature || "神祕旅人"),
+        authorColor: String(log.authorColor || "#8d7b68"),
         deviceType: String(log.deviceType || "未知設備"),
         stationId: "CHEUNG_HANG",
         replyMessage: String(log.replyMessage || ""),
         createdAt: new Date().toISOString(),
-        // 關鍵：localTimestamp 提供即時排序能力
-        localTimestamp: Date.now(), 
+        localTimestamp: Date.now(), // 這是跨裝置同步的關鍵排序鍵
         quote: log.fullCard?.quote || "",
         luckyItem: log.fullCard?.luckyItem || "",
         category: log.fullCard?.category || "",
@@ -81,7 +79,7 @@ export const syncLogWithRef = async (docRef: any, log: CommunityLog) => {
         await setDoc(docRef, payload);
         return docRef.id;
     } catch (e) {
-        console.error("Firebase Sync Write Error:", e);
+        console.error("Firebase Write Failed:", e);
         return null;
     }
 };
@@ -109,17 +107,17 @@ export const subscribeToStation = (stationId: string, callback: (logs: Community
   if (!db) return () => {};
   
   const colRef = collection(db, "stations", stationId, "logs");
-  // 使用 localTimestamp 排序，這在跨設備發送的一瞬間就能保證新資料在頂部
-  const q = query(colRef, orderBy("localTimestamp", "desc"), limit(50));
+  // 核心：使用 localTimestamp 降序排列，獲取最新 100 筆，不論日期
+  const q = query(colRef, orderBy("localTimestamp", "desc"), limit(100));
   
   return onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
     const logs = snapshot.docs.map(doc => {
         const data = doc.data({ serverTimestamps: 'estimate' });
         
-        // 這裡確保 timestamp 欄位永遠有值，不管是 serverTime 還是 localTimestamp
-        const finalTime = data.serverTime 
+        // 確保 timestamp 永遠存在，優先使用估計的 serverTime，若無則使用 localTimestamp 生成的 ISO
+        const finalTime = data.serverTime && typeof data.serverTime.toDate === 'function'
             ? data.serverTime.toDate().toISOString() 
-            : data.createdAt;
+            : data.createdAt || new Date(data.localTimestamp).toISOString();
         
         return { 
             ...data, 

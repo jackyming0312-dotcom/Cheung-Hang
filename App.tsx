@@ -20,10 +20,9 @@ const getDeviceType = () => {
     const ua = navigator.userAgent;
     const platform = navigator.platform || '';
     
-    // 精準 iPad 偵測 (包含 iPadOS 13+ 偽裝成 Mac 的情況)
+    // 解決 iPadOS 偽裝成 Mac 的問題
     const isIPad = /iPad/.test(ua) || (platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     if (isIPad) return "iPad";
-    
     if (/iPhone|iPod/.test(ua)) return "iPhone";
     if (/Android/.test(ua)) return "Android手機";
     if (/Macintosh|MacIntel|MacPPC|Mac68K/.test(ua)) return "Mac電腦";
@@ -51,7 +50,7 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<CommunityLog[]>([]);
   const isCloudLive = checkCloudStatus();
 
-  // 實時監聽：確保訂閱邏輯穩定
+  // 實時監聽：不論在哪個裝置，只要雲端有變動，logs 就會立即更新
   useEffect(() => {
     if (!isCloudLive) return;
     const unsubscribe = subscribeToStation(FIXED_STATION_ID, (cloudLogs) => {
@@ -74,7 +73,6 @@ const App: React.FC = () => {
 
     try {
         const textData = await generateSoulText(text, mood);
-        
         setWhisperData({ text, analysis: textData.analysis });
         setCardData(textData.card);
         setIsLoadingContent(false);
@@ -98,6 +96,7 @@ const App: React.FC = () => {
                 fullCard: textData.card,
                 replyMessage: textData.analysis.replyMessage
             };
+            // 等待寫入完成才結束同步狀態
             await syncLogWithRef(logRef, finalLog);
         }
     } catch (e) {
