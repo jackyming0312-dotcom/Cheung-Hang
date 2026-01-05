@@ -3,7 +3,6 @@ import React, { useState, useMemo } from 'react';
 import { CommunityLog, EnergyCardData, GeminiAnalysisResult } from '../types';
 import { ChevronLeft, ChevronRight, Calendar, Clock, RefreshCw, Eraser, Footprints, Moon, Sun, Sparkles, X, Heart, Trash2, Palette, PenTool, Leaf, Stars, Zap } from 'lucide-react';
 import EnergyCard from './EnergyCard';
-import Mascot from './Mascot';
 
 interface CommunityBoardProps {
   logs: CommunityLog[];
@@ -37,19 +36,24 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
   const targetDateKey = useMemo(() => formatDateKey(selectedDate), [selectedDate]);
   const displayDateStr = selectedDate.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' });
 
+  // 核心修復：確保過濾邏輯非常強健
   const displayLogs = useMemo(() => {
-    // 過濾時增加更強健的錯誤處理，確保即使 timestamp 有微小誤差（例如時區變更）也能顯示
     return logs
       .filter(log => {
         if (!log.timestamp) return false;
         try {
           const logDate = new Date(log.timestamp);
+          // 容錯處理：如果 logDate 無效，回退到今日
+          if (isNaN(logDate.getTime())) return targetDateKey === formatDateKey(new Date());
           return formatDateKey(logDate) === targetDateKey;
         } catch (e) {
           return false;
         }
       })
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      .sort((a, b) => {
+        // 使用 timestamp 進行嚴格排序
+        return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+      });
   }, [targetDateKey, logs]);
 
   const collectiveMood = useMemo(() => {
@@ -60,13 +64,6 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
       return "需要溫柔";
   }, [displayLogs]);
 
-  const changeDate = (offset: number) => {
-      const newDate = new Date(selectedDate);
-      newDate.setDate(newDate.getDate() + offset);
-      if (newDate > new Date()) return;
-      setSelectedDate(newDate);
-  };
-
   const isToday = targetDateKey === formatDateKey(new Date());
 
   return (
@@ -74,7 +71,7 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
         {activeCard && activeCard.fullCard && (
             <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm animate-soft-in">
                 <div className="relative w-full max-w-sm max-h-[90vh] overflow-y-auto custom-scrollbar">
-                    <button onClick={() => setActiveCard(null)} className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-lg z-[1001] text-stone-400 active:scale-90">
+                    <button onClick={() => setActiveCard(null)} className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-lg z-[1001] text-stone-400">
                         <X size={20} />
                     </button>
                     <div className="py-8">
@@ -101,32 +98,31 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
         </div>
 
         <div className="flex items-center gap-2 mb-6 bg-white/50 px-3 py-2 rounded-full border border-stone-200 shadow-sm">
-            <button onClick={() => changeDate(-1)} className="p-1 hover:bg-stone-200 rounded-full transition-colors text-stone-600">
+            <button onClick={() => setSelectedDate(d => { const nd = new Date(d); nd.setDate(nd.getDate()-1); return nd; })} className="p-1 hover:bg-stone-200 rounded-full transition-colors text-stone-600">
                 <ChevronLeft size={18} />
             </button>
             <div className="flex items-center gap-2 text-stone-700 font-medium min-w-[140px] justify-center">
                 <Calendar size={14} className="text-stone-400" />
                 <span className="text-[11px] font-bold">{displayDateStr}</span>
             </div>
-            <button onClick={() => changeDate(1)} disabled={isToday} className={`p-1 rounded-full transition-colors ${isToday ? 'text-stone-300 cursor-not-allowed' : 'text-stone-600 hover:bg-stone-200'}`}>
+            <button 
+              onClick={() => setSelectedDate(d => { const nd = new Date(d); nd.setDate(nd.getDate()+1); return nd; })} 
+              disabled={isToday} 
+              className={`p-1 rounded-full transition-colors ${isToday ? 'text-stone-300 cursor-not-allowed' : 'text-stone-600 hover:bg-stone-200'}`}
+            >
                 <ChevronRight size={18} />
             </button>
             <div className="h-4 w-[1px] bg-stone-200 mx-1"></div>
             <button onClick={onRefresh} className={`p-1.5 rounded-full hover:bg-stone-100 ${isSyncing ? 'text-amber-500 animate-spin' : 'text-stone-400'}`}>
                 <RefreshCw size={14} />
             </button>
-            {isToday && (
-               <button onClick={onClearDay} className="p-1.5 rounded-full text-stone-300 hover:text-rose-400 hover:bg-rose-50 transition-colors" title="清除今日紀錄">
-                  <Eraser size={14} />
-               </button>
-            )}
         </div>
 
         <div className="w-full flex-1 overflow-y-auto pr-1 custom-scrollbar min-h-[300px]">
             {displayLogs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-stone-400 py-10 bg-white/30 rounded-[2rem] border border-dashed border-stone-200 mx-4">
                     <p className="font-medium text-stone-400 text-sm italic">此處目前靜悄悄的...</p>
-                    <p className="text-[10px] text-stone-300 mt-2">嘗試發送一則心聲，它會立刻在這裡出現。</p>
+                    <p className="text-[10px] text-stone-300 mt-2">發送心聲後，所有裝置都會立即同步。</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 gap-6 pb-6 px-1">
@@ -134,12 +130,6 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                         const styleHint = log.fullCard?.styleHint || 'warm';
                         const theme = STYLE_THEMES[styleHint as keyof typeof STYLE_THEMES] || STYLE_THEMES.warm;
                         
-                        const energyConfig = log.moodLevel > 70 
-                            ? { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-100', iconColor: 'text-amber-500' }
-                            : log.moodLevel < 30 
-                                ? { bg: 'bg-rose-50', text: 'text-rose-600', border: 'border-rose-100', iconColor: 'text-rose-400' }
-                                : { bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-100', iconColor: 'text-emerald-500' };
-
                         return (
                             <div key={log.id} className="relative group animate-soft-in">
                                 <button 
@@ -159,19 +149,16 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                                                 {log.authorSignature?.substring(0, 1) || '旅'}
                                             </div>
                                             <div className="flex flex-col">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-[10px] font-bold text-stone-800">{log.authorSignature || "旅人"}</span>
-                                                    <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border ${energyConfig.bg} ${energyConfig.border}`}>
-                                                        <Zap size={8} className={`${energyConfig.iconColor} fill-current`} />
-                                                        <span className={`text-[8px] font-black ${energyConfig.text}`}>{log.moodLevel}%</span>
-                                                    </div>
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-[10px] font-bold text-stone-800">{log.authorSignature}</span>
+                                                    <Zap size={8} className="text-amber-500 fill-current" />
                                                 </div>
-                                                <span className="text-[8px] font-mono text-stone-300 flex items-center gap-1 uppercase tracking-tighter">
+                                                <span className="text-[8px] font-mono text-stone-300 flex items-center gap-1 uppercase">
                                                     <Clock size={8} /> {new Date(log.timestamp).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'})} • {log.deviceType}
                                                 </span>
                                             </div>
                                         </div>
-                                        <div className="px-3 py-1 rounded-full text-[9px] font-black tracking-widest uppercase border bg-amber-50 text-amber-600 border-amber-100">
+                                        <div className="px-3 py-1 rounded-full text-[9px] font-black tracking-widest uppercase border bg-stone-50 text-stone-400">
                                             {log.theme}
                                         </div>
                                     </div>
@@ -182,27 +169,10 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                                         </p>
                                     </div>
 
-                                    <div className={`mt-2 p-6 rounded-[1.5rem] transition-all duration-700 relative shadow-inner-lg min-h-[100px] flex flex-col justify-center ${theme.bg} border border-dashed ${theme.border} transform rotate-[0.5deg]`}>
-                                        <div className="flex flex-col gap-3">
-                                            <div className="flex items-center justify-between">
-                                               <div className="flex items-center gap-2 opacity-40">
-                                                  {theme.icon}
-                                                  <span className={`text-[9px] font-black ${theme.text} uppercase tracking-widest`}>亨仔療癒小語</span>
-                                               </div>
-                                            </div>
-                                            
-                                            <p className={`text-[15px] leading-relaxed handwriting-font font-bold ${theme.text}`}>
-                                               {log.replyMessage || "我看見了你的心聲。"}
-                                            </p>
-                                            
-                                            <div className="flex flex-wrap gap-2 mt-2 pt-3 border-t border-stone-900/5">
-                                                {log.tags?.map((t, idx) => (
-                                                    <span key={idx} className={`text-[9px] px-2 py-0.5 rounded-lg font-bold tracking-tight bg-white/40 border border-white/60 ${theme.text} shadow-sm`}>
-                                                        {t.startsWith('#') ? t : `#${t}`}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        </div>
+                                    <div className={`mt-2 p-5 rounded-[1.5rem] ${theme.bg} border border-dashed ${theme.border} transform rotate-[0.5deg]`}>
+                                        <p className={`text-[14px] leading-relaxed handwriting-font font-bold ${theme.text}`}>
+                                            {log.replyMessage || "亨仔正在細細品讀..."}
+                                        </p>
                                     </div>
                                 </div>
                             </div>

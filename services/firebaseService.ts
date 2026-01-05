@@ -35,8 +35,7 @@ let db: any = null;
 if (isFirebaseConfigured) {
   try {
     const app = initializeApp(firebaseConfig);
-    // 強制停用本地硬碟快取，改用記憶體快取。這是解決手機/電腦顯示不同步的最有效方法。
-    // 這樣可以確保每次讀取都是直接面向雲端資料庫。
+    // 使用 memoryLocalCache 並確保不保存到磁碟，這能解決手機看到舊資料的問題
     db = initializeFirestore(app, {
       localCache: memoryLocalCache()
     });
@@ -51,7 +50,7 @@ export const getNewLogRef = (stationId: string) => {
 };
 
 const preparePayload = (log: Partial<CommunityLog>) => {
-    const p: any = {
+    return {
         moodLevel: Number(log.moodLevel || 50),
         text: String(log.text || ""),
         theme: String(log.theme || ""),
@@ -61,30 +60,27 @@ const preparePayload = (log: Partial<CommunityLog>) => {
         deviceType: String(log.deviceType || ""),
         stationId: "CHEUNG_HANG",
         replyMessage: String(log.replyMessage || ""),
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(), // 備用本地時間
+        // 內嵌卡片數據，攤平以利於查詢（如果未來需要）
+        quote: log.fullCard?.quote || "",
+        luckyItem: log.fullCard?.luckyItem || "",
+        category: log.fullCard?.category || "",
+        relaxationMethod: log.fullCard?.relaxationMethod || "",
+        styleHint: log.fullCard?.styleHint || "warm"
     };
-    
-    if (log.fullCard) {
-        p.quote = log.fullCard.quote || "";
-        p.luckyItem = log.fullCard.luckyItem || "";
-        p.category = log.fullCard.category || "";
-        p.relaxationMethod = log.fullCard.relaxationMethod || "";
-        p.styleHint = log.fullCard.styleHint || "warm";
-    }
-    return p;
 };
 
 export const syncLogWithRef = async (docRef: any, log: CommunityLog) => {
     if (!db || !docRef) return null;
     try {
-        // 使用 serverTimestamp() 確保全球裝置排序一致
-        await setDoc(docRef, { 
-            ...preparePayload(log), 
-            serverTime: serverTimestamp() 
-        });
+        const payload = {
+            ...preparePayload(log),
+            serverTime: serverTimestamp() // 重要：這是跨裝置同步的唯一真實基準
+        };
+        await setDoc(docRef, payload);
         return docRef.id;
     } catch (e) {
-        console.error("Sync Error:", e);
+        console.error("Firebase Sync Write Error:", e);
         return null;
     }
 };
@@ -92,8 +88,7 @@ export const syncLogWithRef = async (docRef: any, log: CommunityLog) => {
 export const deleteLog = async (stationId: string, docId: string) => {
     if (!db || !docId) return;
     try {
-        const docRef = doc(db, "stations", stationId, "logs", docId);
-        await deleteDoc(docRef);
+        await deleteDoc(doc(db, "stations", stationId, "logs", docId));
     } catch (e) { }
 };
 
@@ -113,38 +108,36 @@ export const subscribeToStation = (stationId: string, callback: (logs: Community
   if (!db) return () => {};
   
   const colRef = collection(db, "stations", stationId, "logs");
-  // 依據 serverTime 降序排列，獲取最近的 60 筆心聲
-  const q = query(colRef, orderBy("serverTime", "desc"), limit(60));
+  // 依據 serverTime 排序。如果沒有 serverTime，Firestore 預設會放在最前面或最後面
+  const q = query(colRef, orderBy("serverTime", "desc"), limit(50));
   
-  // includeMetadataChanges: true 是為了即時捕捉「待定寫入」，提高同步感
+  // { includeMetadataChanges: true } 確保本地修改能立即反映到 UI
   return onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
     const logs = snapshot.docs.map(doc => {
-        const data = doc.data();
+        // 使用 { serverTimestamps: 'estimate' }。
+        // 當 serverTime 還是 null 時（剛發送尚未抵達雲端），這會返回一個估計的時間，
+        // 這樣就能保證 log.timestamp 永遠有值，不會在 CommunityBoard 被過濾掉。
+        const data = doc.data({ serverTimestamps: 'estimate' });
         
-        // 處理 serverTime 的延遲（還沒同步完成時會是 null，這時用本地 createdAt 墊檔）
-        let finalTime;
-        if (data.serverTime) {
-            finalTime = data.serverTime.toDate().toISOString();
-        } else {
-            finalTime = data.createdAt || new Date().toISOString();
-        }
+        const finalTime = data.serverTime 
+            ? data.serverTime.toDate().toISOString() 
+            : data.createdAt;
         
         return { 
             ...data, 
             id: doc.id, 
             timestamp: finalTime, 
-            fullCard: data.quote ? {
+            fullCard: {
                 quote: data.quote, 
                 theme: data.theme, 
                 luckyItem: data.luckyItem,
                 category: data.category, 
                 relaxationMethod: data.relaxationMethod,
                 styleHint: data.styleHint || 'warm'
-            } : undefined
+            }
         } as CommunityLog;
     });
     
-    // 如果數據是由本地發出的（hasPendingWrites），則不需要等待伺服器確認，直接顯示
     callback(logs);
   });
 };
