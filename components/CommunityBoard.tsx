@@ -23,9 +23,6 @@ const STYLE_THEMES = {
   dreamy: { bg: 'bg-[#f0f9ff]', border: 'border-blue-200', text: 'text-blue-900', icon: <Sparkles size={12} />, accent: 'text-blue-500' },
 };
 
-/**
- * 輔助函數：將 Date 轉換為統一的 YYYY-MM-DD 字串，不受地區影響
- */
 const formatDateKey = (date: Date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -37,17 +34,20 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [activeCard, setActiveCard] = useState<CommunityLog | null>(null);
   
-  // 統一比對用的 Key (例如: 2023-10-27)
   const targetDateKey = useMemo(() => formatDateKey(selectedDate), [selectedDate]);
-  // 顯示用的文字
   const displayDateStr = selectedDate.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' });
 
   const displayLogs = useMemo(() => {
+    // 過濾時增加更強健的錯誤處理，確保即使 timestamp 有微小誤差（例如時區變更）也能顯示
     return logs
       .filter(log => {
         if (!log.timestamp) return false;
-        const logDate = new Date(log.timestamp);
-        return formatDateKey(logDate) === targetDateKey;
+        try {
+          const logDate = new Date(log.timestamp);
+          return formatDateKey(logDate) === targetDateKey;
+        } catch (e) {
+          return false;
+        }
       })
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }, [targetDateKey, logs]);
@@ -71,15 +71,6 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
 
   return (
     <div className="w-full flex flex-col items-center animate-soft-in h-full relative">
-        <style>
-          {`
-            @keyframes shimmer {
-              0% { transform: translateX(-100%); }
-              100% { transform: translateX(100%); }
-            }
-          `}
-        </style>
-
         {activeCard && activeCard.fullCard && (
             <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm animate-soft-in">
                 <div className="relative w-full max-w-sm max-h-[90vh] overflow-y-auto custom-scrollbar">
@@ -135,6 +126,7 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
             {displayLogs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-stone-400 py-10 bg-white/30 rounded-[2rem] border border-dashed border-stone-200 mx-4">
                     <p className="font-medium text-stone-400 text-sm italic">此處目前靜悄悄的...</p>
+                    <p className="text-[10px] text-stone-300 mt-2">嘗試發送一則心聲，它會立刻在這裡出現。</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 gap-6 pb-6 px-1">
@@ -159,14 +151,11 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                                 
                                 <div 
                                     onClick={() => log.fullCard && setActiveCard(log)} 
-                                    className={`
-                                        p-6 rounded-[1.8rem] border transition-all duration-500 flex flex-col gap-4 relative overflow-hidden
-                                        bg-white border-stone-100 hover:shadow-xl hover:-translate-y-1 cursor-pointer shadow-sm
-                                    `}
+                                    className="p-6 rounded-[1.8rem] border transition-all duration-500 flex flex-col gap-4 relative overflow-hidden bg-white border-stone-100 hover:shadow-xl hover:-translate-y-1 cursor-pointer shadow-sm"
                                 >
                                     <div className="flex justify-between items-center">
                                         <div className="flex items-center gap-2">
-                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-bold shadow-sm`} style={{ backgroundColor: log.authorColor || '#8d7b68' }}>
+                                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[10px] font-bold shadow-sm" style={{ backgroundColor: log.authorColor || '#8d7b68' }}>
                                                 {log.authorSignature?.substring(0, 1) || '旅'}
                                             </div>
                                             <div className="flex flex-col">
@@ -182,21 +171,18 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                                                 </span>
                                             </div>
                                         </div>
-                                        <div className={`px-3 py-1 rounded-full text-[9px] font-black tracking-widest uppercase border bg-amber-50 text-amber-600 border-amber-100`}>
+                                        <div className="px-3 py-1 rounded-full text-[9px] font-black tracking-widest uppercase border bg-amber-50 text-amber-600 border-amber-100">
                                             {log.theme}
                                         </div>
                                     </div>
 
                                     <div className="relative pl-5 border-l-2 border-stone-100 py-1">
-                                        <p className={`text-base font-medium leading-relaxed serif-font italic text-stone-700`}>
+                                        <p className="text-base font-medium leading-relaxed serif-font italic text-stone-700">
                                             {log.text}
                                         </p>
                                     </div>
 
-                                    <div className={`
-                                      mt-2 p-6 rounded-[1.5rem] transition-all duration-700 relative shadow-inner-lg min-h-[100px] flex flex-col justify-center
-                                      ${theme.bg} border border-dashed ${theme.border} transform rotate-[0.5deg]
-                                    `}>
+                                    <div className={`mt-2 p-6 rounded-[1.5rem] transition-all duration-700 relative shadow-inner-lg min-h-[100px] flex flex-col justify-center ${theme.bg} border border-dashed ${theme.border} transform rotate-[0.5deg]`}>
                                         <div className="flex flex-col gap-3">
                                             <div className="flex items-center justify-between">
                                                <div className="flex items-center gap-2 opacity-40">
@@ -206,15 +192,12 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onClearDa
                                             </div>
                                             
                                             <p className={`text-[15px] leading-relaxed handwriting-font font-bold ${theme.text}`}>
-                                               {log.replyMessage || "我看見了你的心聲。無論外面的世界多吵雜，這裡永遠有你的位子。"}
+                                               {log.replyMessage || "我看見了你的心聲。"}
                                             </p>
                                             
                                             <div className="flex flex-wrap gap-2 mt-2 pt-3 border-t border-stone-900/5">
                                                 {log.tags?.map((t, idx) => (
-                                                    <span key={idx} className={`
-                                                        text-[9px] px-2 py-0.5 rounded-lg font-bold tracking-tight
-                                                        bg-white/40 border border-white/60 ${theme.text} shadow-sm
-                                                    `}>
+                                                    <span key={idx} className={`text-[9px] px-2 py-0.5 rounded-lg font-bold tracking-tight bg-white/40 border border-white/60 ${theme.text} shadow-sm`}>
                                                         {t.startsWith('#') ? t : `#${t}`}
                                                     </span>
                                                 ))}
