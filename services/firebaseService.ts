@@ -11,7 +11,6 @@ import {
   serverTimestamp, 
   doc, 
   deleteDoc,
-  enableIndexedDbPersistence,
   initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager
@@ -34,7 +33,6 @@ let db: any = null;
 if (isFirebaseConfigured) {
   try {
     const app = initializeApp(firebaseConfig);
-    // 使用高級配置：強制長輪詢解決行動網路連線不穩問題
     db = initializeFirestore(app, {
       localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
       experimentalForceLongPolling: true 
@@ -44,9 +42,6 @@ if (isFirebaseConfigured) {
   }
 }
 
-/**
- * 核心：資料扁平化處理，確保 Firestore 100% 接受格式
- */
 const preparePayload = (log: any) => {
     return {
         moodLevel: Number(log.moodLevel || 50),
@@ -54,7 +49,8 @@ const preparePayload = (log: any) => {
         theme: String(log.theme || "心情分享"),
         tags: Array.isArray(log.tags) ? log.tags : [],
         authorSignature: String(log.authorSignature || "長亨旅人"),
-        authorColor: String(log.authorColor || "#8d7b68"),
+        authorColor: "#FFFFFF", // 統一強制為白色
+        authorIcon: String(log.authorIcon || "Heart"),
         deviceType: String(log.deviceType || "行動裝置"),
         stationId: "CHEUNG_HANG",
         replyMessage: String(log.replyMessage || ""),
@@ -72,16 +68,10 @@ const preparePayload = (log: any) => {
 
 export const saveLogToCloud = async (log: Omit<CommunityLog, 'id'>) => {
     if (!db) throw new Error("FIREBASE_NOT_INIT");
-    
-    try {
-        const colRef = collection(db, "stations", "CHEUNG_HANG", "logs");
-        const payload = preparePayload(log);
-        const docRef = await addDoc(colRef, payload);
-        return docRef.id;
-    } catch (e: any) {
-        console.error("Cloud Save Detailed Error:", e.code, e.message);
-        throw e;
-    }
+    const colRef = collection(db, "stations", "CHEUNG_HANG", "logs");
+    const payload = preparePayload(log);
+    const docRef = await addDoc(colRef, payload);
+    return docRef.id;
 };
 
 export const deleteLog = async (docId: string) => {
@@ -93,9 +83,7 @@ export const deleteLog = async (docId: string) => {
 
 export const subscribeToStation = (callback: (logs: CommunityLog[]) => void) => {
   if (!db) return () => {};
-  
   const colRef = collection(db, "stations", "CHEUNG_HANG", "logs");
-  // 增加限制數量以優化手機效能
   const q = query(colRef, orderBy("localTimestamp", "desc"), limit(50));
   
   return onSnapshot(q, (snapshot) => {
@@ -109,6 +97,7 @@ export const subscribeToStation = (callback: (logs: CommunityLog[]) => void) => 
             tags: data.tags,
             authorSignature: data.authorSignature,
             authorColor: data.authorColor,
+            authorIcon: data.authorIcon || 'Heart',
             deviceType: data.deviceType,
             replyMessage: data.replyMessage,
             timestamp: data.createdAt,
