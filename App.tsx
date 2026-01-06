@@ -9,7 +9,7 @@ import WhisperHole from './components/WhisperHole';
 import EnergyCard from './components/EnergyCard';
 import CommunityBoard from './components/CommunityBoard';
 
-import { generateSoulText, getRandomFallbackContent } from './services/geminiService';
+import { generateSoulText } from './services/geminiService';
 import { saveLogToCloud, subscribeToStation, checkCloudStatus, deleteLog } from './services/firebaseService';
 import { AppStep, GeminiAnalysisResult, EnergyCardData, CommunityLog, MascotOptions } from './types';
 
@@ -52,7 +52,7 @@ const App: React.FC = () => {
   }, [isCloudLive]);
 
   const handleDeleteLog = async (id: string) => {
-    if (window.confirm("確定要移除這則心聲嗎？")) {
+    if (window.confirm("確定要從日曆牆移除這則心聲嗎？")) {
         try { await deleteLog(id); } catch (e) { console.error(e); }
     }
   };
@@ -64,6 +64,7 @@ const App: React.FC = () => {
     setSyncStatus('saving');
 
     try {
+        // AI 根據輸入文字生成分析、標籤與卡片內容
         const textData = await generateSoulText(text, mood);
         
         setWhisperData({ text, analysis: textData.analysis });
@@ -74,12 +75,12 @@ const App: React.FC = () => {
         const signature = `${SOUL_TITLES[Math.floor(Math.random() * SOUL_TITLES.length)]} #${Math.floor(1000 + Math.random() * 9000)}`;
 
         const logToSave = {
-            moodLevel: mood, 
+            moodLevel: mood, // 手動輸入的電力
             text, 
             theme: textData.card.theme, 
-            tags: textData.analysis.tags,
+            tags: textData.analysis.tags, // AI 動態生成的標籤
             authorSignature: signature, 
-            authorColor: '#FFFFFF', // 統一改為純白背景，移除亂色
+            authorColor: '#FFFFFF', // 統一簡約風格
             authorIcon: randomIcon,  
             deviceType: getDeviceType(), 
             stationId: "CHEUNG_HANG",
@@ -107,7 +108,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-[100dvh] w-full relative flex flex-col items-center justify-center p-3 overflow-hidden">
-      {/* 狀態列 */}
+      {/* 狀態導覽列 */}
       <div className="fixed top-4 left-4 right-4 z-[100] flex items-center justify-between pointer-events-none">
           <div className="flex items-center gap-2 bg-white/95 backdrop-blur-3xl px-4 py-2 rounded-full border border-stone-100 shadow-2xl pointer-events-auto">
               {step !== AppStep.WELCOME && (
@@ -120,7 +121,7 @@ const App: React.FC = () => {
                      <div className="flex items-center gap-2">
                         <div className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-amber-400 animate-ping' : 'bg-emerald-500'}`}></div>
                         <span className="text-[10px] font-black text-stone-600 tracking-widest uppercase leading-none">
-                            {isSyncing ? '同步中' : '跨裝置連線'}
+                            {isSyncing ? '同步中' : '即時同步中'}
                         </span>
                      </div>
                  ) : (
@@ -135,7 +136,7 @@ const App: React.FC = () => {
           <div className="flex items-center gap-2 pointer-events-auto">
               {syncStatus === 'success' && (
                   <div className="bg-emerald-600 text-white px-5 py-2 rounded-full text-[10px] font-black animate-soft-in shadow-xl flex items-center gap-2">
-                      <ShieldCheck size={12} /> 已存入時光長廊
+                      <ShieldCheck size={12} /> 存入成功
                   </div>
               )}
           </div>
@@ -150,7 +151,7 @@ const App: React.FC = () => {
               <h1 className="text-2xl md:text-3xl font-bold text-stone-800 serif-font tracking-tight">長亨心靈充電站</h1>
               <div className="flex items-center justify-center gap-2 mt-1">
                  <span className={`w-1.5 h-1.5 rounded-full ${isCloudLive ? 'bg-emerald-500 animate-pulse' : 'bg-stone-300'}`}></span>
-                 <span className="text-[9px] text-stone-400 font-bold tracking-[0.3em] uppercase italic">跨裝置即時同步：iPad / 手機 / 電腦</span>
+                 <span className="text-[9px] text-stone-400 font-bold tracking-[0.3em] uppercase italic">日曆長廊數據：iPad / 手機 / 電腦</span>
               </div>
            </div>
         </header>
@@ -159,14 +160,14 @@ const App: React.FC = () => {
           {step === AppStep.WELCOME && (
             <div className="w-full flex flex-col h-full max-w-sm mx-auto animate-soft-in">
               <div className="bg-white/95 p-8 rounded-[2rem] border border-stone-100 shadow-xl text-center paper-stack mt-4">
-                <p className="text-stone-600 leading-relaxed serif-font italic text-lg">"在這裡留下的一字一句，<br/>都會與所有人即時共振。"</p>
+                <p className="text-stone-600 leading-relaxed serif-font italic text-lg">"在這裡留下的一字一句，<br/>都會轉化為長廊中的溫柔微光。"</p>
               </div>
               <div className="space-y-4 w-full mt-12">
                 <button onClick={() => setStep(AppStep.MOOD_WATER)} className="w-full py-5 font-bold text-white text-lg bg-stone-800 rounded-3xl shadow-[0_6px_0_rgb(44,40,36)] active:translate-y-[6px] transition-all flex items-center justify-center group tracking-widest uppercase">
                    開始體驗 <ArrowRight className="ml-3 group-hover:translate-x-2 transition-transform" />
                 </button>
                 <button onClick={() => setStep(AppStep.COMMUNITY)} className="w-full py-4 font-bold text-stone-500 bg-white/60 border border-stone-200 rounded-3xl flex items-center justify-center gap-3 text-xs shadow-sm hover:bg-white transition-all">
-                   <CalendarIcon size={16} /> 穿越時光：查看日曆長廊
+                   <CalendarIcon size={16} /> 穿越時光：查看日曆牆
                 </button>
               </div>
             </div>
@@ -193,16 +194,16 @@ const App: React.FC = () => {
                        <div className="absolute -inset-8 bg-amber-400/10 blur-3xl animate-pulse rounded-full z-0"></div>
                     </div>
                     <div className="space-y-4">
-                       <h3 className="font-bold text-2xl text-stone-700 serif-font italic">正在同步你的能量...</h3>
+                       <h3 className="font-bold text-2xl text-stone-700 serif-font italic">正在為你的故事生成標籤...</h3>
                        <p className="text-stone-400 text-[10px] tracking-widest uppercase font-black italic">正在整理今日心靈紀錄牆</p>
                     </div>
                  </div>
               ) : (
                 <div className="w-full flex flex-col items-center">
-                  <EnergyCard data={cardData!} analysis={whisperData.analysis} moodLevel={mood} />
+                  <EnergyCard data={cardData!} analysis={whisperData.analysis} moodLevel={mood} moodLevelDisplay={mood} />
                   <div className="w-full max-w-[360px] grid grid-cols-2 gap-3 mt-10 pb-8 px-4">
                     <button onClick={() => setStep(AppStep.COMMUNITY)} className="py-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs font-black text-emerald-700 flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all">
-                       <CalendarIcon size={14} /> 進入時光長廊
+                       <CalendarIcon size={14} /> 進入日曆長廊
                     </button>
                     <button onClick={() => { setStep(AppStep.WELCOME); setCardData(null); }} className="py-4 bg-stone-800 text-white rounded-2xl text-xs font-black shadow-lg active:scale-95 transition-all tracking-widest">
                        回到首頁

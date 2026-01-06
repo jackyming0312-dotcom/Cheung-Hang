@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { CommunityLog, GeminiAnalysisResult } from '../types';
-import { RefreshCw, X, Trash2, Smartphone, Tablet, Monitor, Radio, MapPin, Calendar as CalendarIcon, Zap, Flower, Moon, Sun, Cloud, Coffee, Music, Heart, Star, Leaf, Anchor } from 'lucide-react';
+import { RefreshCw, X, Trash2, Smartphone, Tablet, Monitor, Radio, MapPin, Zap, Flower, Moon, Sun, Cloud, Coffee, Music, Heart, Star, Leaf, Anchor } from 'lucide-react';
 import EnergyCard from './EnergyCard';
 
 interface CommunityBoardProps {
@@ -16,7 +16,7 @@ interface CommunityBoardProps {
 
 const getIconComponent = (iconName?: string) => {
   const size = 52;
-  const color = "rgba(74, 64, 54, 0.04)"; // 極簡浮水印
+  const color = "rgba(74, 64, 54, 0.04)"; 
   switch (iconName) {
     case 'Flower': return <Flower size={size} color={color} />;
     case 'Moon': return <Moon size={size} color={color} />;
@@ -47,7 +47,7 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onDeleteL
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // 1. 按日期分組
+  // 1. 按日期分組資料
   const groupedLogs = useMemo(() => {
     const sorted = [...logs].sort((a, b) => {
       const tA = a.localTimestamp || (a.timestamp ? new Date(a.timestamp).getTime() : 0);
@@ -71,7 +71,7 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onDeleteL
 
   const dateKeys = useMemo(() => Object.keys(groupedLogs), [groupedLogs]);
 
-  // 預設選擇最近有資料的一天
+  // 初始化選擇最新的日期
   useEffect(() => {
     if (dateKeys.length > 0 && !selectedDateKey) {
       setSelectedDateKey(dateKeys[0]);
@@ -100,7 +100,7 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onDeleteL
             </div>
         )}
 
-        {/* 標題與同步狀態 */}
+        {/* 頂部標題與狀態 */}
         <div className="text-center mb-6">
             <h2 className="text-3xl font-bold text-stone-800 serif-font tracking-tight italic">時光導覽長廊</h2>
             <div className="flex items-center justify-center gap-3 mt-2">
@@ -114,11 +114,12 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onDeleteL
             </div>
         </div>
 
-        {/* 2. 橫向日期導覽列 (Time Navigator) */}
+        {/* 2. 橫向滾動日期導覽列 */}
         <div className="w-full mb-8 px-1 overflow-hidden">
             <div 
               ref={scrollRef}
               className="flex items-center gap-3 overflow-x-auto pb-4 px-2 no-scrollbar scroll-smooth"
+              style={{ WebkitOverflowScrolling: 'touch' }}
             >
                 {dateKeys.length === 0 ? (
                    <div className="w-full text-center py-4 text-[10px] text-stone-200 font-bold uppercase tracking-[0.4em]">正在尋回歷史記憶...</div>
@@ -149,7 +150,7 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onDeleteL
             </div>
         </div>
 
-        {/* 3. 心聲內容顯示區：統一純淨風格 */}
+        {/* 3. 心聲內容顯示區：顯示手動情緒能量 */}
         <div className="w-full flex-1 overflow-y-auto pr-1 custom-scrollbar min-h-[400px] pb-10">
             {filteredLogs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-stone-400 py-20 bg-stone-50/30 rounded-[3rem] border-2 border-dashed border-stone-100 mx-2 animate-soft-in">
@@ -167,8 +168,8 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onDeleteL
                             onClick={() => log.fullCard && setActiveCard(log)}
                             className="group relative p-6 bg-white rounded-[2.5rem] border border-stone-100 shadow-sm hover:shadow-xl transition-all cursor-pointer overflow-hidden flex flex-col gap-4"
                         >
-                            {/* 裝飾背景圖標 (淡化浮水印) */}
-                            <div className="absolute -top-1 -right-1 opacity-60 group-hover:scale-110 group-hover:-rotate-6 transition-all duration-700 pointer-events-none">
+                            {/* 裝飾水印 */}
+                            <div className="absolute -top-2 -right-2 opacity-50 group-hover:scale-110 transition-transform duration-700 pointer-events-none">
                                 {getIconComponent(log.authorIcon)}
                             </div>
 
@@ -191,10 +192,10 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onDeleteL
                                     </div>
                                 </div>
 
-                                {/* 即時能量百分比顯示 (手動輸入的情緒能量) */}
+                                {/* 即時手動情緒能量顯示 */}
                                 <div className="flex flex-col items-end">
                                     <div className="flex items-center gap-1.5 mb-1.5">
-                                        <Zap size={10} className={log.moodLevel > 70 ? "text-amber-400 fill-amber-400" : "text-stone-300"} />
+                                        <Zap size={12} className={log.moodLevel > 70 ? "text-amber-400 fill-amber-400" : "text-stone-300"} />
                                         <span className="text-[11px] font-black font-mono tracking-tighter text-stone-800">{log.moodLevel}%</span>
                                     </div>
                                     <div className="w-16 h-1.5 bg-stone-100 rounded-full overflow-hidden">
@@ -212,7 +213,7 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onDeleteL
                                 </p>
                             </div>
 
-                            {/* 智慧標籤：根據文字生成的 Hashtags */}
+                            {/* 動態生成的 Hashtags */}
                             <div className="flex flex-wrap gap-2 mt-1 z-10">
                                 {log.tags?.map((tag, i) => (
                                     <span key={i} className="text-[9px] font-bold text-stone-400 bg-stone-50 px-2 py-1 rounded-xl border border-stone-100">
@@ -234,7 +235,7 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onDeleteL
         </div>
 
         <button onClick={onBack} className="w-full max-w-xs px-8 py-5 bg-stone-800 text-white rounded-[2rem] font-black shadow-[0_6px_0_rgb(44,40,36)] active:translate-y-[6px] transition-all mt-6 mb-2 text-xs tracking-[0.4em] uppercase">
-            離開長廊
+            回到首頁
         </button>
     </div>
   );
