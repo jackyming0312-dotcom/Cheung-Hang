@@ -62,6 +62,7 @@ export interface CommunityLog {
   tags: string[];
   authorSignature?: string; 
   authorColor?: string;     
+  authorIcon?: string;      // 新增：用於裝飾圖標
   deviceType?: string;      
   stationId?: string;       
   fullCard?: EnergyCardData;

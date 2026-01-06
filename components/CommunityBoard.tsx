@@ -15,8 +15,8 @@ interface CommunityBoardProps {
 }
 
 const getIconComponent = (iconName?: string) => {
-  const size = 48;
-  const color = "rgba(74, 64, 54, 0.05)"; // 極淡的石色浮水印
+  const size = 52;
+  const color = "rgba(74, 64, 54, 0.04)"; // 極簡浮水印
   switch (iconName) {
     case 'Flower': return <Flower size={size} color={color} />;
     case 'Moon': return <Moon size={size} color={color} />;
@@ -47,7 +47,7 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onDeleteL
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // 1. 按日期分組資料（確保日期格式統一且排序正確）
+  // 1. 按日期分組
   const groupedLogs = useMemo(() => {
     const sorted = [...logs].sort((a, b) => {
       const tA = a.localTimestamp || (a.timestamp ? new Date(a.timestamp).getTime() : 0);
@@ -69,10 +69,9 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onDeleteL
     return groups;
   }, [logs]);
 
-  // 所有可用的日期鍵
   const dateKeys = useMemo(() => Object.keys(groupedLogs), [groupedLogs]);
 
-  // 初始化選擇最新的日期
+  // 預設選擇最近有資料的一天
   useEffect(() => {
     if (dateKeys.length > 0 && !selectedDateKey) {
       setSelectedDateKey(dateKeys[0]);
@@ -84,7 +83,7 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onDeleteL
   return (
     <div className="w-full flex flex-col items-center animate-soft-in h-full relative">
         {activeCard && (
-            <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-stone-900/70 backdrop-blur-md animate-soft-in">
+            <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-stone-900/80 backdrop-blur-md animate-soft-in">
                 <div className="relative w-full max-w-sm max-h-[90vh] overflow-y-auto custom-scrollbar py-6">
                     <button onClick={() => setActiveCard(null)} className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-2xl z-[1001] text-stone-400 hover:text-stone-800 transition-colors">
                         <X size={20} />
@@ -104,33 +103,32 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onDeleteL
         {/* 標題與同步狀態 */}
         <div className="text-center mb-6">
             <h2 className="text-3xl font-bold text-stone-800 serif-font tracking-tight italic">時光導覽長廊</h2>
-            <div className="flex items-center justify-center gap-3 mt-3">
-                 <div className="flex items-center gap-2 px-3 py-1 bg-white/60 rounded-full border border-stone-100 shadow-sm">
+            <div className="flex items-center justify-center gap-3 mt-2">
+                 <div className="flex items-center gap-1.5 px-3 py-1 bg-white/60 rounded-full border border-stone-100 shadow-sm">
                     <Radio size={10} className="text-emerald-500 fill-emerald-500 animate-pulse" />
-                    <span className="text-[9px] font-black text-stone-500 uppercase tracking-widest leading-none">同步中</span>
+                    <span className="text-[9px] font-black text-stone-500 uppercase tracking-widest leading-none">實時連線中</span>
                  </div>
-                 <button onClick={onRefresh} className={`p-1.5 rounded-full hover:bg-white transition-colors ${isSyncing ? 'animate-spin text-amber-500' : 'text-stone-400'}`}>
+                 <button onClick={onRefresh} className={`p-1 transition-all ${isSyncing ? 'animate-spin text-amber-500' : 'text-stone-300 hover:text-stone-800'}`}>
                     <RefreshCw size={14} />
                  </button>
             </div>
         </div>
 
-        {/* 橫向日期導覽列 */}
-        <div className="w-full mb-8 px-2 overflow-hidden">
+        {/* 2. 橫向日期導覽列 (Time Navigator) */}
+        <div className="w-full mb-8 px-1 overflow-hidden">
             <div 
               ref={scrollRef}
               className="flex items-center gap-3 overflow-x-auto pb-4 px-2 no-scrollbar scroll-smooth"
-              style={{ WebkitOverflowScrolling: 'touch' }}
             >
                 {dateKeys.length === 0 ? (
-                   <div className="w-full text-center py-4 text-[10px] text-stone-300 font-bold uppercase tracking-[0.3em]">正在連線至雲端紀錄庫...</div>
+                   <div className="w-full text-center py-4 text-[10px] text-stone-200 font-bold uppercase tracking-[0.4em]">正在尋回歷史記憶...</div>
                 ) : (
                   dateKeys.map((date) => (
                     <button
                         key={date}
                         onClick={() => setSelectedDateKey(date)}
                         className={`
-                            flex-shrink-0 px-6 py-3 rounded-2xl border transition-all duration-500 flex flex-col items-center gap-1
+                            flex-shrink-0 px-6 py-3 rounded-2xl border transition-all duration-500 flex flex-col items-center gap-0.5
                             ${selectedDateKey === date 
                                 ? 'bg-stone-800 border-stone-800 text-white shadow-xl scale-105' 
                                 : 'bg-white/80 border-stone-100 text-stone-400 hover:border-stone-300'}
@@ -139,7 +137,7 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onDeleteL
                         <span className="text-[8px] font-black uppercase tracking-widest opacity-60">
                             {date.split('（')[1]?.replace('）', '') || 'WEEK'}
                         </span>
-                        <span className="text-sm font-bold whitespace-nowrap serif-font tracking-tight">
+                        <span className="text-sm font-bold whitespace-nowrap serif-font">
                             {date.split('（')[0]}
                         </span>
                         {groupedLogs[date].length > 0 && (
@@ -151,14 +149,14 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onDeleteL
             </div>
         </div>
 
-        {/* 內容顯示區：移除隨機顏色，改為統一簡約風格 */}
+        {/* 3. 心聲內容顯示區：統一純淨風格 */}
         <div className="w-full flex-1 overflow-y-auto pr-1 custom-scrollbar min-h-[400px] pb-10">
             {filteredLogs.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-stone-400 py-16 bg-stone-50/40 rounded-[3rem] border-2 border-dashed border-stone-200 mx-2 animate-soft-in">
-                    <MapPin size={32} className="text-stone-200 mb-4" />
-                    <p className="font-bold italic text-stone-500 serif-font">這一天還很安靜...</p>
-                    <p className="text-[10px] mt-2 text-stone-400 text-center px-10 leading-relaxed uppercase tracking-widest">
-                        尚無任何心聲紀錄。<br/>點擊返回，成為今日的發聲者。
+                <div className="flex flex-col items-center justify-center h-full text-stone-400 py-20 bg-stone-50/30 rounded-[3rem] border-2 border-dashed border-stone-100 mx-2 animate-soft-in">
+                    <MapPin size={32} className="text-stone-100 mb-4" />
+                    <p className="font-bold italic text-stone-300 serif-font">這一天還靜悄悄的</p>
+                    <p className="text-[10px] mt-2 text-stone-300 text-center px-10 leading-relaxed uppercase tracking-widest">
+                        點擊返回，成為這天的第一道微光。
                     </p>
                 </div>
             ) : (
@@ -170,19 +168,19 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onDeleteL
                             className="group relative p-6 bg-white rounded-[2.5rem] border border-stone-100 shadow-sm hover:shadow-xl transition-all cursor-pointer overflow-hidden flex flex-col gap-4"
                         >
                             {/* 裝飾背景圖標 (淡化浮水印) */}
-                            <div className="absolute -top-2 -right-2 opacity-50 group-hover:scale-110 transition-transform duration-700 pointer-events-none">
+                            <div className="absolute -top-1 -right-1 opacity-60 group-hover:scale-110 group-hover:-rotate-6 transition-all duration-700 pointer-events-none">
                                 {getIconComponent(log.authorIcon)}
                             </div>
 
                             <div className="flex justify-between items-start relative z-10">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-white text-xs font-black shadow-md bg-stone-800 transform -rotate-2 group-hover:rotate-0 transition-transform">
+                                    <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-white text-xs font-black shadow-md bg-stone-800 transform rotate-2 group-hover:rotate-0 transition-transform">
                                         {log.authorSignature?.substring(0, 1) || '旅'}
                                     </div>
                                     <div className="flex flex-col">
                                         <span className="text-xs font-black text-stone-800 tracking-tight">{log.authorSignature}</span>
                                         <div className="flex items-center gap-2 mt-0.5 opacity-60">
-                                            <div className="flex items-center gap-1 px-1 bg-stone-50 rounded text-stone-400 border border-stone-100">
+                                            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-stone-50 rounded-lg text-stone-400 border border-stone-100">
                                                 {getDeviceIcon(log.deviceType)}
                                                 <span className="text-[7px] font-black uppercase tracking-tighter leading-none">{log.deviceType || '未知'}</span>
                                             </div>
@@ -193,11 +191,11 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onDeleteL
                                     </div>
                                 </div>
 
-                                {/* 心情能量計 (簡潔版) */}
+                                {/* 即時能量百分比顯示 (手動輸入的情緒能量) */}
                                 <div className="flex flex-col items-end">
-                                    <div className="flex items-center gap-1.5 mb-1.5 text-stone-400">
-                                        <Zap size={10} className={log.moodLevel > 70 ? "text-amber-400 fill-amber-400" : ""} />
-                                        <span className="text-[10px] font-black font-mono tracking-tighter">{log.moodLevel}%</span>
+                                    <div className="flex items-center gap-1.5 mb-1.5">
+                                        <Zap size={10} className={log.moodLevel > 70 ? "text-amber-400 fill-amber-400" : "text-stone-300"} />
+                                        <span className="text-[11px] font-black font-mono tracking-tighter text-stone-800">{log.moodLevel}%</span>
                                     </div>
                                     <div className="w-16 h-1.5 bg-stone-100 rounded-full overflow-hidden">
                                         <div 
@@ -214,9 +212,10 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onDeleteL
                                 </p>
                             </div>
 
+                            {/* 智慧標籤：根據文字生成的 Hashtags */}
                             <div className="flex flex-wrap gap-2 mt-1 z-10">
                                 {log.tags?.map((tag, i) => (
-                                    <span key={i} className="text-[9px] font-bold text-stone-300 bg-stone-50 px-2 py-1 rounded-xl border border-stone-100">
+                                    <span key={i} className="text-[9px] font-bold text-stone-400 bg-stone-50 px-2 py-1 rounded-xl border border-stone-100">
                                         {tag.startsWith('#') ? tag : `#${tag}`}
                                     </span>
                                 ))}
@@ -224,7 +223,7 @@ const CommunityBoard: React.FC<CommunityBoardProps> = ({ logs, onBack, onDeleteL
 
                             <button 
                                 onClick={(e) => { e.stopPropagation(); onDeleteLog(log.id); }}
-                                className="absolute bottom-6 right-6 p-2 text-stone-100 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                                className="absolute bottom-6 right-6 p-2 text-stone-50 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity z-20"
                             >
                                 <Trash2 size={14} />
                             </button>
