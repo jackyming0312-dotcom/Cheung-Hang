@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { ArrowRight, Grid, ChevronLeft, Cloud, CloudOff, ShieldCheck, Loader2, Key, AlertTriangle, WifiOff, Calendar as CalendarIcon } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ArrowRight, ChevronLeft, ShieldCheck, WifiOff, Calendar as CalendarIcon } from 'lucide-react';
 
 import Mascot from './components/Mascot';
 import MoodWater from './components/MoodWater';
@@ -14,7 +14,7 @@ import { saveLogToCloud, subscribeToStation, checkCloudStatus, deleteLog } from 
 import { AppStep, GeminiAnalysisResult, EnergyCardData, CommunityLog, MascotOptions } from './types';
 
 const SOUL_TITLES = ["夜行的貓", "趕路的人", "夢想的園丁", "沉思的星", "微光的旅人", "溫柔的風", "尋光者", "安靜的樹", "海邊的貝殼"];
-const FIXED_STATION_ID = "CHEUNG_HANG"; 
+const DECORATIVE_ICONS = ["Flower", "Moon", "Sun", "Cloud", "Coffee", "Music", "Heart", "Star", "Leaf", "Anchor"];
 
 const getDeviceType = () => {
     const ua = navigator.userAgent;
@@ -22,7 +22,7 @@ const getDeviceType = () => {
     if (isIPad) return "iPad";
     if (/iPhone|iPod/.test(ua)) return "iPhone";
     if (/Android/.test(ua)) return "Android手機";
-    return "電腦/平板";
+    return "電腦";
 };
 
 const generateMascotConfig = (): MascotOptions => ({
@@ -37,24 +37,11 @@ const App: React.FC = () => {
   const [cardData, setCardData] = useState<EnergyCardData | null>(null);
   const [isLoadingContent, setIsLoadingContent] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<'idle' | 'saving' | 'success' | 'error' | 'permission_denied'>('idle');
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [logs, setLogs] = useState<CommunityLog[]>([]);
   const [mascotConfig, setMascotConfig] = useState<MascotOptions>(generateMascotConfig());
-  const [hasApiKey, setHasApiKey] = useState(true);
 
   const isCloudLive = checkCloudStatus();
-
-  useEffect(() => {
-    const checkKey = async () => {
-        try {
-            if (window.aistudio?.hasSelectedApiKey) {
-                const hasKey = await window.aistudio.hasSelectedApiKey();
-                setHasApiKey(hasKey);
-            }
-        } catch (e) {}
-    };
-    checkKey();
-  }, []);
 
   useEffect(() => {
     if (!isCloudLive) return;
@@ -64,50 +51,50 @@ const App: React.FC = () => {
     return () => unsubscribe();
   }, [isCloudLive]);
 
+  const handleDeleteLog = async (id: string) => {
+    if (window.confirm("確定要移除這則心聲嗎？")) {
+        try { await deleteLog(id); } catch (e) { console.error(e); }
+    }
+  };
+
   const handleWhisperComplete = async (text: string) => {
     setStep(AppStep.REWARD);
     setIsLoadingContent(true);
     setIsSyncing(true);
     setSyncStatus('saving');
 
-    let textData;
     try {
-        // AI 根據文字內容分析情緒與 Hashtags
-        try {
-            textData = await generateSoulText(text, mood);
-        } catch (aiError) {
-            textData = getRandomFallbackContent();
-        }
-
+        const textData = await generateSoulText(text, mood);
+        
         setWhisperData({ text, analysis: textData.analysis });
         setCardData(textData.card);
         setIsLoadingContent(false);
 
-        // 準備紀錄：包含手動輸入的心情能量
+        const randomIcon = DECORATIVE_ICONS[Math.floor(Math.random() * DECORATIVE_ICONS.length)];
         const signature = `${SOUL_TITLES[Math.floor(Math.random() * SOUL_TITLES.length)]} #${Math.floor(1000 + Math.random() * 9000)}`;
+
         const logToSave = {
-            moodLevel: mood, // 這裡保留了使用者在 MoodWater 手動輸入的能量
+            moodLevel: mood, 
             text, 
             theme: textData.card.theme, 
-            tags: textData.analysis.tags, // 這是根據文字動態生成的
+            tags: textData.analysis.tags,
             authorSignature: signature, 
-            authorColor: mascotConfig.baseColor,
+            authorColor: '#FFFFFF', // 統一改為純白背景，移除亂色
+            authorIcon: randomIcon,  
             deviceType: getDeviceType(), 
-            stationId: FIXED_STATION_ID,
+            stationId: "CHEUNG_HANG",
             fullCard: textData.card, 
             replyMessage: textData.analysis.replyMessage,
             timestamp: new Date().toISOString(), 
             localTimestamp: Date.now()
         };
 
-        // 雲端儲存與同步
         try {
             await saveLogToCloud(logToSave);
             setSyncStatus('success');
             setTimeout(() => setSyncStatus('idle'), 3000);
-        } catch (saveError: any) {
-            console.error("Sync Failure:", saveError);
-            setSyncStatus(saveError.code === 'permission-denied' ? 'permission_denied' : 'error');
+        } catch (saveError) {
+            setSyncStatus('error');
         } finally {
             setIsSyncing(false);
         }
@@ -118,16 +105,9 @@ const App: React.FC = () => {
     }
   };
 
-  const handleDeleteLog = async (docId: string) => {
-    if (!isCloudLive || !docId) return;
-    if (window.confirm("確定要從日曆牆中移除這則心聲嗎？")) {
-        try { await deleteLog(docId); } catch (e) {}
-    }
-  };
-
   return (
     <div className="min-h-[100dvh] w-full relative flex flex-col items-center justify-center p-3 overflow-hidden">
-      {/* 全域同步狀態 Bar */}
+      {/* 狀態列 */}
       <div className="fixed top-4 left-4 right-4 z-[100] flex items-center justify-between pointer-events-none">
           <div className="flex items-center gap-2 bg-white/95 backdrop-blur-3xl px-4 py-2 rounded-full border border-stone-100 shadow-2xl pointer-events-auto">
               {step !== AppStep.WELCOME && (
@@ -137,16 +117,16 @@ const App: React.FC = () => {
               )}
               <div className="flex items-center gap-2">
                  {isCloudLive ? (
-                     <>
+                     <div className="flex items-center gap-2">
                         <div className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-amber-400 animate-ping' : 'bg-emerald-500'}`}></div>
-                        <span className="text-[10px] font-black text-stone-600 tracking-widest uppercase">
-                            {isSyncing ? '同步中' : '連線正常'}
+                        <span className="text-[10px] font-black text-stone-600 tracking-widest uppercase leading-none">
+                            {isSyncing ? '同步中' : '跨裝置連線'}
                         </span>
-                     </>
+                     </div>
                  ) : (
                      <div className="flex items-center gap-1.5 text-rose-500">
                         <WifiOff size={12} />
-                        <span className="text-[10px] font-black tracking-widest uppercase">離線模式</span>
+                        <span className="text-[10px] font-black tracking-widest uppercase leading-none">離線</span>
                      </div>
                  )}
               </div>
@@ -154,8 +134,8 @@ const App: React.FC = () => {
           
           <div className="flex items-center gap-2 pointer-events-auto">
               {syncStatus === 'success' && (
-                  <div className="bg-emerald-600 text-white px-5 py-2 rounded-full text-[10px] font-black animate-soft-in shadow-xl flex items-center gap-2 border border-emerald-400">
-                      <ShieldCheck size={12} /> 已同步至日曆牆
+                  <div className="bg-emerald-600 text-white px-5 py-2 rounded-full text-[10px] font-black animate-soft-in shadow-xl flex items-center gap-2">
+                      <ShieldCheck size={12} /> 已存入時光長廊
                   </div>
               )}
           </div>
@@ -170,7 +150,7 @@ const App: React.FC = () => {
               <h1 className="text-2xl md:text-3xl font-bold text-stone-800 serif-font tracking-tight">長亨心靈充電站</h1>
               <div className="flex items-center justify-center gap-2 mt-1">
                  <span className={`w-1.5 h-1.5 rounded-full ${isCloudLive ? 'bg-emerald-500 animate-pulse' : 'bg-stone-300'}`}></span>
-                 <span className="text-[9px] text-stone-400 font-bold tracking-[0.3em] uppercase italic">手機 / 電腦 / iPad 即時同步牆</span>
+                 <span className="text-[9px] text-stone-400 font-bold tracking-[0.3em] uppercase italic">跨裝置即時同步：iPad / 手機 / 電腦</span>
               </div>
            </div>
         </header>
@@ -179,14 +159,14 @@ const App: React.FC = () => {
           {step === AppStep.WELCOME && (
             <div className="w-full flex flex-col h-full max-w-sm mx-auto animate-soft-in">
               <div className="bg-white/95 p-8 rounded-[2rem] border border-stone-100 shadow-xl text-center paper-stack mt-4">
-                <p className="text-stone-600 leading-relaxed serif-font italic text-lg">"寫下的每一句心聲，<br/>都會與所有人同步分享。"</p>
+                <p className="text-stone-600 leading-relaxed serif-font italic text-lg">"在這裡留下的一字一句，<br/>都會與所有人即時共振。"</p>
               </div>
               <div className="space-y-4 w-full mt-12">
                 <button onClick={() => setStep(AppStep.MOOD_WATER)} className="w-full py-5 font-bold text-white text-lg bg-stone-800 rounded-3xl shadow-[0_6px_0_rgb(44,40,36)] active:translate-y-[6px] transition-all flex items-center justify-center group tracking-widest uppercase">
-                   開始充電體驗 <ArrowRight className="ml-3 group-hover:translate-x-2 transition-transform" />
+                   開始體驗 <ArrowRight className="ml-3 group-hover:translate-x-2 transition-transform" />
                 </button>
                 <button onClick={() => setStep(AppStep.COMMUNITY)} className="w-full py-4 font-bold text-stone-500 bg-white/60 border border-stone-200 rounded-3xl flex items-center justify-center gap-3 text-xs shadow-sm hover:bg-white transition-all">
-                   <CalendarIcon size={16} /> 查看日曆心聲牆
+                   <CalendarIcon size={16} /> 穿越時光：查看日曆長廊
                 </button>
               </div>
             </div>
@@ -213,8 +193,8 @@ const App: React.FC = () => {
                        <div className="absolute -inset-8 bg-amber-400/10 blur-3xl animate-pulse rounded-full z-0"></div>
                     </div>
                     <div className="space-y-4">
-                       <h3 className="font-bold text-2xl text-stone-700 serif-font italic">正在同步你的療癒能量...</h3>
-                       <p className="text-stone-400 text-[10px] tracking-widest uppercase font-black">AI 正在生成您的專屬 Hashtags</p>
+                       <h3 className="font-bold text-2xl text-stone-700 serif-font italic">正在同步你的能量...</h3>
+                       <p className="text-stone-400 text-[10px] tracking-widest uppercase font-black italic">正在整理今日心靈紀錄牆</p>
                     </div>
                  </div>
               ) : (
@@ -222,7 +202,7 @@ const App: React.FC = () => {
                   <EnergyCard data={cardData!} analysis={whisperData.analysis} moodLevel={mood} />
                   <div className="w-full max-w-[360px] grid grid-cols-2 gap-3 mt-10 pb-8 px-4">
                     <button onClick={() => setStep(AppStep.COMMUNITY)} className="py-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs font-black text-emerald-700 flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all">
-                       <CalendarIcon size={14} /> 前往心聲日曆
+                       <CalendarIcon size={14} /> 進入時光長廊
                     </button>
                     <button onClick={() => { setStep(AppStep.WELCOME); setCardData(null); }} className="py-4 bg-stone-800 text-white rounded-2xl text-xs font-black shadow-lg active:scale-95 transition-all tracking-widest">
                        回到首頁
@@ -248,7 +228,7 @@ const App: React.FC = () => {
       </main>
       <footer className="mt-6 text-stone-400 text-[9px] font-bold tracking-[0.5em] uppercase opacity-50 flex items-center gap-3">
          <div className="w-12 h-[1px] bg-stone-300"></div>
-         REAL-TIME SYNC • CHEUNG HANG STATION
+         CHEUNG HANG STATION • TIME GALLERY
          <div className="w-12 h-[1px] bg-stone-300"></div>
       </footer>
     </div>
