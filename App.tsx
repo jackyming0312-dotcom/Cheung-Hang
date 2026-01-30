@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowRight, Grid, ChevronLeft, Cloud, CloudOff, ShieldCheck, Loader2, Key, AlertTriangle, WifiOff, Calendar as CalendarIcon } from 'lucide-react';
+import { ArrowRight, Grid, ChevronLeft, Cloud, CloudOff, ShieldCheck, Loader2, Key, AlertTriangle, WifiOff, Calendar as CalendarIcon, Info } from 'lucide-react';
 
 import Mascot from './components/Mascot';
 import MoodWater from './components/MoodWater';
@@ -72,7 +72,6 @@ const App: React.FC = () => {
 
     let textData;
     try {
-        // AI 根據文字內容分析情緒與 Hashtags
         try {
             textData = await generateSoulText(text, mood);
         } catch (aiError) {
@@ -83,13 +82,12 @@ const App: React.FC = () => {
         setCardData(textData.card);
         setIsLoadingContent(false);
 
-        // 準備紀錄：包含手動輸入的心情能量
         const signature = `${SOUL_TITLES[Math.floor(Math.random() * SOUL_TITLES.length)]} #${Math.floor(1000 + Math.random() * 9000)}`;
         const logToSave = {
-            moodLevel: mood, // 這裡保留了使用者在 MoodWater 手動輸入的能量
+            moodLevel: mood,
             text, 
             theme: textData.card.theme, 
-            tags: textData.analysis.tags, // 這是根據文字動態生成的
+            tags: textData.analysis.tags,
             authorSignature: signature, 
             authorColor: mascotConfig.baseColor,
             deviceType: getDeviceType(), 
@@ -100,16 +98,19 @@ const App: React.FC = () => {
             localTimestamp: Date.now()
         };
 
-        // 雲端儲存與同步
         try {
             await saveLogToCloud(logToSave);
             setSyncStatus('success');
-            setTimeout(() => setSyncStatus('idle'), 3000);
+            setTimeout(() => setSyncStatus('idle'), 4000);
         } catch (saveError: any) {
             console.error("Sync Failure:", saveError);
-            setSyncStatus(saveError.code === 'permission-denied' ? 'permission_denied' : 'error');
-        } finally {
+            const isPermissionError = saveError.message?.includes('permission') || saveError.code === 'permission-denied';
+            setSyncStatus(isPermissionError ? 'permission_denied' : 'error');
             setIsSyncing(false);
+        } finally {
+            if (syncStatus !== 'permission_denied' && syncStatus !== 'error') {
+                setIsSyncing(false);
+            }
         }
     } catch (e) {
         setSyncStatus('error');
@@ -121,44 +122,73 @@ const App: React.FC = () => {
   const handleDeleteLog = async (docId: string) => {
     if (!isCloudLive || !docId) return;
     if (window.confirm("確定要從日曆牆中移除這則心聲嗎？")) {
-        try { await deleteLog(docId); } catch (e) {}
+        try { 
+            await deleteLog(docId); 
+        } catch (e: any) {
+            if (e.message?.includes('permission')) {
+                alert("權限不足：請檢查 Firebase Firestore Rules 是否已過期。");
+            }
+        }
     }
   };
 
   return (
     <div className="min-h-[100dvh] w-full relative flex flex-col items-center justify-center p-3 overflow-hidden">
-      {/* 全域同步狀態 Bar */}
-      <div className="fixed top-4 left-4 right-4 z-[100] flex items-center justify-between pointer-events-none">
-          <div className="flex items-center gap-2 bg-white/95 backdrop-blur-3xl px-4 py-2 rounded-full border border-stone-100 shadow-2xl pointer-events-auto">
-              {step !== AppStep.WELCOME && (
-                  <button onClick={() => setStep(AppStep.WELCOME)} className="mr-2 p-1 hover:bg-stone-50 rounded-full transition-all active:scale-90">
-                      <ChevronLeft size={16} className="text-stone-600" />
-                  </button>
-              )}
-              <div className="flex items-center gap-2">
-                 {isCloudLive ? (
-                     <>
-                        <div className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-amber-400 animate-ping' : 'bg-emerald-500'}`}></div>
-                        <span className="text-[10px] font-black text-stone-600 tracking-widest uppercase">
-                            {isSyncing ? '同步中' : '連線正常'}
-                        </span>
-                     </>
-                 ) : (
-                     <div className="flex items-center gap-1.5 text-rose-500">
-                        <WifiOff size={12} />
-                        <span className="text-[10px] font-black tracking-widest uppercase">離線模式</span>
-                     </div>
-                 )}
-              </div>
+      {/* 全域狀態導覽 Bar */}
+      <div className="fixed top-4 left-4 right-4 z-[100] flex flex-col items-center gap-2 pointer-events-none">
+          <div className="w-full flex items-center justify-between pointer-events-none">
+            <div className="flex items-center gap-2 bg-white/95 backdrop-blur-3xl px-4 py-2 rounded-full border border-stone-100 shadow-2xl pointer-events-auto">
+                {step !== AppStep.WELCOME && (
+                    <button onClick={() => setStep(AppStep.WELCOME)} className="mr-2 p-1 hover:bg-stone-50 rounded-full transition-all active:scale-90">
+                        <ChevronLeft size={16} className="text-stone-600" />
+                    </button>
+                )}
+                <div className="flex items-center gap-2">
+                   {isCloudLive ? (
+                       <>
+                          <div className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-amber-400 animate-ping' : 'bg-emerald-500'}`}></div>
+                          <span className="text-[10px] font-black text-stone-600 tracking-widest uppercase">
+                              {isSyncing ? '同步中' : '連線正常'}
+                          </span>
+                       </>
+                   ) : (
+                       <div className="flex items-center gap-1.5 text-rose-500">
+                          <WifiOff size={12} />
+                          <span className="text-[10px] font-black tracking-widest uppercase">離線模式</span>
+                       </div>
+                   )}
+                </div>
+            </div>
+            
+            <div className="flex items-center gap-2 pointer-events-auto">
+                {syncStatus === 'success' && (
+                    <div className="bg-emerald-600 text-white px-5 py-2 rounded-full text-[10px] font-black animate-soft-in shadow-xl flex items-center gap-2 border border-emerald-400">
+                        <ShieldCheck size={12} /> 已同步至日曆牆
+                    </div>
+                )}
+                {(syncStatus === 'permission_denied' || syncStatus === 'error') && (
+                    <button 
+                        onClick={() => setSyncStatus('idle')}
+                        className="bg-rose-600 text-white px-5 py-2 rounded-full text-[10px] font-black animate-bounce shadow-xl flex items-center gap-2 border border-rose-400 pointer-events-auto"
+                    >
+                        <AlertTriangle size={12} /> 同步失敗：點擊查看原因
+                    </button>
+                )}
+            </div>
           </div>
-          
-          <div className="flex items-center gap-2 pointer-events-auto">
-              {syncStatus === 'success' && (
-                  <div className="bg-emerald-600 text-white px-5 py-2 rounded-full text-[10px] font-black animate-soft-in shadow-xl flex items-center gap-2 border border-emerald-400">
-                      <ShieldCheck size={12} /> 已同步至日曆牆
+
+          {/* 權限警告 Banner */}
+          {syncStatus === 'permission_denied' && (
+              <div className="bg-white/95 backdrop-blur-xl border-l-4 border-rose-500 p-4 rounded-2xl shadow-2xl max-w-sm animate-soft-in pointer-events-auto">
+                  <div className="flex gap-3">
+                      <AlertTriangle className="text-rose-500 shrink-0" size={20} />
+                      <div className="flex flex-col gap-1">
+                          <p className="text-xs font-black text-stone-800">Firebase 權限已過期</p>
+                          <p className="text-[10px] text-stone-500 leading-relaxed">您的 Firestore 安全規則可能已到期 (Test Mode 30天限制)。請前往 Firebase Console 的 Rules 標籤頁更新日期。</p>
+                      </div>
                   </div>
-              )}
-          </div>
+              </div>
+          )}
       </div>
 
       <main className="w-full max-w-2xl min-h-[min(720px,90dvh)] glass-panel rounded-[2.5rem] p-6 md:p-12 shadow-2xl flex flex-col relative animate-soft-in overflow-hidden z-10 border-2 border-white/50">
